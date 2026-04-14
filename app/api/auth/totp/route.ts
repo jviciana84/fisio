@@ -1,4 +1,4 @@
-import { authenticator } from "otplib";
+import { verify } from "otplib";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
@@ -28,6 +28,13 @@ type StaffTotpRow = {
 
 export async function POST(request: Request) {
   try {
+    if (!env.AUTH_CHALLENGE_SECRET) {
+      return NextResponse.json(
+        { ok: false, message: "Configuracion incompleta de autenticacion" },
+        { status: 500 },
+      );
+    }
+
     const { code } = (await request.json()) as TotpBody;
     if (!/^\d{6}$/.test(code)) {
       return NextResponse.json(
@@ -66,7 +73,15 @@ export async function POST(request: Request) {
     }
 
     const record = data as StaffTotpRow;
-    if (!record.totp_secret || !authenticator.check(code, record.totp_secret)) {
+    const verification = record.totp_secret
+      ? await verify({
+          secret: record.totp_secret,
+          token: code,
+          strategy: "totp",
+        })
+      : { valid: false };
+
+    if (!verification.valid) {
       return NextResponse.json(
         { ok: false, message: "Codigo incorrecto" },
         { status: 401 },

@@ -36,6 +36,13 @@ function compareHash(expected: string, received: string) {
 
 export async function POST(request: Request) {
   try {
+    if (!env.AUTH_CHALLENGE_SECRET) {
+      return NextResponse.json(
+        { ok: false, message: "Configuracion incompleta de autenticacion" },
+        { status: 500 },
+      );
+    }
+
     const { pin } = (await request.json()) as PinRequestBody;
     if (!/^\d{4}$/.test(pin)) {
       return NextResponse.json(
