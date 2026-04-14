@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fisio Web - Login PIN + TOTP con Supabase
 
-## Getting Started
+Proyecto Next.js (App Router + TypeScript + Tailwind) para gestion de centro de fisioterapia.
 
-First, run the development server:
+## 1) Variables de entorno
+
+1. Copia `.env.example` a `.env.local`.
+2. Completa las variables:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+AUTH_CHALLENGE_SECRET=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`AUTH_CHALLENGE_SECRET` debe ser un secreto largo y aleatorio.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2) Crear tabla en Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Ejecuta `supabase/schema.sql` en el editor SQL de Supabase.
 
-## Learn More
+Tabla usada por el login:
+- `staff_access`: PIN hasheado, rol, bandera `requires_2fa`, secreto TOTP y estado activo.
 
-To learn more about Next.js, take a look at the following resources:
+## 3) Arrancar proyecto
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Abre [http://localhost:3000](http://localhost:3000). La ruta raiz redirige a `/login`.
 
-## Deploy on Vercel
+## 4) Flujo de acceso implementado
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Paso 1: PIN de 4 digitos (`/api/auth/pin`).
+- Paso 2 (condicional): TOTP de 6 digitos (`/api/auth/totp`) solo si `requires_2fa = true`.
+- Si todo es correcto, se crea cookie de sesion y redirige a `/dashboard`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Nota de seguridad
+
+No guardes PIN en texto plano. Usa `pin_hash` y `pin_salt`. En produccion, agrega bloqueo por intentos y auditoria de accesos.
