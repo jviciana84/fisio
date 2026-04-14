@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { signSessionToken } from "@/lib/sessions";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,54 @@ function compareHash(expected: string, received: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * Consulta staff activo. Si falla la query con `totp_onboarding_complete`
+ * (migración 002 no aplicada u otro error de esquema), reintenta sin esa columna
+ * y asume onboarding ya completado para no bloquear el login.
+ */
+async function fetchActiveStaffRows(
+  supabase: SupabaseClient,
+): Promise<{ rows: StaffAccessRow[]; fetchError: string | null }> {
+  const full = await supabase
+    .from("staff_access")
+    .select(
+      "id, role, pin_hash, pin_salt, requires_2fa, totp_secret, totp_onboarding_complete, is_active",
+    )
+    .eq("is_active", true);
+
+  if (!full.error && full.data) {
+    return { rows: full.data as StaffAccessRow[], fetchError: null };
+  }
+
+  const legacy = await supabase
+    .from("staff_access")
+    .select(
+      "id, role, pin_hash, pin_salt, requires_2fa, totp_secret, is_active",
+    )
+    .eq("is_active", true);
+
+  if (!legacy.error && legacy.data) {
+    const rows = (
+      legacy.data as Omit<StaffAccessRow, "totp_onboarding_complete">[]
+    ).map(
+      (r) =>
+        ({
+          ...r,
+          totp_onboarding_complete: true,
+        }) as StaffAccessRow,
+    );
+    return { rows, fetchError: null };
+  }
+
+  return {
+    rows: [],
+    fetchError:
+      full.error?.message ??
+      legacy.error?.message ??
+      "No se pudo leer staff_access",
+  };
+}
+
 export async function POST(request: Request) {
   try {
     if (!env.AUTH_CHALLENGE_SECRET) {
@@ -54,21 +103,22 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("staff_access")
-      .select(
-        "id, role, pin_hash, pin_salt, requires_2fa, totp_secret, totp_onboarding_complete, is_active",
-      )
-      .eq("is_active", true);
+    const { rows, fetchError } = await fetchActiveStaffRows(supabase);
 
-    if (error) {
+    if (fetchError) {
       return NextResponse.json(
-        { ok: false, message: "No se pudo validar el acceso" },
+        {
+          ok: false,
+          message:
+            process.env.NODE_ENV === "development"
+              ? `No se pudo validar el acceso: ${fetchError}`
+              : "No se pudo validar el acceso. Revisa Supabase y ejecuta las migraciones en supabase/migrations/.",
+        },
         { status: 500 },
       );
     }
 
-    const match = (data as StaffAccessRow[]).find((entry) => {
+    const match = rows.find((entry) => {
       const currentHash = hashPin(pin, entry.pin_salt);
       return compareHash(entry.pin_hash, currentHash);
     });
@@ -155,10 +205,18 @@ export async function POST(request: Request) {
       requiresTwoFactor: false,
       redirectTo: "/dashboard",
     });
-  } catch {
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Error desconocido";
+    console.error("[api/auth/pin]", err);
     return NextResponse.json(
-      { ok: false, message: "Solicitud invalida" },
-      { status: 400 },
+      {
+        ok: false,
+        message:
+          process.env.NODE_ENV === "development"
+            ? detail
+            : "No se pudo procesar el inicio de sesión. Inténtalo de nuevo.",
+      },
+      { status: 500 },
     );
   }
 }
