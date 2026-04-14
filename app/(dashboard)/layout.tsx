@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getStaffSession } from "@/lib/auth/get-session";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
+import { AdminIdleSessionGuard } from "@/components/session/AdminIdleSessionGuard";
 
 export default async function DashboardGroupLayout({
   children,
@@ -17,7 +18,9 @@ export default async function DashboardGroupLayout({
   return (
     <div className="flex min-h-screen bg-slate-50">
       <DashboardSidebar isAdmin={isAdmin} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
+      <AdminIdleSessionGuard enabled={isAdmin}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
+      </AdminIdleSessionGuard>
     </div>
   );
 }
