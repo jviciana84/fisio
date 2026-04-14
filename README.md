@@ -21,7 +21,19 @@ AUTH_CHALLENGE_SECRET=
 Ejecuta `supabase/schema.sql` en el editor SQL de Supabase.
 
 Tabla usada por el login:
-- `staff_access`: PIN hasheado, rol, bandera `requires_2fa`, secreto TOTP y estado activo.
+- `staff_access`: nombre, email opcional, PIN hasheado, rol, bandera `requires_2fa`, secreto TOTP y estado activo.
+
+Si la tabla ya existía **sin** la columna `email`, ejecuta también `supabase/migrations/001_add_email_to_staff_access.sql`.
+
+## 2.1) Crear el primer usuario admin (PIN hasheado)
+
+Con `.env.local` configurado:
+
+```bash
+npm run seed:admin -- "Nombre Apellidos" correo@ejemplo.com 1234 admin
+```
+
+El script genera `pin_salt` y `pin_hash` igual que la API. Si el email ya existe, actualiza PIN y datos.
 
 ## 3) Arrancar proyecto
 
