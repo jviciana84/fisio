@@ -1,10 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
+  const pinInputRef = useRef<HTMLInputElement>(null);
+  const totpInputRef = useRef<HTMLInputElement>(null);
   const [pin, setPin] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [requiresTotp, setRequiresTotp] = useState(false);
@@ -13,6 +15,20 @@ export default function LoginPage() {
 
   const canSubmitPin = useMemo(() => /^\d{4}$/.test(pin), [pin]);
   const canSubmitTotp = useMemo(() => /^\d{6}$/.test(totpCode), [totpCode]);
+
+  useEffect(() => {
+    if (requiresTotp) {
+      const id = window.setTimeout(() => {
+        totpInputRef.current?.focus();
+        totpInputRef.current?.select();
+      }, 320);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.requestAnimationFrame(() => {
+      pinInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [requiresTotp]);
 
   async function handlePinSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -170,9 +186,11 @@ export default function LoginPage() {
                     </p>
                   </div>
                   <input
+                    ref={pinInputRef}
                     id="pin"
                     type="password"
                     inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={4}
                     pattern="[0-9]{4}"
                     value={pin}
@@ -202,9 +220,11 @@ export default function LoginPage() {
                     </p>
                   </div>
                   <input
+                    ref={totpInputRef}
                     id="totp"
                     type="text"
                     inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     pattern="[0-9]{6}"
                     value={totpCode}
