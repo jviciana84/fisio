@@ -4,7 +4,7 @@ import { verifySessionToken } from "@/lib/sessions";
 
 const sessionCookieName = "staff_session";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/dashboard")) {
     return NextResponse.next();
   }
