@@ -31,6 +31,8 @@ Tabla usada por el login:
 
 Si la tabla ya existía **sin** la columna `email`, ejecuta también `supabase/migrations/001_add_email_to_staff_access.sql`.
 
+Para el flujo de **primer acceso admin con QR en la web**, ejecuta `supabase/migrations/002_totp_onboarding.sql` (columna `totp_onboarding_complete`).
+
 ## 2.1) Doble factor TOTP (Google Authenticator)
 
 Para un usuario que ya existe en `staff_access` (por email):

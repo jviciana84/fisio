@@ -46,9 +46,14 @@ const migrationPath = resolve(
   process.cwd(),
   "supabase/migrations/001_add_email_to_staff_access.sql",
 );
+const migration002Path = resolve(
+  process.cwd(),
+  "supabase/migrations/002_totp_onboarding.sql",
+);
 
 const schemaSql = readFileSync(schemaPath, "utf8");
 const migrationSql = readFileSync(migrationPath, "utf8");
+const migration002Sql = readFileSync(migration002Path, "utf8");
 
 const client = new Client({
   connectionString: databaseUrl,
@@ -59,6 +64,7 @@ try {
   await client.connect();
   await client.query(schemaSql);
   await client.query(migrationSql);
+  await client.query(migration002Sql);
   console.log("OK: esquema aplicado en la base de datos.");
 } catch (err) {
   console.error("Error al aplicar SQL:", err.message);

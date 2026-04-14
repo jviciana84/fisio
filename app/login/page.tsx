@@ -31,11 +31,17 @@ export default function LoginPage() {
         ok: boolean;
         message?: string;
         requiresTwoFactor?: boolean;
+        requiresTotpOnboarding?: boolean;
         redirectTo?: string;
       };
 
       if (!response.ok || !data.ok) {
         setErrorMessage(data.message ?? "No se pudo iniciar sesión.");
+        return;
+      }
+
+      if (data.requiresTotpOnboarding) {
+        router.push(data.redirectTo ?? "/onboarding/totp");
         return;
       }
 

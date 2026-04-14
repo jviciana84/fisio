@@ -1,6 +1,6 @@
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen bg-slate-50 p-8">
+    <main className="p-6 md:p-8">
       <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-xs uppercase tracking-[0.15em] text-blue-600">
           Gestion de fisioterapia

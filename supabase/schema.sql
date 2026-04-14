@@ -7,6 +7,7 @@ create table if not exists public.staff_access (
   pin_salt text not null,
   requires_2fa boolean not null default false,
   totp_secret text,
+  totp_onboarding_complete boolean not null default true,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );

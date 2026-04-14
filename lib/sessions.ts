@@ -5,6 +5,8 @@ const encoder = new TextEncoder();
 export type StaffSessionPayload = {
   userId: string;
   role: string;
+  /** Presente solo en la cookie temporal de primer acceso TOTP (admin). */
+  purpose?: "totp_onboarding";
 };
 
 export async function signSessionToken(

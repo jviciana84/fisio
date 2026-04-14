@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 const challengeCookieName = "pin_challenge";
 const sessionCookieName = "staff_session";
+const onboardingCookieName = "totp_onboarding";
 
 type StaffAccessRow = {
   id: string;
@@ -17,6 +18,7 @@ type StaffAccessRow = {
   pin_salt: string;
   requires_2fa: boolean;
   totp_secret: string | null;
+  totp_onboarding_complete: boolean;
   is_active: boolean;
 };
 
@@ -54,7 +56,9 @@ export async function POST(request: Request) {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("staff_access")
-      .select("id, role, pin_hash, pin_salt, requires_2fa, totp_secret, is_active")
+      .select(
+        "id, role, pin_hash, pin_salt, requires_2fa, totp_secret, totp_onboarding_complete, is_active",
+      )
       .eq("is_active", true);
 
     if (error) {
@@ -78,7 +82,41 @@ export async function POST(request: Request) {
 
     const cookieStore = await cookies();
 
+    const needsTotpOnboarding =
+      match.requires_2fa &&
+      match.role === "admin" &&
+      match.totp_onboarding_complete === false &&
+      Boolean(match.totp_secret);
+
+    if (needsTotpOnboarding) {
+      cookieStore.delete(challengeCookieName);
+      const onboardingToken = await signSessionToken(
+        {
+          userId: match.id,
+          role: match.role,
+          purpose: "totp_onboarding",
+        },
+        env.AUTH_CHALLENGE_SECRET,
+        "15m",
+      );
+
+      cookieStore.set(onboardingCookieName, onboardingToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 15,
+        path: "/",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        requiresTotpOnboarding: true,
+        redirectTo: "/onboarding/totp",
+      });
+    }
+
     if (match.requires_2fa) {
+      cookieStore.delete(onboardingCookieName);
       const challengeToken = await signSessionToken(
         { userId: match.id, role: match.role },
         env.AUTH_CHALLENGE_SECRET,
@@ -110,6 +148,7 @@ export async function POST(request: Request) {
       path: "/",
     });
     cookieStore.delete(challengeCookieName);
+    cookieStore.delete(onboardingCookieName);
 
     return NextResponse.json({
       ok: true,
