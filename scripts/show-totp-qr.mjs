@@ -1,11 +1,8 @@
 /**
- * Activa TOTP (Google Authenticator / compatible) para un usuario en staff_access.
- * Uso: node scripts/enable-totp.mjs <email>
- *
- * Genera un secreto nuevo, pone requires_2fa=true y muestra la URI otpauth:// para QR.
- * Si ya tenía TOTP, lo sustituye (los códigos antiguos dejan de valer).
+ * Regenera el HTML con el QR usando el secreto ya guardado en BD (no rota el TOTP).
+ * Uso: node scripts/show-totp-qr.mjs <email>
  */
-import { generateSecret, generateURI } from "otplib";
+import { generateURI } from "otplib";
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -49,7 +46,7 @@ if (!url || !serviceKey) {
 
 const email = (process.argv[2] ?? "").trim().toLowerCase();
 if (!email || !email.includes("@")) {
-  console.error('Uso: node scripts/enable-totp.mjs <email>');
+  console.error('Uso: node scripts/show-totp-qr.mjs <email>');
   process.exit(1);
 }
 
@@ -59,56 +56,41 @@ const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const { data: row, error: findError } = await supabase
+const { data: row, error } = await supabase
   .from("staff_access")
-  .select("id, full_name, email")
+  .select("full_name, email, totp_secret")
   .eq("email", email)
   .maybeSingle();
 
-if (findError || !row) {
-  console.error("No se encontró un usuario con ese email:", findError?.message);
+if (error || !row) {
+  console.error("No se encontró el usuario:", error?.message);
   process.exit(1);
 }
 
-const secret = generateSecret();
-const label = row.full_name || row.email;
+if (!row.totp_secret) {
+  console.error(
+    "Este usuario no tiene TOTP en la base de datos. Ejecuta primero: npm run totp:enable --",
+    email,
+  );
+  process.exit(1);
+}
 
+const label = row.full_name || row.email;
 const otpauthUri = generateURI({
   issuer,
   label,
-  secret,
+  secret: row.totp_secret,
 });
 
-const { error: upError } = await supabase
-  .from("staff_access")
-  .update({
-    totp_secret: secret,
-    requires_2fa: true,
-  })
-  .eq("id", row.id);
-
-if (upError) {
-  console.error("Error al guardar TOTP:", upError.message);
-  process.exit(1);
-}
-
 const htmlPath = await writeTotpSetupHtml({
-  email,
+  email: row.email,
   otpauthUri,
   issuer,
 });
 
 console.log("");
-console.log("TOTP activado para:", email);
-console.log("Emisor (issuer):", issuer);
-console.log("");
-console.log("Se ha creado una página con el código QR. Se abrirá en el navegador.");
-console.log("Si no se abre sola, haz doble clic en este archivo:");
+console.log("Archivo generado (ábrelo con doble clic o se abrirá solo en Windows):");
 console.log(htmlPath);
 console.log("");
+
 openHtmlInBrowser(htmlPath);
-console.log("Secreto Base32 (por si prefieres entrada manual en la app):");
-console.log(secret);
-console.log("");
-console.log("Tras guardar la cuenta en Google Authenticator, el login será: PIN → código de 6 dígitos.");
-console.log("");

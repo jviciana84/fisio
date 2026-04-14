@@ -39,7 +39,13 @@ Para un usuario que ya existe en `staff_access` (por email):
 npm run totp:enable -- correo@ejemplo.com
 ```
 
-El script activa `requires_2fa` y guarda un secreto nuevo. Muestra la **URI `otpauth://`** (para generar un QR) y el **secreto Base32** para entrada manual en Google Authenticator.
+El script activa `requires_2fa`, guarda un secreto nuevo y **crea un archivo HTML en `temp/` con el código QR** embebido. En Windows suele **abrirse solo en el navegador**; si no, haz **doble clic** en el `.html` indicado en consola y escanea el QR con Google Authenticator.
+
+Si ya tenías TOTP y solo quieres **volver a ver el QR** sin cambiar el secreto:
+
+```bash
+npm run totp:qr -- correo@ejemplo.com
+```
 
 Variable opcional: `TOTP_ISSUER` (por defecto `Fisioterapia Roc Blanc`).
 

@@ -10,16 +10,18 @@
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "seed:admin": "node scripts/seed-admin.mjs",
     "db:apply": "node scripts/apply-schema.mjs",
-    "totp:enable": "node scripts/enable-totp.mjs"
+    "totp:enable": "node scripts/enable-totp.mjs",
+    "totp:qr": "node scripts/show-totp-qr.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
     "jose": "^6.2.2",
     "next": "16.2.3",
     "otplib": "^13.4.0",
+    "pg": "^8.14.1",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "pg": "^8.14.1"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
