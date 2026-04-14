@@ -31,7 +31,19 @@ Tabla usada por el login:
 
 Si la tabla ya existía **sin** la columna `email`, ejecuta también `supabase/migrations/001_add_email_to_staff_access.sql`.
 
-## 2.1) Crear el primer usuario admin (PIN hasheado)
+## 2.1) Doble factor TOTP (Google Authenticator)
+
+Para un usuario que ya existe en `staff_access` (por email):
+
+```bash
+npm run totp:enable -- correo@ejemplo.com
+```
+
+El script activa `requires_2fa` y guarda un secreto nuevo. Muestra la **URI `otpauth://`** (para generar un QR) y el **secreto Base32** para entrada manual en Google Authenticator.
+
+Variable opcional: `TOTP_ISSUER` (por defecto `Fisioterapia Roc Blanc`).
+
+## 2.2) Crear el primer usuario admin (PIN hasheado)
 
 Con `.env.local` configurado:
 
