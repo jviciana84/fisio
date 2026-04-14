@@ -18,7 +18,13 @@ AUTH_CHALLENGE_SECRET=
 
 ## 2) Crear tabla en Supabase
 
-Ejecuta `supabase/schema.sql` en el editor SQL de Supabase.
+Opción A: ejecuta `supabase/schema.sql` en el editor SQL de Supabase.
+
+Opción B (terminal): añade `DATABASE_URL` en `.env.local` (cadena de conexión Postgres del panel; en Windows a veces hace falta el **pooler** `aws-0-…pooler.supabase.com:6543` si el host `db.…` solo resuelve en IPv6) y ejecuta:
+
+```bash
+npm run db:apply
+```
 
 Tabla usada por el login:
 - `staff_access`: nombre, email opcional, PIN hasheado, rol, bandera `requires_2fa`, secreto TOTP y estado activo.
