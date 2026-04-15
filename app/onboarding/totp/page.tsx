@@ -62,8 +62,8 @@ export default async function OnboardingTotpPage() {
   });
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+    <main className="app-shell-dashboard min-h-screen px-4 py-10">
+      <div className="glass-panel-strong mx-auto max-w-lg p-8">
         <h1 className="text-center text-xl font-semibold text-slate-900">
           Configura Google Authenticator
         </h1>
@@ -82,7 +82,7 @@ export default async function OnboardingTotpPage() {
             alt="Código QR para Google Authenticator"
             width={280}
             height={280}
-            className="rounded-xl border border-slate-100"
+            className="rounded-xl border border-slate-100 bg-white p-2 shadow-inner"
           />
         </div>
 

@@ -55,7 +55,7 @@ export function OnboardingTotpForm() {
           value={code}
           onChange={(ev) => setCode(ev.target.value.replace(/\D/g, ""))}
           placeholder="000000"
-          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-2xl tracking-[0.2em] text-slate-900 outline-none transition focus:border-blue-400 focus:shadow-[0_0_0_4px_rgba(59,130,246,0.15)]"
+          className="glass-input w-full px-4 py-3 text-center text-2xl tracking-[0.2em] text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white/55 focus:shadow-[0_0_0_4px_rgba(59,130,246,0.15)]"
         />
       </div>
       <button

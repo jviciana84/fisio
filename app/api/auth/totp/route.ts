@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     if (!env.AUTH_CHALLENGE_SECRET) {
       return NextResponse.json(
-        { ok: false, message: "Configuracion incompleta de autenticacion" },
+        { ok: false, message: "Configuración incompleta de autenticación" },
         { status: 500 },
       );
     }
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const challenge = cookieStore.get(challengeCookieName)?.value;
     if (!challenge) {
       return NextResponse.json(
-        { ok: false, message: "Sesion de desafio expirada" },
+        { ok: false, message: "Sesión de desafío expirada" },
         { status: 401 },
       );
     }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     if (!verification.valid) {
       return NextResponse.json(
-        { ok: false, message: "Codigo incorrecto" },
+        { ok: false, message: "Código incorrecto" },
         { status: 401 },
       );
     }

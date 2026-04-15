@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   try {
     if (!env.AUTH_CHALLENGE_SECRET) {
       return NextResponse.json(
-        { ok: false, message: "Configuracion incompleta de autenticacion" },
+        { ok: false, message: "Configuración incompleta de autenticación" },
         { status: 500 },
       );
     }
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const { pin } = (await request.json()) as PinRequestBody;
     if (!/^\d{4}$/.test(pin)) {
       return NextResponse.json(
-        { ok: false, message: "PIN invalido" },
+        { ok: false, message: "PIN inválido" },
         { status: 400 },
       );
     }

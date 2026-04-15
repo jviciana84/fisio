@@ -106,7 +106,7 @@ export function AdminIdleSessionGuard({
           aria-labelledby="idle-session-title"
           aria-describedby="idle-session-desc"
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl">
+          <div className="glass-panel-strong w-full max-w-md p-8">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl">
               ⏱
             </div>
