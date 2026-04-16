@@ -16,10 +16,12 @@ type ProductRow = {
 type ItemRow = {
   product_id: string | null;
   line_total_cents: number;
-  cash_tickets: {
-    created_at: string;
-    staff_access: { full_name: string | null } | null;
-  } | null;
+  cash_tickets:
+    | {
+        created_at: string;
+        staff_access: { full_name: string | null }[] | null;
+      }[]
+    | null;
 };
 
 export async function GET() {
@@ -66,11 +68,12 @@ export async function GET() {
     };
     metric.salesCount += 1;
     metric.revenueCents += item.line_total_cents;
-    const saleAt = item.cash_tickets?.created_at ?? null;
+    const ticket = item.cash_tickets?.[0] ?? null;
+    const saleAt = ticket?.created_at ?? null;
     if (saleAt && (!metric.lastSaleAt || saleAt > metric.lastSaleAt)) {
       metric.lastSaleAt = saleAt;
     }
-    const sellerName = item.cash_tickets?.staff_access?.full_name?.trim();
+    const sellerName = ticket?.staff_access?.[0]?.full_name?.trim();
     if (sellerName) metric.sellers.add(sellerName);
     byProduct.set(item.product_id, metric);
   }

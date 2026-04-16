@@ -53,14 +53,15 @@ export function Header() {
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl glass-extreme p-1.5"
+            className="relative flex h-12 shrink-0 items-center justify-center rounded-xl glass-extreme px-1.5 py-1 overflow-visible"
+            style={{ aspectRatio: "1000 / 1286", width: "auto" }}
           >
             <img
-              src="/images/logo-mark.svg"
+              src="/images/logo-icon.svg"
               alt="Logo Fisioterapia Roc Blanc - Centro de fisioterapia en Terrassa"
-              width={44}
-              height={54}
-              className="h-full w-full object-contain object-center"
+              width={1000}
+              height={1286}
+              className="h-full w-full object-contain object-center [image-rendering:auto]"
               decoding="async"
               fetchPriority="high"
             />

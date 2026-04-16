@@ -18,6 +18,15 @@ type ProductDb = {
   price_cents: number;
 };
 
+type TicketLineInsert = {
+  ticket_id: string;
+  product_id: string | null;
+  concept: string;
+  unit_price_cents: number;
+  quantity: number;
+  line_total_cents: number;
+};
+
 function isPaymentMethod(v: string): v is PaymentMethod {
   return v === "cash" || v === "bizum";
 }
@@ -98,7 +107,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: "No se pudo crear el ticket" }, { status: 500 });
     }
 
-    const lineItems = rows.map((p) => ({
+    const lineItems: TicketLineInsert[] = rows.map((p) => ({
       ticket_id: ticket.id,
       product_id: p.id,
       concept: p.name,
