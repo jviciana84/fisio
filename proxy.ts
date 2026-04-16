@@ -11,8 +11,10 @@ export async function proxy(request: NextRequest) {
 
   const secret = process.env.AUTH_CHALLENGE_SECRET;
   const token = request.cookies.get(sessionCookieName)?.value;
+  // Si falta configuración o no hay token, no rompemos la ruta:
+  // dejamos que el guard real del layout (Server) decida.
   if (!secret || !token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.next();
   }
 
   try {
@@ -30,5 +32,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*"],
 };
