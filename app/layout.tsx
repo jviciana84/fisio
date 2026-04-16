@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { getGoogleBusinessRating } from "@/lib/google-business-rating";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,7 +28,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const jsonLd = {
+const jsonLdBase = {
   "@context": "https://schema.org",
   "@type": "Physiotherapy",
   "@id": "https://fisioterapiarocblanc.es",
@@ -37,13 +38,31 @@ const jsonLd = {
     "Centro de fisioterapia profesional en Terrassa, Barcelona. Tratamientos personalizados de fisioterapia deportiva, traumatología, neurorehabilitación y más.",
   url: "https://fisioterapiarocblanc.es",
   telephone: "+34938085056",
-};
+} as const;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const ratingInfo = await getGoogleBusinessRating();
+  const jsonLd = {
+    ...jsonLdBase,
+    ...(ratingInfo.source !== "default"
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: ratingInfo.rating.toFixed(2),
+            ...(ratingInfo.userRatingsTotal != null
+              ? { reviewCount: ratingInfo.userRatingsTotal }
+              : {}),
+            bestRating: "5",
+            worstRating: "1",
+          },
+        }
+      : {}),
+  };
+
   return (
     <html lang="es" className="bg-background scroll-smooth" suppressHydrationWarning>
       <head>

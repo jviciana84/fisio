@@ -59,12 +59,12 @@ function ServiceCard({ service, index }: { service: typeof services[0]; index: n
       className="group relative"
       aria-label={`Servicio: ${service.title}`}
     >
-      <div className="glass-extreme rounded-3xl p-6 h-full relative overflow-hidden transition-all duration-500 group-hover:shadow-xl group-hover:shadow-blue-500/10">
+      <div className="glass-extreme rounded-3xl p-6 h-full relative overflow-hidden transition-all duration-200 ease-out group-hover:shadow-xl group-hover:shadow-blue-500/10">
         {/* Shimmer on hover */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-500 bg-gradient-to-r from-white/0 via-white/40 to-white/0 pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/40 to-white/0 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-30" />
         
         {/* Gradient border effect on hover */}
-        <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+        <div className="absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100">
           <div className={`absolute inset-0 bg-gradient-to-r ${service.color} opacity-20 blur-xl`} />
         </div>
 

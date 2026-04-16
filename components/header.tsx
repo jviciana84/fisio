@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X, Phone } from "lucide-react"
+import { Menu, X, Phone, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/cn"
 import { motion, AnimatePresence } from "framer-motion"
@@ -104,7 +104,15 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-2">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors rounded-full hover:bg-white/40"
+            aria-label="Acceder a la intranet"
+          >
+            <LogIn className="w-4 h-4 shrink-0" aria-hidden />
+            Acceder
+          </Link>
           <motion.a
             href={WHATSAPP_URL}
             target="_blank"
@@ -182,6 +190,14 @@ export function Header() {
                 transition={{ delay: 0.3 }}
                 className="mt-4 pt-4 border-t border-white/20 flex flex-col gap-3"
               >
+                <Link
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-white/50 rounded-xl transition-all"
+                >
+                  <LogIn className="w-4 h-4 shrink-0" aria-hidden />
+                  Acceder a la intranet
+                </Link>
                 <div className="flex items-center justify-center gap-2">
                   <motion.a
                     href={WHATSAPP_URL}

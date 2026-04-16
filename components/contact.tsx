@@ -111,8 +111,8 @@ export function Contact() {
                 className="glass-extreme rounded-2xl p-6 flex items-start gap-4 group block relative overflow-hidden"
               >
                 {/* Hover effect */}
-                <div className={`absolute inset-0 bg-gradient-to-r ${info.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500 bg-gradient-to-r from-white/0 via-white/30 to-white/0 pointer-events-none" />
+                <div className={`absolute inset-0 bg-gradient-to-r ${info.color} opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-10`} />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-20" />
 
                 <div
                   className={`w-12 h-12 rounded-xl bg-gradient-to-br ${info.color} flex items-center justify-center shrink-0 relative z-10`}

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SectionWatermark } from "@/components/section-watermark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -109,37 +110,11 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-slate-100">
       <section className="grid min-h-screen lg:grid-cols-2">
-        <aside className="relative hidden overflow-hidden lg:flex">
+        <aside className="relative hidden min-h-0 overflow-hidden lg:flex lg:min-h-screen lg:flex-col">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-500 to-sky-100" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.35),transparent_45%),radial-gradient(circle_at_80%_10%,rgba(191,219,254,0.45),transparent_40%)]" />
-          <svg
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full opacity-35"
-            viewBox="0 0 800 900"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M405 60C340 130 495 205 405 290C300 385 525 450 405 540C320 605 475 690 405 840"
-              stroke="white"
-              strokeWidth="20"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M230 160C330 240 325 370 230 460C150 540 170 670 250 740"
-              stroke="#C7D2FE"
-              strokeWidth="10"
-              strokeLinecap="round"
-            />
-            <path
-              d="M560 140C470 225 470 360 560 445C630 520 630 650 560 730"
-              stroke="#DBEAFE"
-              strokeWidth="10"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="relative z-10 flex w-full flex-col justify-end p-16 text-white">
+          <SectionWatermark align="left" tone="white" scaleFactor={0.6} />
+          <div className="relative z-10 flex w-full flex-1 flex-col justify-end p-16 text-white">
             <div className="max-w-md rounded-3xl border border-white/30 bg-white/15 p-8 shadow-2xl backdrop-blur-md">
               <p className="text-xs uppercase tracking-[0.2em] text-blue-100">
                 Portal para la gestión

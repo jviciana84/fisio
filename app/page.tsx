@@ -6,18 +6,24 @@ import { About } from "@/components/about"
 import { Schedule } from "@/components/schedule"
 import { Contact } from "@/components/contact"
 import { Footer } from "@/components/footer"
+import { HomeStaffProvider } from "@/components/home-staff-context"
+import { getGoogleBusinessRating } from "@/lib/google-business-rating"
 
-export default function Home() {
+export default async function Home() {
+  const googleRating = await getGoogleBusinessRating()
+
   return (
-    <main className="relative">
-      <Header />
-      <Hero />
-      <Services />
-      <Pricing />
-      <About />
-      <Schedule />
-      <Contact />
-      <Footer />
-    </main>
+    <HomeStaffProvider>
+      <main className="relative">
+        <Header />
+        <Hero googleRating={googleRating} />
+        <Services />
+        <Pricing />
+        <About />
+        <Schedule />
+        <Contact />
+        <Footer />
+      </main>
+    </HomeStaffProvider>
   )
 }
