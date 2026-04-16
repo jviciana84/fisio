@@ -3,12 +3,14 @@
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
-import { Phone, Mail, MapPin, Instagram, Facebook, Linkedin } from "lucide-react"
+import { Phone, Mail, MapPin } from "lucide-react"
 
 const socialLinks = [
-  { icon: Instagram, href: "#", label: "Instagram" },
-  { icon: Facebook, href: "#", label: "Facebook" },
-  { icon: Linkedin, href: "#", label: "LinkedIn" },
+  // En esta versión de lucide-react no existen los exports Instagram/Facebook/Linkedin.
+  // Se mantiene la estructura visual con iconos existentes para evitar errores de build.
+  { icon: Phone, href: "#", label: "Instagram" },
+  { icon: Mail, href: "#", label: "Facebook" },
+  { icon: MapPin, href: "#", label: "LinkedIn" },
 ]
 
 const quickLinks = [

@@ -66,7 +66,7 @@ function PricingCard({ bono, index }: { bono: typeof bonos[0]; index: number }) 
 
   const breathe =
     bono.popular && !reduceMotion && !isHovered
-      ? { y: 0 as const, scale: [1, 1.022, 1] as const }
+      ? { y: 0, scale: [1, 1.022, 1] }
       : undefined
 
   const cardBody = (
