@@ -1,5 +1,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 type StaffRow = {
   id: string;
   full_name: string;

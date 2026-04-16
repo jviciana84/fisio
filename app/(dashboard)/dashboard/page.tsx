@@ -3,6 +3,9 @@ import { getStaffSession } from "@/lib/auth/get-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { CashRegisterCard } from "@/components/dashboard/CashRegisterCard";
 
+// Evita que Next intente prerender en build (y falle si no hay env de Supabase en Vercel).
+export const dynamic = "force-dynamic";
+
 type ExpenseRow = {
   amount_cents: number;
   recurrence: "none" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
