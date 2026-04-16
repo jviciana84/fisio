@@ -5,6 +5,7 @@ import { useRef, useState } from "react"
 import { MapPin, Phone, Mail, Send, Navigation } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SectionWatermark } from "@/components/section-watermark"
 
 const contactInfo = [
   {
@@ -26,9 +27,9 @@ const contactInfo = [
   {
     icon: Mail,
     label: "Email",
-    value: "info@rocblanc.es",
+    value: "fisioterapia.rocblanc@gmail.com",
     subvalue: "Respuesta en 24h",
-    href: "mailto:info@rocblanc.es",
+    href: "mailto:fisioterapia.rocblanc@gmail.com",
     color: "from-blue-500 to-cyan-400",
   },
 ]
@@ -50,12 +51,14 @@ export function Contact() {
   }
 
   return (
-    <section id="contacto" className="py-24 relative overflow-hidden">
+    <section id="contacto" className="py-14 relative overflow-hidden sm:py-16">
       {/* Animated Background */}
       <div className="absolute inset-0 gradient-mesh opacity-30" />
       
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" aria-hidden />
       <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" aria-hidden />
+
+      <SectionWatermark align="left" />
 
       <div className="container mx-auto px-4 relative z-10">
         <motion.div
@@ -63,7 +66,7 @@ export function Contact() {
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          className="mb-10 text-center sm:mb-12"
         >
           <motion.span
             initial={{ opacity: 0 }}

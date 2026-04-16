@@ -16,7 +16,7 @@ export function About() {
   const isInView = useInView(ref, { once: true, margin: "-100px" })
 
   return (
-    <section id="nosotros" className="py-24 relative overflow-hidden">
+    <section id="nosotros" className="py-14 relative overflow-hidden sm:py-16">
       {/* Animated Background */}
       <div className="absolute inset-0 gradient-mesh opacity-50" />
       

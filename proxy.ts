@@ -25,12 +25,6 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-// Next.js middleware espera una exportación llamada `middleware`.
-// Se añade para asegurar que en Vercel se ejecute el chequeo correctamente.
-export async function middleware(request: NextRequest) {
-  return proxy(request);
-}
-
 export const config = {
   matcher: ["/dashboard", "/dashboard/:path*"],
 };

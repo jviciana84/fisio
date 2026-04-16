@@ -64,40 +64,64 @@ function PricingCard({ bono, index }: { bono: typeof bonos[0]; index: number }) 
   const [isHovered, setIsHovered] = useState(false)
   const reduceMotion = useReducedMotion()
 
-  const breathe =
-    bono.popular && !reduceMotion && !isHovered
-      ? { y: 0, scale: [1, 1.022, 1] }
-      : undefined
+  const borderBreathe = bono.popular && !reduceMotion && !isHovered
 
   const cardBody = (
     <motion.div
       animate={
-        breathe
-          ? breathe
-          : bono.popular && isHovered
-            ? { y: -10, scale: 1.03 }
-            : isHovered
-              ? { y: -10, scale: 1.02 }
-              : { y: 0, scale: 1 }
+        bono.popular && isHovered
+          ? { y: -10, scale: 1.03 }
+          : isHovered
+            ? { y: -10, scale: 1.02 }
+            : { y: 0, scale: 1 }
       }
-      transition={
-        breathe
-          ? { duration: 2.8, repeat: Infinity, ease: "easeInOut" }
-          : { type: "spring", stiffness: 320, damping: 24 }
-      }
+      transition={{ type: "spring", stiffness: 320, damping: 24 }}
       className={`relative overflow-hidden rounded-3xl glass-extreme ${
         bono.popular
-          ? "border border-blue-300/45 shadow-lg shadow-blue-500/10"
+          ? "border border-blue-200/35 shadow-lg shadow-blue-500/10"
           : "border border-white/40"
       }`}
     >
-      {/* Fondo suave para todos; en el popular solo un poco mas visible */}
+      {/* Fondo suave (opacidad fija; el “respirar” va en el borde) */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br ${bono.color} ${
-          bono.popular ? "opacity-8" : "opacity-5"
-        } pointer-events-none`}
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${bono.color} ${
+          bono.popular ? "opacity-[0.08]" : "opacity-[0.05]"
+        }`}
         aria-hidden
       />
+
+      {/* Borde animado solo en el bono popular (no altera el tamaño del card) */}
+      {bono.popular ? (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[5] rounded-3xl"
+          animate={
+            borderBreathe
+              ? {
+                  opacity: [0.45, 1],
+                  boxShadow: [
+                    "inset 0 0 0 2px rgba(56, 189, 248, 0.35), inset 0 0 24px rgba(59, 130, 246, 0.06)",
+                    "inset 0 0 0 2px rgba(56, 189, 248, 0.95), inset 0 0 32px rgba(59, 130, 246, 0.14)",
+                  ],
+                }
+              : {
+                  opacity: isHovered ? 1 : 0.8,
+                  boxShadow:
+                    "inset 0 0 0 2px rgba(56, 189, 248, 0.75), inset 0 0 20px rgba(59, 130, 246, 0.1)",
+                }
+          }
+          transition={
+            borderBreathe
+              ? {
+                  duration: 2.4,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: [0.45, 0, 0.55, 1],
+                }
+              : { duration: 0.2 }
+          }
+        />
+      ) : null}
 
       <div className="relative z-10 p-8">
         {/* Header */}
@@ -212,7 +236,7 @@ export function Pricing() {
   const isInView = useInView(titleRef, { once: true })
 
   return (
-    <section id="bonos" className="py-24 relative overflow-hidden" aria-labelledby="bonos-title">
+    <section id="bonos" className="py-14 relative overflow-hidden sm:py-16" aria-labelledby="bonos-title">
       {/* Fondo decorativo estático (sin animación continua) */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
         <div className="absolute top-1/4 -left-20 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/5 blur-3xl" />
@@ -226,7 +250,7 @@ export function Pricing() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-12"
         >
           <motion.span
             initial={{ opacity: 0, scale: 0.9 }}

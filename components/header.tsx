@@ -4,7 +4,11 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Menu, X, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/cn"
 import { motion, AnimatePresence } from "framer-motion"
+
+/** Logo isotipo: `public/images/logo FRB3.svg` (degradado definido en el propio SVG). */
+const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg"
 
 const WHATSAPP_URL = "https://wa.me/34938085056"
 
@@ -44,8 +48,8 @@ export function Header() {
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? "bg-white/70 backdrop-blur-xl shadow-lg shadow-slate-900/5 border-b border-white/50 py-3"
-          : "bg-white/30 backdrop-blur-md py-5"
+          ? "bg-white/70 backdrop-blur-xl shadow-lg shadow-slate-900/5 border-b border-white/50 py-1.5"
+          : "bg-white/30 backdrop-blur-md py-2"
       }`}
     >
       <div className="container mx-auto px-4 flex items-center justify-between">
@@ -53,11 +57,15 @@ export function Header() {
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="relative flex h-12 shrink-0 items-center justify-center rounded-xl glass-extreme px-1.5 py-1 overflow-visible"
-            style={{ aspectRatio: "1000 / 1286", width: "auto" }}
+            className={cn(
+              "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full glass-extreme transition-[width,height,min-width,min-height,padding] duration-500 ease-out",
+              isScrolled
+                ? "size-[3.6125rem] p-1"
+                : "size-[4.25rem] p-1.5",
+            )}
           >
             <img
-              src="/images/logo-icon.svg"
+              src={LOGO_FRB3_SRC}
               alt="Logo Fisioterapia Roc Blanc - Centro de fisioterapia en Terrassa"
               width={1000}
               height={1286}

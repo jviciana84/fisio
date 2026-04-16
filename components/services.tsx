@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { useInView } from "framer-motion"
 import { useRef } from "react"
 import { Activity, Zap, Heart, Users, Brain, Bone } from "lucide-react"
+import { SectionWatermark } from "@/components/section-watermark"
 
 const services = [
   {
@@ -98,10 +99,12 @@ export function Services() {
   const isInView = useInView(titleRef, { once: true })
 
   return (
-    <section id="servicios" className="py-24 relative overflow-hidden" aria-labelledby="servicios-title">
+    <section id="servicios" className="py-14 relative overflow-hidden sm:py-16" aria-labelledby="servicios-title">
       {/* Fondo decorativo estático */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/10 blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" aria-hidden />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-cyan-400/10 to-blue-500/10 blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" aria-hidden />
+
+      <SectionWatermark align="right" />
 
       <div className="container mx-auto px-4 relative z-10">
         <motion.div
@@ -109,7 +112,7 @@ export function Services() {
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-12"
         >
           <motion.span
             initial={{ opacity: 0 }}
