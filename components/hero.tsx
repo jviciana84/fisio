@@ -55,12 +55,12 @@ export function Hero({ googleRating }: HeroProps) {
       <div className="absolute bottom-20 left-10 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-400/20 to-blue-500/20 blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-600/10 to-sky-400/10 blur-3xl pointer-events-none" />
 
-      {/* Sin `container`: si no, 50vw se comprime y el card no llega a media pantalla */}
-      <div className="relative z-10 mx-auto w-full max-w-[100vw] overflow-x-hidden px-4 pt-24 pb-16 sm:px-6 lg:px-8">
+      {/* Mismo ancho que el resto de secciones (`container`) */}
+      <div className="container relative z-10 mx-auto w-full overflow-x-hidden px-4 pt-24 pb-16 sm:px-6 lg:px-8">
         <div
           className={cn(
             "grid gap-12 items-center transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            staffOpen ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_50vw]",
+            staffOpen ? "lg:grid-cols-1" : "lg:grid-cols-2",
           )}
         >
           <AnimatePresence initial={false} mode="popLayout">
@@ -174,8 +174,8 @@ export function Hero({ googleRating }: HeroProps) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.3, layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
             className={cn(
-              "relative z-20 min-w-0 w-full lg:w-[50vw] lg:max-w-[50vw] lg:shrink-0 lg:justify-self-end",
-              staffOpen && "lg:col-span-2 lg:w-full lg:max-w-none lg:justify-self-stretch",
+              "relative z-20 min-w-0 w-full lg:shrink-0",
+              staffOpen && "lg:col-span-2 lg:justify-self-stretch",
             )}
           >
             <motion.div

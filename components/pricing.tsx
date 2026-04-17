@@ -387,7 +387,7 @@ export function Pricing() {
       <AnimatePresence>
         {selectedBono ? (
           <motion.div
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto p-4 py-6 sm:items-center sm:py-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -407,215 +407,227 @@ export function Pricing() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.96 }}
               transition={{ duration: 0.25 }}
-              className="relative z-10 w-full max-w-2xl rounded-3xl border border-white/30 bg-white/95 p-5 shadow-2xl backdrop-blur-xl sm:p-7"
+              className="relative z-10 flex max-h-[min(92dvh,900px)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl"
             >
               <button
                 type="button"
                 onClick={closePurchaseModal}
-                className="absolute right-3 top-3 rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:text-slate-900"
+                className="absolute right-3 top-3 z-20 rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:text-slate-900"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
               </button>
 
-              <div className="[perspective:1400px]">
-                <motion.div
-                  animate={{ rotateY: paymentView === "form" ? 0 : 180 }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ transformStyle: "preserve-3d" }}
-                  className="relative min-h-[520px]"
-                >
-                  <div className="absolute inset-0 [backface-visibility:hidden]">
-                    <div className="mb-5 pr-10">
-                      <p className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                        Compra de bono
-                      </p>
-                      <h3 id="purchase-modal-title" className="mt-2 text-2xl font-bold text-slate-900">
-                        Bono {selectedBono.sessions} sesiones · {selectedBono.price} euros
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Completa tus datos y elige cómo quieres pagar.
-                      </p>
-                    </div>
-
-                    <form className="space-y-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label htmlFor="purchase-name" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Nombre
-                          </label>
-                          <Input
-                            id="purchase-name"
-                            value={purchaseForm.name}
-                            onChange={(e) => handlePurchaseChange("name", e.target.value)}
-                            placeholder="Tu nombre"
-                            className="bg-white"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="purchase-last-name" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Apellidos
-                          </label>
-                          <Input
-                            id="purchase-last-name"
-                            value={purchaseForm.lastName}
-                            onChange={(e) => handlePurchaseChange("lastName", e.target.value)}
-                            placeholder="Tus apellidos"
-                            className="bg-white"
-                            required
-                          />
-                        </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pt-12 sm:p-7 sm:pt-14">
+                <AnimatePresence mode="wait" initial={false}>
+                  {paymentView === "form" ? (
+                    <motion.div
+                      key="purchase-form"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="mb-5 pr-10">
+                        <p className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                          Compra de bono
+                        </p>
+                        <h3 id="purchase-modal-title" className="mt-2 text-xl font-bold text-slate-900 sm:text-2xl">
+                          Bono {selectedBono.sessions} sesiones · {selectedBono.price} euros
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-600">
+                          Completa tus datos y elige cómo quieres pagar.
+                        </p>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label htmlFor="purchase-email" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Email
-                          </label>
-                          <Input
-                            id="purchase-email"
-                            type="email"
-                            value={purchaseForm.email}
-                            onChange={(e) => handlePurchaseChange("email", e.target.value)}
-                            placeholder="tu@email.com"
-                            className="bg-white"
-                            required
-                          />
+                      <form className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="purchase-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Nombre
+                            </label>
+                            <Input
+                              id="purchase-name"
+                              value={purchaseForm.name}
+                              onChange={(e) => handlePurchaseChange("name", e.target.value)}
+                              placeholder="Tu nombre"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="purchase-last-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Apellidos
+                            </label>
+                            <Input
+                              id="purchase-last-name"
+                              value={purchaseForm.lastName}
+                              onChange={(e) => handlePurchaseChange("lastName", e.target.value)}
+                              placeholder="Tus apellidos"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label htmlFor="purchase-phone" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Teléfono
-                          </label>
-                          <Input
-                            id="purchase-phone"
-                            type="tel"
-                            value={purchaseForm.phone}
-                            onChange={(e) => handlePurchaseChange("phone", e.target.value)}
-                            placeholder="600 000 000"
-                            className="bg-white"
-                            required
-                          />
-                        </div>
-                      </div>
 
-                      <div>
-                        <label htmlFor="purchase-address" className="mb-1.5 block text-sm font-medium text-slate-700">
-                          Dirección
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="purchase-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Email
+                            </label>
+                            <Input
+                              id="purchase-email"
+                              type="email"
+                              value={purchaseForm.email}
+                              onChange={(e) => handlePurchaseChange("email", e.target.value)}
+                              placeholder="tu@email.com"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="purchase-phone" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Teléfono
+                            </label>
+                            <Input
+                              id="purchase-phone"
+                              type="tel"
+                              value={purchaseForm.phone}
+                              onChange={(e) => handlePurchaseChange("phone", e.target.value)}
+                              placeholder="600 000 000"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="purchase-address" className="mb-1.5 block text-sm font-medium text-slate-700">
+                            Dirección
+                          </label>
+                          <Input
+                            id="purchase-address"
+                            value={purchaseForm.address}
+                            onChange={(e) => handlePurchaseChange("address", e.target.value)}
+                            placeholder="Calle, número, ciudad y código postal"
+                            className="bg-white"
+                            required
+                          />
+                        </div>
+
+                        <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={purchaseForm.acceptedPolicy}
+                            onChange={(e) => handlePurchaseChange("acceptedPolicy", e.target.checked)}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            required
+                          />
+                          <span className="text-pretty leading-snug">
+                            Acepto la política de privacidad y el tratamiento de mis datos para gestionar la compra del bono.
+                          </span>
                         </label>
-                        <Input
-                          id="purchase-address"
-                          value={purchaseForm.address}
-                          onChange={(e) => handlePurchaseChange("address", e.target.value)}
-                          placeholder="Calle, número, ciudad y código postal"
-                          className="bg-white"
-                          required
-                        />
-                      </div>
 
-                      <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={purchaseForm.acceptedPolicy}
-                          onChange={(e) => handlePurchaseChange("acceptedPolicy", e.target.checked)}
-                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          required
-                        />
-                        Acepto la política de privacidad y el tratamiento de mis datos para gestionar la compra del bono.
-                      </label>
-
-                      <div className="pt-2 grid gap-3 sm:grid-cols-2">
-                        <Button
-                          type="button"
-                          onClick={() => registerLeadAndFlip("bizum")}
-                          disabled={!isPurchaseFormComplete || isRegisteringLead}
-                          className="h-12 rounded-xl bg-[#2D7CF6] text-white hover:bg-[#1f68db] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src="/images/bizum-logo.ico"
-                            alt="Logo Bizum"
-                            className="mr-2 h-5 w-5 rounded-sm bg-white/95 p-[2px]"
-                          />
-                          {isRegisteringLead ? "Registrando..." : "Pagar con Bizum"}
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => registerLeadAndFlip("paypal")}
-                          disabled={!isPurchaseFormComplete || isRegisteringLead}
-                          className="h-12 rounded-xl bg-[#0070BA] text-white hover:bg-[#005e9d] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src="/images/paypal-logo.svg"
-                            alt="Logo PayPal"
-                            className="mr-2 h-6 w-6 rounded-md bg-white p-1 shadow-sm"
-                          />
-                          {isRegisteringLead ? "Registrando..." : "Pagar con PayPal"}
-                        </Button>
-                      </div>
-                      {leadError ? (
-                        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{leadError}</p>
-                      ) : null}
-                    </form>
-                  </div>
-
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-8 text-white [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                    <div className="flex h-full flex-col items-center justify-center text-center">
-                      {paymentView === "paypal_unavailable" ? (
-                        <>
-                          <img
-                            src="/images/paypal-logo.svg"
-                            alt="Logo PayPal"
-                            className="mb-5 h-14 w-14 rounded-xl bg-white p-2 shadow-lg"
-                          />
-                          <h4 className="text-2xl font-bold">PayPal todavía no está disponible</h4>
-                          <p className="mt-3 max-w-md text-white/95">
-                            Disculpa las molestias. Estamos trabajando para tener PayPal habilitado lo antes posible.
-                          </p>
-                          <p className="mt-3 max-w-md rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
-                            Si contratas los bonos en la clínica, tendrás descuentos especiales.
-                          </p>
-                          <p className="mt-3 max-w-md text-sm text-white/90">
-                            Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
-                          </p>
+                        <div className="grid gap-3 pt-2 sm:grid-cols-2">
                           <Button
                             type="button"
-                            onClick={() => setPaymentView("form")}
-                            className="mt-8 rounded-xl bg-white/20 px-6 text-white hover:bg-white/30"
+                            onClick={() => registerLeadAndFlip("bizum")}
+                            disabled={!isPurchaseFormComplete || isRegisteringLead}
+                            className="h-12 rounded-xl bg-[#2D7CF6] text-white hover:bg-[#1f68db] disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Volver a métodos de pago
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src="/images/bizum-logo.ico"
+                              alt="Logo Bizum"
+                              className="mr-2 h-5 w-5 rounded-sm bg-white/95 p-[2px]"
+                            />
+                            {isRegisteringLead ? "Registrando..." : "Pagar con Bizum"}
                           </Button>
-                        </>
-                      ) : (
-                        <div className="w-full max-w-md text-center">
-                          <img
-                            src="/images/bizum-logo.ico"
-                            alt="Logo Bizum"
-                            className="mx-auto mb-5 h-14 w-14 rounded-xl bg-white p-2 shadow-lg"
-                          />
-                          <h4 className="text-2xl font-bold">Bizum todavía no está disponible</h4>
-                          <p className="mt-3 text-white/95">
-                            Disculpa las molestias. Estamos trabajando para tener Bizum habilitado lo antes posible.
-                          </p>
-                          <p className="mt-3 rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
-                            Si contratas los bonos en la clínica, tendrás descuentos especiales.
-                          </p>
-                          <p className="mt-3 text-sm text-white/90">
-                            Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
-                          </p>
                           <Button
                             type="button"
-                            onClick={() => setPaymentView("form")}
-                            className="mt-8 rounded-xl bg-white/20 px-6 text-white hover:bg-white/30"
+                            onClick={() => registerLeadAndFlip("paypal")}
+                            disabled={!isPurchaseFormComplete || isRegisteringLead}
+                            className="h-12 rounded-xl bg-[#0070BA] text-white hover:bg-[#005e9d] disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Volver a métodos de pago
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src="/images/paypal-logo.svg"
+                              alt="Logo PayPal"
+                              className="mr-2 h-6 w-6 rounded-md bg-white p-1 shadow-sm"
+                            />
+                            {isRegisteringLead ? "Registrando..." : "Pagar con PayPal"}
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
+                        {leadError ? (
+                          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{leadError}</p>
+                        ) : null}
+                      </form>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="purchase-result"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                      className="rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-6 text-white sm:p-8"
+                    >
+                      <div className="flex flex-col items-center justify-center text-center">
+                        {paymentView === "paypal_unavailable" ? (
+                          <>
+                            <img
+                              src="/images/paypal-logo.svg"
+                              alt="Logo PayPal"
+                              className="mb-5 h-14 w-14 rounded-xl bg-white p-2 shadow-lg"
+                            />
+                            <h4 className="text-xl font-bold sm:text-2xl">PayPal todavía no está disponible</h4>
+                            <p className="mt-3 max-w-md text-pretty text-white/95">
+                              Disculpa las molestias. Estamos trabajando para tener PayPal habilitado lo antes posible.
+                            </p>
+                            <p className="mt-3 max-w-md rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
+                              Si contratas los bonos en la clínica, tendrás descuentos especiales.
+                            </p>
+                            <p className="mt-3 max-w-md text-pretty text-sm text-white/90">
+                              Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
+                            </p>
+                            <Button
+                              type="button"
+                              onClick={() => setPaymentView("form")}
+                              className="mt-8 rounded-xl bg-white/20 px-6 text-white hover:bg-white/30"
+                            >
+                              Volver a métodos de pago
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="w-full max-w-md text-center">
+                            <img
+                              src="/images/bizum-logo.ico"
+                              alt="Logo Bizum"
+                              className="mx-auto mb-5 h-14 w-14 rounded-xl bg-white p-2 shadow-lg"
+                            />
+                            <h4 className="text-xl font-bold sm:text-2xl">Bizum todavía no está disponible</h4>
+                            <p className="mt-3 text-pretty text-white/95">
+                              Disculpa las molestias. Estamos trabajando para tener Bizum habilitado lo antes posible.
+                            </p>
+                            <p className="mt-3 rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
+                              Si contratas los bonos en la clínica, tendrás descuentos especiales.
+                            </p>
+                            <p className="mt-3 text-pretty text-sm text-white/90">
+                              Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
+                            </p>
+                            <Button
+                              type="button"
+                              onClick={() => setPaymentView("form")}
+                              className="mt-8 rounded-xl bg-white/20 px-6 text-white hover:bg-white/30"
+                            >
+                              Volver a métodos de pago
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </motion.div>
