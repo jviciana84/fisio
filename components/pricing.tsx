@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 const bonos = [
   {
     sessions: 3,
-    price: 120,
-    pricePerSession: 40,
+    price: 132,
+    pricePerSession: 44,
     popular: false,
     icon: Zap,
     color: "from-cyan-500 to-blue-500",
@@ -23,8 +23,8 @@ const bonos = [
   },
   {
     sessions: 6,
-    price: 210,
-    pricePerSession: 35,
+    price: 231,
+    pricePerSession: 38.5,
     popular: true,
     icon: Crown,
     color: "from-blue-600 to-cyan-400",
@@ -40,8 +40,8 @@ const bonos = [
   },
   {
     sessions: 10,
-    price: 400,
-    pricePerSession: 40,
+    price: 440,
+    pricePerSession: 44,
     popular: false,
     icon: Star,
     color: "from-blue-700 to-blue-400",

@@ -137,9 +137,12 @@ export function Hero({ googleRating }: HeroProps) {
                 <Button
                   size="lg"
                   variant="outline"
+                  asChild
                   className="h-11 min-w-0 px-3 text-xs sm:px-6 sm:text-sm md:px-8 glass-extreme border-white/40 text-slate-700 hover:bg-white/30 rounded-full"
                 >
-                  <span className="truncate">Ver Servicios</span>
+                  <Link href="#servicios" className="truncate">
+                    Ver Servicios
+                  </Link>
                 </Button>
               </motion.div>
             </motion.div>
