@@ -13,7 +13,7 @@ function WhatsAppGlyph({ className }: { className?: string }) {
 }
 
 const PHONE_TEL = "tel:938085056"
-const PHONE_WHATSAPP = "https://wa.me/34938085056"
+const PHONE_WHATSAPP = "https://wa.me/34687549732"
 
 function isLikelyTablet(): boolean {
   if (typeof navigator === "undefined") return false

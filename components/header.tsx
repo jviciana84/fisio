@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 /** Logo isotipo: `public/images/logo FRB3.svg` (degradado definido en el propio SVG). */
 const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg"
 
-const WHATSAPP_URL = "https://wa.me/34938085056"
+const WHATSAPP_URL = "https://wa.me/34687549732"
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (

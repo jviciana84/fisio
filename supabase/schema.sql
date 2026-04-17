@@ -71,6 +71,8 @@ create table if not exists public.clients (
   email text,
   phone text,
   notes text,
+  comprobante_pago_url text,
+  estado_pago text not null default 'pendiente_validacion',
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -85,6 +87,9 @@ create unique index if not exists clients_phone_uidx
 
 create index if not exists clients_name_idx
   on public.clients (full_name);
+
+create index if not exists clients_estado_pago_idx
+  on public.clients (estado_pago);
 
 create table if not exists public.cash_tickets (
   id uuid primary key default gen_random_uuid(),
