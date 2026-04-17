@@ -185,7 +185,13 @@ export function Hero({ googleRating }: HeroProps) {
                   : "h-auto max-h-[min(720px,93vh)] lg:max-w-none",
               )}
               onPointerLeave={() => {
-                if (staffOpen) closeStaff()
+                if (
+                  staffOpen &&
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(hover: hover) and (pointer: fine)").matches
+                ) {
+                  closeStaff()
+                }
               }}
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/25 to-transparent" />
