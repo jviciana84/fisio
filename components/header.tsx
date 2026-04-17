@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Menu, X, Phone, LogIn } from "lucide-react"
+import { BookingCtaLink } from "@/components/booking-cta-modal"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/cn"
 import { motion, AnimatePresence } from "framer-motion"
@@ -26,6 +27,7 @@ const navLinks = [
   { href: "#bonos", label: "Bonos" },
   { href: "#nosotros", label: "Nosotros" },
   { href: "#horario", label: "Horario" },
+  { href: "/reservar", label: "Reservar cita" },
   { href: "#contacto", label: "Contacto" },
 ]
 
@@ -93,13 +95,13 @@ export function Header() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Link
+              <BookingCtaLink
                 href={link.href}
                 className="relative px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors group"
               >
                 {link.label}
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-cyan-400 group-hover:w-3/4 transition-all duration-300" />
-              </Link>
+              </BookingCtaLink>
             </motion.div>
           ))}
         </nav>
@@ -134,8 +136,11 @@ export function Header() {
             938 08 50 56
           </motion.a>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-full px-6 shadow-lg shadow-blue-500/25 animate-pulse-glow">
-              Pedir Cita
+            <Button
+              asChild
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-full px-6 shadow-lg shadow-blue-500/25 animate-pulse-glow"
+            >
+              <BookingCtaLink href="/reservar">Pedir cita</BookingCtaLink>
             </Button>
           </motion.div>
         </div>
@@ -187,13 +192,13 @@ export function Header() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Link
+                  <BookingCtaLink
                     href={link.href}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="block py-3 px-4 text-slate-700 hover:text-blue-600 hover:bg-white/50 rounded-xl transition-all"
                   >
                     {link.label}
-                  </Link>
+                  </BookingCtaLink>
                 </motion.div>
               ))}
               <motion.div
@@ -232,8 +237,10 @@ export function Header() {
                     938 08 50 56
                   </motion.a>
                 </div>
-                <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl">
-                  Pedir Cita
+                <Button asChild className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl">
+                  <BookingCtaLink href="/reservar" onClick={() => setIsMobileMenuOpen(false)}>
+                    Pedir cita
+                  </BookingCtaLink>
                 </Button>
               </motion.div>
             </nav>

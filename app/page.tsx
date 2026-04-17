@@ -1,3 +1,4 @@
+import { BookingCtaProvider } from "@/components/booking-cta-modal"
 import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
 import { Services } from "@/components/services"
@@ -13,7 +14,8 @@ export default async function Home() {
   const googleRating = await getGoogleBusinessRating()
 
   return (
-    <HomeStaffProvider>
+    <BookingCtaProvider>
+      <HomeStaffProvider>
       <main className="relative">
         <Header />
         <Hero googleRating={googleRating} />
@@ -24,6 +26,7 @@ export default async function Home() {
         <Contact />
         <Footer />
       </main>
-    </HomeStaffProvider>
+      </HomeStaffProvider>
+    </BookingCtaProvider>
   )
 }

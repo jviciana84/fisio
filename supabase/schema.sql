@@ -137,3 +137,15 @@ create index if not exists staff_work_logs_staff_date_idx
 
 create index if not exists staff_work_logs_date_idx
   on public.staff_work_logs (work_date desc);
+
+create table if not exists public.google_calendar_integration (
+  id uuid primary key default gen_random_uuid(),
+  refresh_token_encrypted text not null,
+  calendar_id text not null default 'primary',
+  connected_email text,
+  slot_minutes integer not null default 45 check (slot_minutes >= 15 and slot_minutes <= 180),
+  day_start_local text not null default '09:00',
+  day_end_local text not null default '18:00',
+  timezone text not null default 'Europe/Madrid',
+  updated_at timestamptz not null default now()
+);

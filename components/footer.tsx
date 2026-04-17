@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Phone, Mail, MapPin } from "lucide-react"
+import { BookingCtaLink } from "@/components/booking-cta-modal"
 
 const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg"
 
@@ -50,6 +51,7 @@ const quickLinks = [
   { label: "Servicios", href: "#servicios" },
   { label: "Nosotros", href: "#nosotros" },
   { label: "Horario", href: "#horario" },
+  { label: "Reservar cita online", href: "/reservar" },
   { label: "Contacto", href: "#contacto" },
 ]
 
@@ -133,13 +135,13 @@ export function Footer() {
             <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
+                  <BookingCtaLink
                     href={link.href}
                     className="text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-2 group"
                   >
                     <span className="w-0 h-0.5 bg-blue-600 group-hover:w-3 transition-all" />
                     {link.label}
-                  </Link>
+                  </BookingCtaLink>
                 </li>
               ))}
             </ul>

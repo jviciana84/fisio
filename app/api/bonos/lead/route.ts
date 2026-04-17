@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -29,6 +30,20 @@ function missingEstadoPagoColumn(err: PostgrestError | null): boolean {
 
 export async function POST(request: Request) {
   try {
+    if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error(
+        "[bonos/lead] Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno (revisa Vercel → Settings → Environment Variables).",
+      );
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "El registro no está disponible: falta configurar Supabase en el servidor (SUPABASE_SERVICE_ROLE_KEY y URL).",
+        },
+        { status: 503 },
+      );
+    }
+
     const body = (await request.json()) as Body;
     const name = required(body.name);
     const lastName = required(body.lastName);
@@ -133,6 +148,17 @@ export async function POST(request: Request) {
     );
   } catch (e) {
     console.error("[bonos/lead]", e);
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.includes("Faltan variables de entorno de Supabase")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "El registro no está disponible: falta configurar Supabase en el servidor (SUPABASE_SERVICE_ROLE_KEY y URL).",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { ok: false, message: "Solicitud inválida." },
       { status: 400 },

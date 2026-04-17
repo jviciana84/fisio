@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion"
 import Link from "next/link"
 import { ArrowRight, Star, MapPin, Clock, X, Users } from "lucide-react"
+import { BookingCtaLink } from "@/components/booking-cta-modal"
 import { Button } from "@/components/ui/button"
 import { SmartCallButton } from "@/components/smart-call-button"
 import type { GoogleBusinessRating } from "@/lib/google-business-rating"
@@ -127,10 +128,13 @@ export function Hero({ googleRating }: HeroProps) {
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   size="lg"
+                  asChild
                   className="h-11 min-w-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-3 text-xs text-white shadow-xl shadow-blue-500/30 group sm:px-6 sm:text-sm md:px-8 rounded-full hover:from-blue-700 hover:to-cyan-600"
                 >
-                  <span className="truncate">Reserva tu Cita</span>
-                  <ArrowRight className="ml-1.5 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:ml-2 sm:h-5 sm:w-5" />
+                  <BookingCtaLink href="/reservar" className="inline-flex items-center justify-center">
+                    <span className="truncate">Reserva tu cita</span>
+                    <ArrowRight className="ml-1.5 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:ml-2 sm:h-5 sm:w-5" />
+                  </BookingCtaLink>
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -364,10 +368,10 @@ export function Hero({ googleRating }: HeroProps) {
                               className="h-9 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-xs text-white shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-cyan-600 sm:h-10 sm:text-sm"
                               asChild
                             >
-                              <Link href="#contacto" onClick={closeStaff}>
+                              <BookingCtaLink href="/reservar" onClick={closeStaff}>
                                 Reservar cita con especialista
                                 <ArrowRight className="ml-2 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-                              </Link>
+                              </BookingCtaLink>
                             </Button>
                             <Button
                               type="button"

@@ -31,21 +31,32 @@ export type SectionWatermarkProps = {
   scaleFactor?: number
   /** `white`: silueta blanca (p. ej. sobre fondo oscuro). Por defecto colores del SVG. */
   tone?: "default" | "white"
+  /**
+   * Si es true, marca de agua fija en todo el viewport (p. ej. página /reservar).
+   * Si es false, altura de sección con compensación de padding (comportamiento habitual).
+   */
+  fullViewport?: boolean
 }
 
 /**
- * Marca de agua a altura casi completa de la sección (compensa el padding vertical típico).
+ * Marca de agua a altura casi completa de la sección (compensa el padding vertical típico),
+ * o a pantalla completa con `fullViewport`.
  */
 export function SectionWatermark({
   align,
   scaleFactor = 1,
   tone = "default",
+  fullViewport = false,
 }: SectionWatermarkProps) {
   const scale = BASE_SCALE * scaleFactor
 
   return (
     <div
-      className={`pointer-events-none absolute -inset-y-14 left-0 right-0 z-[1] flex items-stretch sm:-inset-y-16 ${justifyClass[align]} overflow-hidden select-none`}
+      className={
+        fullViewport
+          ? `pointer-events-none fixed inset-0 z-[1] flex min-h-0 items-stretch ${justifyClass[align]} overflow-hidden select-none print:hidden`
+          : `pointer-events-none absolute -inset-y-14 left-0 right-0 z-[1] flex items-stretch sm:-inset-y-16 ${justifyClass[align]} overflow-hidden select-none`
+      }
       aria-hidden
     >
       <img
