@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { env } from "@/lib/env";
 
 export type GoogleCalendarIntegrationRow = {
   id: string;
@@ -13,6 +14,9 @@ export type GoogleCalendarIntegrationRow = {
 };
 
 export async function getGoogleCalendarIntegration(): Promise<GoogleCalendarIntegrationRow | null> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("google_calendar_integration")
@@ -31,6 +35,9 @@ export async function saveGoogleOAuthTokens(
   refreshTokenEncrypted: string,
   connectedEmail: string | null,
 ): Promise<boolean> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return false;
+  }
   const existing = await getGoogleCalendarIntegration();
   const supabase = createSupabaseAdminClient();
   if (existing) {
@@ -58,6 +65,9 @@ export async function saveGoogleOAuthTokens(
 }
 
 export async function deleteGoogleCalendarIntegration(): Promise<boolean> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return false;
+  }
   const supabase = createSupabaseAdminClient();
   const { error } = await supabase
     .from("google_calendar_integration")
@@ -74,6 +84,9 @@ export async function updateGoogleCalendarSettings(
     >
   >,
 ): Promise<boolean> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return false;
+  }
   const existing = await getGoogleCalendarIntegration();
   if (!existing) return false;
   const supabase = createSupabaseAdminClient();
