@@ -119,7 +119,7 @@ export function Header() {
             rel="noopener noreferrer"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="glass-extreme p-2.5 rounded-full flex items-center justify-center text-slate-700 hover:text-blue-600 transition-colors"
+            className="glass-extreme p-2.5 rounded-full flex items-center justify-center text-emerald-600 hover:text-emerald-700 transition-colors"
             aria-label="Escribir por WhatsApp"
           >
             <WhatsAppIcon className="w-[18px] h-[18px]" />
@@ -147,7 +147,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
             whileTap={{ scale: 0.9 }}
-            className="glass-extreme p-2 rounded-xl flex items-center justify-center text-slate-700 hover:text-blue-600 transition-colors"
+            className="glass-extreme p-2 rounded-xl flex items-center justify-center text-emerald-600 hover:text-emerald-700 transition-colors"
             aria-label="Escribir por WhatsApp"
           >
             <WhatsAppIcon className="w-6 h-6" />
@@ -216,7 +216,7 @@ export function Header() {
                     target="_blank"
                     rel="noopener noreferrer"
                     whileTap={{ scale: 0.98 }}
-                    className="glass-extreme p-3 rounded-full flex items-center justify-center text-slate-700 hover:text-blue-600 transition-colors"
+                    className="glass-extreme p-3 rounded-full flex items-center justify-center text-emerald-600 hover:text-emerald-700 transition-colors"
                     aria-label="Escribir por WhatsApp"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >

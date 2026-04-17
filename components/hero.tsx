@@ -198,7 +198,8 @@ export function Hero({ googleRating }: HeroProps) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
                     transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative z-10 flex min-h-0 flex-col overflow-y-auto overscroll-contain p-4 pb-4 sm:p-5"
+                    className="relative z-10 flex min-h-0 flex-col overflow-y-visible overscroll-y-auto p-4 pb-4 sm:p-5 lg:overflow-y-auto lg:overscroll-contain"
+                    style={{ touchAction: "pan-y" }}
                   >
                     <HeroCardCarousel className="mb-4 h-[15rem] shrink-0 sm:mb-5 sm:h-72" />
 
@@ -329,10 +330,10 @@ export function Hero({ googleRating }: HeroProps) {
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -12 }}
                           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                          className="flex h-full min-h-0 flex-col gap-3 sm:flex-row sm:gap-0"
+                          className="flex h-full min-h-0 flex-col gap-3 xl:flex-row xl:gap-0"
                         >
                           {/* Ficha ~30% */}
-                          <div className="flex min-h-0 w-full min-w-0 flex-col gap-2 lg:w-[30%] lg:shrink-0 lg:pr-3">
+                          <div className="flex min-h-0 w-full min-w-0 flex-col gap-2 xl:w-[30%] xl:shrink-0 xl:pr-3">
                             <div className="relative min-h-[100px] w-full flex-1 overflow-hidden rounded-2xl border border-white/50 bg-white/25 shadow-inner">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
@@ -370,12 +371,12 @@ export function Hero({ googleRating }: HeroProps) {
                           </div>
 
                           <div
-                            className="hidden h-px shrink-0 bg-gradient-to-r from-transparent via-slate-400/50 to-transparent lg:block lg:h-auto lg:w-px lg:bg-gradient-to-b"
+                            className="hidden h-px shrink-0 bg-gradient-to-r from-transparent via-slate-400/50 to-transparent xl:block xl:h-auto xl:w-px xl:bg-gradient-to-b"
                             aria-hidden
                           />
 
                           {/* En smartphone/tablet mostramos solo la bio del perfil seleccionado. */}
-                          <div className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex lg:pl-3">
+                          <div className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden xl:flex xl:pl-3">
                             <div className="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-1 sm:grid-cols-4 sm:grid-rows-4 sm:gap-1.5">
                               {HERO_STAFF.map((person, index) => {
                                 if (index === staffDetailIndex) return null
