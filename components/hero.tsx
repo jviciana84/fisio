@@ -122,24 +122,24 @@ export function Hero({ googleRating }: HeroProps) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              className="flex flex-row gap-2 justify-center lg:justify-start sm:gap-3"
             >
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-full px-8 shadow-xl shadow-blue-500/30 group"
+                  className="h-11 min-w-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-3 text-xs text-white shadow-xl shadow-blue-500/30 group sm:px-6 sm:text-sm md:px-8 rounded-full hover:from-blue-700 hover:to-cyan-600"
                 >
-                  Reserva tu Cita
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <span className="truncate">Reserva tu Cita</span>
+                  <ArrowRight className="ml-1.5 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:ml-2 sm:h-5 sm:w-5" />
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="glass-extreme border-white/40 text-slate-700 hover:bg-white/30 rounded-full px-8"
+                  className="h-11 min-w-0 px-3 text-xs sm:px-6 sm:text-sm md:px-8 glass-extreme border-white/40 text-slate-700 hover:bg-white/30 rounded-full"
                 >
-                  Ver Servicios
+                  <span className="truncate">Ver Servicios</span>
                 </Button>
               </motion.div>
             </motion.div>
@@ -149,15 +149,15 @@ export function Hero({ googleRating }: HeroProps) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start"
+              className="mt-10 flex flex-nowrap gap-2 justify-center lg:justify-start sm:gap-3"
             >
-              <div className="glass-extreme px-4 py-2 rounded-full flex items-center gap-2">
+              <div className="glass-extreme min-w-0 px-3 py-2 rounded-full flex items-center gap-1.5 sm:px-4 sm:gap-2">
                 <MapPin className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-slate-600">Terrassa, Barcelona</span>
+                <span className="truncate text-xs text-slate-600 sm:text-sm">Terrassa, Barcelona</span>
               </div>
-              <div className="glass-extreme px-4 py-2 rounded-full flex items-center gap-2">
+              <div className="glass-extreme min-w-0 px-3 py-2 rounded-full flex items-center gap-1.5 sm:px-4 sm:gap-2">
                 <Clock className="w-4 h-4 text-cyan-500" />
-                <span className="text-sm text-slate-600">Lun-Vie: 9:00-21:00</span>
+                <span className="truncate text-xs text-slate-600 sm:text-sm">Horario: Lun-Vie 9:00-21:00</span>
               </div>
             </motion.div>
               </motion.div>
@@ -332,7 +332,7 @@ export function Hero({ googleRating }: HeroProps) {
                           className="flex h-full min-h-0 flex-col gap-3 sm:flex-row sm:gap-0"
                         >
                           {/* Ficha ~30% */}
-                          <div className="flex min-h-0 w-full min-w-0 flex-col gap-2 sm:w-[30%] sm:shrink-0 sm:pr-3">
+                          <div className="flex min-h-0 w-full min-w-0 flex-col gap-2 lg:w-[30%] lg:shrink-0 lg:pr-3">
                             <div className="relative min-h-[100px] w-full flex-1 overflow-hidden rounded-2xl border border-white/50 bg-white/25 shadow-inner">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
@@ -370,12 +370,12 @@ export function Hero({ googleRating }: HeroProps) {
                           </div>
 
                           <div
-                            className="h-px shrink-0 bg-gradient-to-r from-transparent via-slate-400/50 to-transparent sm:h-auto sm:w-px sm:bg-gradient-to-b"
+                            className="hidden h-px shrink-0 bg-gradient-to-r from-transparent via-slate-400/50 to-transparent lg:block lg:h-auto lg:w-px lg:bg-gradient-to-b"
                             aria-hidden
                           />
 
-                          {/* ~70%: resto de perfiles (sin título; foto grande + texto legible) */}
-                          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:pl-3">
+                          {/* En smartphone/tablet mostramos solo la bio del perfil seleccionado. */}
+                          <div className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex lg:pl-3">
                             <div className="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-1 sm:grid-cols-4 sm:grid-rows-4 sm:gap-1.5">
                               {HERO_STAFF.map((person, index) => {
                                 if (index === staffDetailIndex) return null
@@ -411,6 +411,7 @@ export function Hero({ googleRating }: HeroProps) {
                               })}
                             </div>
                           </div>
+
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -428,7 +429,7 @@ export function Hero({ googleRating }: HeroProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 lg:block"
         aria-hidden="true"
       >
         <div className="w-6 h-10 rounded-full border-2 border-slate-400/50 flex justify-center pt-2 animate-bounce">

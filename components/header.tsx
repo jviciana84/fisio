@@ -140,21 +140,33 @@ export function Header() {
           </motion.div>
         </div>
 
-        {/* Mobile Menu Button */}
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="lg:hidden glass-extreme p-2 rounded-xl"
-          aria-expanded={isMobileMenuOpen}
-          aria-controls="mobile-menu"
-          aria-label={isMobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
-        >
-          {isMobileMenuOpen ? (
-            <X className="w-6 h-6 text-slate-700" />
-          ) : (
-            <Menu className="w-6 h-6 text-slate-700" />
-          )}
-        </motion.button>
+        {/* Mobile actions: WhatsApp + menu */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <motion.a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            whileTap={{ scale: 0.9 }}
+            className="glass-extreme p-2 rounded-xl flex items-center justify-center text-slate-700 hover:text-blue-600 transition-colors"
+            aria-label="Escribir por WhatsApp"
+          >
+            <WhatsAppIcon className="w-6 h-6" />
+          </motion.a>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="glass-extreme p-2 rounded-xl"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-menu"
+            aria-label={isMobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-6 h-6 text-slate-700" />
+            ) : (
+              <Menu className="w-6 h-6 text-slate-700" />
+            )}
+          </motion.button>
+        </div>
       </div>
 
       {/* Mobile Menu */}

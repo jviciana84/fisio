@@ -33,7 +33,7 @@ export function HeroCardCarousel({ className, fillHeight }: HeroCardCarouselProp
   return (
     <div
       className={cn(
-        "group/carousel relative overflow-hidden rounded-2xl border border-white/40",
+        "group/carousel relative overflow-hidden rounded-2xl border border-white/40 touch-pan-y",
         fillHeight && "h-full min-h-0 flex-1",
         className,
       )}
