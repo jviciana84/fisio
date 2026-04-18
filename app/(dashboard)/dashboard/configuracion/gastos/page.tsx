@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { hintForCategory } from "@/lib/fiscal/expenseHints";
 
 const CATEGORY_SEEDS = [
   "Alquiler",
@@ -46,6 +47,10 @@ export default function AltaGastosPage() {
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
+  const [deductibility, setDeductibility] = useState<"full" | "partial" | "none">("full");
+  const [deductiblePercent, setDeductiblePercent] = useState(50);
+
+  const categoryHint = useMemo(() => hintForCategory(category), [category]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -90,6 +95,8 @@ export default function AltaGastosPage() {
           category: category.trim(),
           amountEuros: amountNum,
           recurrence,
+          deductibility,
+          deductiblePercent: deductibility === "partial" ? deductiblePercent : undefined,
         }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
@@ -127,8 +134,8 @@ export default function AltaGastosPage() {
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-slate-600 md:text-[15px]">
               Registra cargos recurrentes (alquiler, luz, internet, agua, etc.): concepto,
-              categoría, importe y periodicidad. Las categorías que vayas usando se guardan y
-              podrás elegirlas de nuevo en el desplegable o escribir una nueva.
+              categoría, importe y periodicidad. Indica si el gasto es deducible para el
+              simulador fiscal: te ayudamos con una guía según la categoría.
             </p>
           </div>
 
@@ -257,6 +264,65 @@ export default function AltaGastosPage() {
                     placeholder="Factura, trimestre…"
                     autoComplete="off"
                   />
+                </div>
+
+                {categoryHint ? (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-4 text-sm text-slate-700">
+                    <p className="font-semibold text-blue-900">{categoryHint.title}</p>
+                    <p className="mt-2 leading-relaxed">{categoryHint.explanation}</p>
+                    <button
+                      type="button"
+                      className="mt-3 text-xs font-semibold text-blue-700 underline"
+                      onClick={() => {
+                        setDeductibility(categoryHint.defaultDeductibility);
+                        setDeductiblePercent(categoryHint.defaultDeductiblePercent);
+                      }}
+                    >
+                      Aplicar sugerencia ({categoryHint.defaultDeductibility === "full" ? "100%" : categoryHint.defaultDeductibility === "partial" ? `parcial ${categoryHint.defaultDeductiblePercent}%` : "no deducible"})
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+                  <div>
+                    <label
+                      htmlFor="expense-deduct"
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                    >
+                      Deducibilidad (simulador)
+                    </label>
+                    <select
+                      id="expense-deduct"
+                      value={deductibility}
+                      onChange={(e) =>
+                        setDeductibility(e.target.value as "full" | "partial" | "none")
+                      }
+                      className={inputClass}
+                    >
+                      <option value="full">Deducible (100%)</option>
+                      <option value="partial">Parcial</option>
+                      <option value="none">No deducible</option>
+                    </select>
+                  </div>
+                  {deductibility === "partial" ? (
+                    <div>
+                      <label
+                        htmlFor="expense-deduct-pct"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
+                      >
+                        % deducible
+                      </label>
+                      <input
+                        id="expense-deduct-pct"
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={deductiblePercent}
+                        onChange={(e) => setDeductiblePercent(Number(e.target.value))}
+                        className={inputClass}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <button

@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 
+/** Mismo isotipo que la web pública (`components/header.tsx`). */
+const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg";
+
 function GearIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -60,6 +63,27 @@ function HomeIcon({ className }: { className?: string }) {
     >
       <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function BanknoteIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M6 12h.01M18 12h.01" />
     </svg>
   );
 }
@@ -190,42 +214,6 @@ function ReceiptIcon({ className }: { className?: string }) {
   );
 }
 
-/**
- * Mismas curvas decorativas que el SVG del panel izquierdo del login
- * (viewBox 800×900, tres trazos).
- */
-function LoginHeroMark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={cn("text-black", className)}
-      viewBox="0 0 800 900"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path
-        d="M405 60C340 130 495 205 405 290C300 385 525 450 405 540C320 605 475 690 405 840"
-        stroke="currentColor"
-        strokeWidth="20"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M230 160C330 240 325 370 230 460C150 540 170 670 250 740"
-        stroke="currentColor"
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-      <path
-        d="M560 140C470 225 470 360 560 445C630 520 630 650 560 730"
-        stroke="currentColor"
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -274,11 +262,15 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
           expanded ? "gap-3 px-4 py-4" : "justify-center px-2 py-4",
         )}
       >
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600/15 p-0.5 shadow-inner backdrop-blur-sm"
-          aria-hidden
-        >
-          <LoginHeroMark className="h-9 w-9 shrink-0" />
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full glass-extreme p-1">
+          <img
+            src={LOGO_FRB3_SRC}
+            alt="Logo Fisioterapia Roc Blanc - Centro de fisioterapia en Terrassa"
+            width={1000}
+            height={1286}
+            className="h-full w-full object-contain object-center [image-rendering:auto]"
+            decoding="async"
+          />
         </div>
         <div
           className={cn(
@@ -317,6 +309,56 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             Inicio
           </span>
         </Link>
+
+        <Link
+          href="/dashboard/ingresos"
+          className={cn(
+            itemBase,
+            expanded ? "gap-3 px-2" : "justify-center px-0",
+            pathname.startsWith("/dashboard/ingresos")
+              ? "bg-white/40 text-slate-900 shadow-sm"
+              : "hover:bg-white/30",
+          )}
+          title={expanded ? undefined : "Ingresos"}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
+            <BanknoteIcon />
+          </span>
+          <span
+            className={cn(
+              "whitespace-nowrap",
+              expanded ? "opacity-100" : "sr-only",
+            )}
+          >
+            Ingresos
+          </span>
+        </Link>
+
+        {isAdmin ? (
+          <Link
+            href="/dashboard/fiscal"
+            className={cn(
+              itemBase,
+              expanded ? "gap-3 px-2" : "justify-center px-0",
+              pathname.startsWith("/dashboard/fiscal")
+                ? "bg-white/40 text-slate-900 shadow-sm"
+                : "hover:bg-white/30",
+            )}
+            title={expanded ? undefined : "Impuestos"}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
+              <ReceiptIcon />
+            </span>
+            <span
+              className={cn(
+                "whitespace-nowrap",
+                expanded ? "opacity-100" : "sr-only",
+              )}
+            >
+              Impuestos
+            </span>
+          </Link>
+        ) : null}
 
         {isAdmin ? (
           <Link

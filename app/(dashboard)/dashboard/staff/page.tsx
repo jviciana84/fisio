@@ -11,7 +11,7 @@ type StaffRow = {
 
 type TicketRow = {
   total_cents: number;
-  payment_method: "cash" | "bizum";
+  payment_method: "cash" | "bizum" | "card";
   created_by_staff_id: string | null;
 };
 

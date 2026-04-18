@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-type PaymentMethod = "cash" | "bizum";
+type PaymentMethod = "cash" | "bizum" | "card";
 type Body = {
   clientId?: string | null;
   productIds: string[];
@@ -28,7 +28,7 @@ type TicketLineInsert = {
 };
 
 function isPaymentMethod(v: string): v is PaymentMethod {
-  return v === "cash" || v === "bizum";
+  return v === "cash" || v === "bizum" || v === "card";
 }
 
 async function generateTicketNumber() {

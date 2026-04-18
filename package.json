@@ -14,6 +14,7 @@
     "totp:qr": "node scripts/show-totp-qr.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-slider": "^1.3.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.103.0",
     "class-variance-authority": "^0.7.1",

@@ -23,6 +23,8 @@ type Body = {
   /** Si no se envía, se usa la fecha del servidor (hoy). */
   expenseDate?: string;
   recurrence: Recurrence;
+  deductibility?: "full" | "partial" | "none";
+  deductiblePercent?: number;
 };
 
 function isRecurrence(v: string): v is Recurrence {
@@ -77,6 +79,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: "Recurrencia no válida" }, { status: 400 });
     }
 
+    const deductibility = body.deductibility ?? "full";
+    if (deductibility !== "full" && deductibility !== "partial" && deductibility !== "none") {
+      return NextResponse.json({ ok: false, message: "Deducibilidad no válida" }, { status: 400 });
+    }
+
+    let deductiblePercent = Math.round(Number(body.deductiblePercent ?? 100));
+    if (!Number.isFinite(deductiblePercent) || deductiblePercent < 0 || deductiblePercent > 100) {
+      return NextResponse.json({ ok: false, message: "Porcentaje deducible inválido" }, { status: 400 });
+    }
+    if (deductibility !== "partial") {
+      deductiblePercent = deductibility === "full" ? 100 : 0;
+    }
+
     const supabase = createSupabaseAdminClient();
 
     const { data, error } = await supabase
@@ -88,6 +103,8 @@ export async function POST(request: Request) {
         amount_cents: amountCents,
         expense_date: expenseDate,
         recurrence,
+        deductibility,
+        deductible_percent: deductiblePercent,
       })
       .select("id")
       .single();

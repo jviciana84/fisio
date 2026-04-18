@@ -21,7 +21,7 @@ type Product = {
 type Receipt = {
   ticketNumber: string;
   createdAt: string;
-  paymentMethod: "cash" | "bizum";
+  paymentMethod: "cash" | "bizum" | "card";
   clientName: string | null;
   lines: { concept: string; amountEuros: number }[];
   totalEuros: number;
@@ -45,7 +45,7 @@ export function CashRegisterCard() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   const [manualAmount, setManualAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bizum">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bizum" | "card">("cash");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -153,7 +153,7 @@ export function CashRegisterCard() {
   }
 
   return (
-    <section className="glass-panel-strong xl:col-span-12 p-6 md:p-8">
+    <section className="glass-panel-strong glass-tint-blue xl:col-span-12 rounded-2xl p-6 md:p-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Caja</p>
@@ -165,7 +165,7 @@ export function CashRegisterCard() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-12">
-        <div className="rounded-2xl border border-white/60 bg-white/70 p-5 xl:col-span-4">
+        <div className="glass-inner rounded-2xl p-5 xl:col-span-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
           <label className="mt-2 block text-sm font-medium text-slate-700">Nº cliente / nombre / teléfono / email</label>
           <input
@@ -200,7 +200,7 @@ export function CashRegisterCard() {
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-white/60 bg-white/70 p-5 xl:col-span-5">
+        <div className="glass-inner rounded-2xl p-5 xl:col-span-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</p>
           <label className="mt-2 block text-sm font-medium text-slate-700">Buscar y añadir productos</label>
           <input
@@ -241,7 +241,7 @@ export function CashRegisterCard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/60 bg-white/70 p-5 xl:col-span-3">
+        <div className="glass-inner rounded-2xl p-5 xl:col-span-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Importe y pago</p>
           <label className="mt-2 block text-sm font-medium text-slate-700">Importe manual (€)</label>
           <input
@@ -271,6 +271,15 @@ export function CashRegisterCard() {
               />
               Bizum
             </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input
+                type="radio"
+                name="payment-method"
+                checked={paymentMethod === "card"}
+                onChange={() => setPaymentMethod("card")}
+              />
+              Tarjeta
+            </label>
           </div>
           <button
             type="button"
@@ -284,7 +293,7 @@ export function CashRegisterCard() {
       </div>
 
       {selectedProducts.length > 0 ? (
-        <div className="mt-4 rounded-xl border border-white/60 bg-white/70 p-4">
+        <div className="glass-inner mt-4 rounded-xl p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Resumen productos</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {selectedProducts.map((p) => (
@@ -309,11 +318,15 @@ export function CashRegisterCard() {
       ) : null}
 
       {receipt ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-inner">
+        <div className="glass-inner mt-4 rounded-2xl p-5 shadow-inner">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-slate-900">Ticket {receipt.ticketNumber}</h3>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-              {receipt.paymentMethod === "cash" ? "Efectivo" : "Bizum"}
+              {receipt.paymentMethod === "cash"
+                ? "Efectivo"
+                : receipt.paymentMethod === "bizum"
+                  ? "Bizum"
+                  : "Tarjeta"}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500">

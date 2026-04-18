@@ -99,6 +99,10 @@ create table if not exists public.expenses (
   expense_date date not null default (current_date),
   recurrence text not null default 'monthly'
     check (recurrence in ('none', 'weekly', 'monthly', 'quarterly', 'semiannual', 'annual')),
+  deductibility text not null default 'full'
+    check (deductibility in ('full', 'partial', 'none')),
+  deductible_percent integer not null default 100
+    check (deductible_percent >= 0 and deductible_percent <= 100),
   created_at timestamptz not null default now()
 );
 
@@ -176,7 +180,7 @@ create table if not exists public.cash_tickets (
   subtotal_cents integer not null check (subtotal_cents >= 0),
   manual_amount_cents integer not null default 0 check (manual_amount_cents >= 0),
   total_cents integer not null check (total_cents >= 0),
-  payment_method text not null check (payment_method in ('cash', 'bizum')),
+  payment_method text not null check (payment_method in ('cash', 'bizum', 'card')),
   created_by_staff_id uuid references public.staff_access(id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -215,3 +219,21 @@ create index if not exists staff_work_logs_staff_date_idx
 
 create index if not exists staff_work_logs_date_idx
   on public.staff_work_logs (work_date desc);
+
+create table if not exists public.fiscal_settings (
+  id smallint primary key default 1 check (id = 1),
+  declare_cash_percent integer not null default 60
+    check (declare_cash_percent >= 0 and declare_cash_percent <= 100),
+  rent_is_leased boolean not null default false,
+  monthly_rent_cents bigint not null default 0 check (monthly_rent_cents >= 0),
+  official_liquidity_cents bigint not null default 0,
+  sales_include_vat boolean not null default true,
+  sales_vat_rate_percent integer not null default 21 check (sales_vat_rate_percent >= 0 and sales_vat_rate_percent <= 21),
+  use_vat_on_sales boolean not null default false,
+  expense_vat_recoverable_percent integer not null default 100
+    check (expense_vat_recoverable_percent >= 0 and expense_vat_recoverable_percent <= 100),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.fiscal_settings (id) values (1)
+on conflict (id) do nothing;
