@@ -60,7 +60,7 @@ export default function AltaGastosPage() {
       const res = await fetch("/api/admin/expense-categories");
       const data = (await res.json()) as { ok?: boolean; categories?: string[] };
       if (res.ok && data.ok && Array.isArray(data.categories)) {
-        setCategoryOptions(mergeCategoryOptions(CATEGORY_SEEDS, data.categories));
+        setCategoryOptions(mergeCategoryOptions(VARIABLE_SEEDS, data.categories));
       }
     } catch {
       /* mantener seeds */
