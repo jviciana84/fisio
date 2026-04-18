@@ -1,10 +1,24 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { IngresosPageClient, type IncomeTicketRow } from "@/components/dashboard/IngresosPageClient";
+import type { IncomeBreakdownFiscalPrefs } from "@/lib/dashboard/incomeTicketBreakdown";
 
 export const dynamic = "force-dynamic";
 
 export default async function IngresosPage() {
   const supabase = createSupabaseAdminClient();
+
+  const { data: fiscalRow } = await supabase
+    .from("fiscal_settings")
+    .select("use_vat_on_sales, sales_include_vat, sales_vat_rate_percent")
+    .eq("id", 1)
+    .maybeSingle();
+
+  const fiscalPrefs: IncomeBreakdownFiscalPrefs = {
+    useVatOnSales: fiscalRow?.use_vat_on_sales ?? false,
+    salesIncludeVat: fiscalRow?.sales_include_vat ?? true,
+    salesVatRatePercent: fiscalRow?.sales_vat_rate_percent ?? 21,
+  };
+
   const { data, error } = await supabase
     .from("cash_tickets")
     .select(
@@ -56,5 +70,5 @@ export default async function IngresosPage() {
     client_name: clientNameFromRow(row),
   }));
 
-  return <IngresosPageClient tickets={tickets} />;
+  return <IngresosPageClient tickets={tickets} fiscalPrefs={fiscalPrefs} />;
 }

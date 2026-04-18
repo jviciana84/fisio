@@ -88,6 +88,28 @@ function BanknoteIcon({ className }: { className?: string }) {
   );
 }
 
+/** Gastos (salida de caja) — icono distinto de ingresos */
+function WalletOutIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h15v-4" />
+      <path d="M18 12h.01" />
+    </svg>
+  );
+}
+
 function UsersPlusIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -331,6 +353,30 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             )}
           >
             Ingresos
+          </span>
+        </Link>
+
+        <Link
+          href="/dashboard/gastos"
+          className={cn(
+            itemBase,
+            expanded ? "gap-3 px-2" : "justify-center px-0",
+            pathname.startsWith("/dashboard/gastos")
+              ? "bg-white/40 text-slate-900 shadow-sm"
+              : "hover:bg-white/30",
+          )}
+          title={expanded ? undefined : "Gastos"}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-rose-800">
+            <WalletOutIcon />
+          </span>
+          <span
+            className={cn(
+              "whitespace-nowrap",
+              expanded ? "opacity-100" : "sr-only",
+            )}
+          >
+            Gastos
           </span>
         </Link>
 

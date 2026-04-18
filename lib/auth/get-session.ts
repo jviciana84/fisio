@@ -2,7 +2,12 @@ import { cookies } from "next/headers";
 import { verifySessionToken } from "@/lib/sessions";
 import type { StaffSessionPayload } from "@/lib/sessions";
 
-export async function getStaffSession(): Promise<StaffSessionPayload | null> {
+export type StaffSessionInfo = StaffSessionPayload & {
+  /** `iat` del JWT: inicio de sesión (emisión del token). */
+  issuedAt: Date | null;
+};
+
+export async function getStaffSession(): Promise<StaffSessionInfo | null> {
   const secret = process.env.AUTH_CHALLENGE_SECRET;
   if (!secret) return null;
 
@@ -11,9 +16,18 @@ export async function getStaffSession(): Promise<StaffSessionPayload | null> {
   if (!token) return null;
 
   try {
-    const payload = await verifySessionToken<StaffSessionPayload>(token, secret);
+    const payload = await verifySessionToken<StaffSessionPayload & { iat?: number }>(token, secret);
     if (!payload.userId || !payload.role) return null;
-    return payload;
+    const issuedAt =
+      typeof payload.iat === "number" && Number.isFinite(payload.iat)
+        ? new Date(payload.iat * 1000)
+        : null;
+    return {
+      userId: payload.userId,
+      role: payload.role,
+      purpose: payload.purpose,
+      issuedAt,
+    };
   } catch {
     return null;
   }

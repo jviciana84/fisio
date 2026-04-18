@@ -42,8 +42,11 @@ export default async function DashboardGroupLayout({
             aria-hidden
           />
           <SectionWatermark align="right" fullViewport scaleFactor={1.05} />
-          <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-            <DashboardTopStatus userName={displayName} />
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-12 sm:pt-14">
+            <DashboardTopStatus
+              userName={displayName}
+              sessionIssuedAtIso={session.issuedAt?.toISOString() ?? null}
+            />
             {children}
           </div>
         </div>

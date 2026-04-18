@@ -238,6 +238,21 @@ export function getRangeTimeBounds(range: ChartRange, nowInput?: Date): { start:
   return { start: new Date(now.getTime() - 24 * 60 * 60 * 1000), end: new Date(now.getTime() + 1) };
 }
 
+/** Normaliza `expense_date` (YYYY-MM-DD) a clave local YYYY-MM-DD. */
+export function localDayKeyFromExpenseDate(expenseDateYmd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expenseDateYmd.trim());
+  if (!m) return "";
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+/** Misma ventana temporal que `ticketInRange`, usando la fecha del gasto (solo día, sin hora). */
+export function expenseDateInRange(expenseDateYmd: string, range: ChartRange, nowInput?: Date): boolean {
+  const [y, mo, d] = expenseDateYmd.split("-").map(Number);
+  if (!y || !mo || !d) return false;
+  const atNoon = new Date(y, mo - 1, d, 12, 0, 0, 0);
+  return ticketInRange(atNoon.toISOString(), range, nowInput);
+}
+
 export function ticketInRange(createdAt: string, range: ChartRange, nowInput?: Date): boolean {
   const d = new Date(createdAt);
   if (Number.isNaN(d.getTime())) return false;
