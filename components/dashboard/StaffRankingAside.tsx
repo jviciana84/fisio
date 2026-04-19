@@ -17,9 +17,16 @@ type Props = {
   rankingHours: StaffGridRow[];
   rankingCash: StaffGridRow[];
   compact: boolean;
+  metricsPeriodLabel: string;
 };
 
-export function StaffRankingAside({ rankingSales, rankingHours, rankingCash, compact }: Props) {
+export function StaffRankingAside({
+  rankingSales,
+  rankingHours,
+  rankingCash,
+  compact,
+  metricsPeriodLabel,
+}: Props) {
   const topSales = compact ? rankingSales.slice(0, 3) : rankingSales.slice(0, 5);
   const topHours = compact ? rankingHours.slice(0, 3) : rankingHours.slice(0, 5);
   const topCash = compact ? rankingCash.slice(0, 3) : rankingCash.slice(0, 5);
@@ -39,6 +46,13 @@ export function StaffRankingAside({ rankingSales, rankingHours, rankingCash, com
       <h2 className={compact ? "mt-1 text-base font-semibold text-slate-900" : "mt-2 text-xl font-semibold text-slate-900"}>
         Top rendimiento
       </h2>
+      <p
+        className={
+          compact ? "mt-0.5 text-[10px] capitalize leading-snug text-slate-600" : "mt-1 text-xs capitalize text-slate-600"
+        }
+      >
+        Mes en curso: {metricsPeriodLabel}
+      </p>
       {compact ? (
         <p className="mt-1 text-[10px] leading-snug text-slate-500">
           Vista compacta mientras editas una ficha (sin importes en €).

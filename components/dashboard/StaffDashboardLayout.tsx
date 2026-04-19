@@ -11,6 +11,8 @@ type Props = {
   rankingSales: StaffGridRow[];
   rankingHours: StaffGridRow[];
   rankingCash: StaffGridRow[];
+  /** Mes en curso (Europe/Madrid) para métricas de tarjetas y ranking. */
+  metricsPeriodLabel: string;
 };
 
 export function StaffDashboardLayout({
@@ -18,6 +20,7 @@ export function StaffDashboardLayout({
   rankingSales,
   rankingHours,
   rankingCash,
+  metricsPeriodLabel,
 }: Props) {
   const [expandedStaffId, setExpandedStaffId] = useState<string | null>(null);
   const compactRanking = expandedStaffId !== null;
@@ -42,13 +45,18 @@ export function StaffDashboardLayout({
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               Pulsa una tarjeta para ampliarla: editar datos de alta, foto web y hasta seis tarifas por hora (ej.
-              fisioterapia vs acupuntura). Las cifras de ventas y horas vienen de tickets y registro de horas.
+              fisioterapia vs acupuntura). Las cifras ({metricsPeriodLabel}) vienen de tickets de caja y registro de
+              horas.
             </p>
           </div>
           <StaffAltaUsuarioModal />
         </div>
 
-        <StaffMetricsGrid rows={gridRows} onExpandedChange={handleExpandedChange} />
+        <StaffMetricsGrid
+          rows={gridRows}
+          metricsPeriodLabel={metricsPeriodLabel}
+          onExpandedChange={handleExpandedChange}
+        />
       </section>
 
       <StaffRankingAside
@@ -56,6 +64,7 @@ export function StaffDashboardLayout({
         rankingHours={rankingHours}
         rankingCash={rankingCash}
         compact={compactRanking}
+        metricsPeriodLabel={metricsPeriodLabel}
       />
     </div>
   );

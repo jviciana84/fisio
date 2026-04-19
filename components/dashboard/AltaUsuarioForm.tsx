@@ -9,16 +9,33 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/cn";
+import { type StaffCompensationType, parseEuroStringToCents } from "@/lib/staff-compensation";
 
 type Role = "admin" | "staff";
+
+const ALTA_TARIFF_SLOTS = 2;
+
+function parseEuroToCents(s: string): number | null {
+  const raw = s.replace(",", ".").trim();
+  if (raw === "") return null;
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100);
+}
 
 export type AltaUsuarioFormProps = {
   /** Tras crear usuario correctamente (tras reset y nuevo código). */
   onSuccess?: () => void;
   className?: string;
+  /**
+   * `wide`: dos columnas en pantallas grandes (p. ej. modal staff) para menos scroll.
+   * `stack`: una columna (página configuración).
+   */
+  layout?: "stack" | "wide";
 };
 
-export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) {
+export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: AltaUsuarioFormProps) {
   const reactId = useId().replace(/:/g, "");
   const fid = (name: string) => `alta-${reactId}-${name}`;
 
@@ -36,7 +53,14 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [tariff1Name, setTariff1Name] = useState("");
+  const [tariff1Euro, setTariff1Euro] = useState("");
+  const [tariff2Name, setTariff2Name] = useState("");
+  const [tariff2Euro, setTariff2Euro] = useState("");
+  const [compensationType, setCompensationType] = useState<StaffCompensationType>("self_employed");
+  const [monthlySalaryEuro, setMonthlySalaryEuro] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
@@ -85,8 +109,37 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
     if (!fullName.trim() || !email.trim() || !/^\d{4}$/.test(pin)) return false;
     if (phoneDigits.length < 9 || phoneDigits.length > 15) return false;
     if (!userCode || codeLoading) return false;
+    if (compensationType === "salaried") {
+      const sc = parseEuroStringToCents(monthlySalaryEuro);
+      if (sc === null || sc <= 0) return false;
+    } else {
+      const c1 = parseEuroToCents(tariff1Euro);
+      const t1Ok = tariff1Name.trim().length > 0 && c1 !== null && c1 > 0;
+      if (!t1Ok) return false;
+      const t2HasSomething = tariff2Name.trim().length > 0 || tariff2Euro.trim().length > 0;
+      if (t2HasSomething) {
+        const c2 = parseEuroToCents(tariff2Euro);
+        if (!tariff2Name.trim() || c2 === null || c2 <= 0) return false;
+      }
+    }
+    if (publicProfile && !publicBio.trim()) return false;
     return true;
-  }, [fullName, email, pin, phoneDigits, userCode, codeLoading]);
+  }, [
+    fullName,
+    email,
+    pin,
+    phoneDigits,
+    userCode,
+    codeLoading,
+    tariff1Name,
+    tariff1Euro,
+    tariff2Name,
+    tariff2Euro,
+    publicProfile,
+    publicBio,
+    compensationType,
+    monthlySalaryEuro,
+  ]);
 
   function clearAvatar() {
     if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
@@ -109,6 +162,7 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setAttemptedSubmit(true);
     if (!canSubmit || !userCode) return;
     setLoading(true);
     setMessage(null);
@@ -129,6 +183,23 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
       fd.append("publicBio", publicBio);
       if (avatarFile && publicProfile) {
         fd.append("avatar", avatarFile);
+      }
+
+      fd.append("compensationType", compensationType);
+      fd.append("monthlySalary", monthlySalaryEuro.trim());
+
+      if (compensationType === "self_employed") {
+        const c1 = parseEuroToCents(tariff1Euro)!;
+        const slots: { label: string; cents_per_hour: number }[] = [
+          { label: tariff1Name.trim(), cents_per_hour: c1 },
+        ];
+        const c2 = parseEuroToCents(tariff2Euro);
+        if (tariff2Name.trim() && c2 !== null && c2 > 0) {
+          slots.push({ label: tariff2Name.trim(), cents_per_hour: c2 });
+        }
+        fd.append("hourlyTariffs", JSON.stringify(slots));
+      } else {
+        fd.append("hourlyTariffs", JSON.stringify([]));
       }
 
       const res = await fetch("/api/admin/staff", {
@@ -158,6 +229,7 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
         text += ` ${data.avatarWarning}`;
       }
       setMessage({ type: "ok", text });
+      setAttemptedSubmit(false);
       setFullName("");
       setEmail("");
       setPhone("");
@@ -167,6 +239,12 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
       setPublicProfile(true);
       setPublicSpecialty("");
       setPublicBio("");
+      setTariff1Name("");
+      setTariff1Euro("");
+      setTariff2Name("");
+      setTariff2Euro("");
+      setCompensationType("self_employed");
+      setMonthlySalaryEuro("");
       clearAvatar();
       await loadUserCode({ silent: true });
       onSuccess?.();
@@ -183,8 +261,24 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
   const checkboxBoxClass =
     "flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 text-left";
 
-  return (
-    <form onSubmit={handleSubmit} className={className ?? "space-y-4"}>
+  const wide = layout === "wide";
+
+  const showErr = attemptedSubmit;
+  const c1Parsed = parseEuroToCents(tariff1Euro);
+  const errTariff1Name = showErr && compensationType === "self_employed" && !tariff1Name.trim();
+  const errTariff1Euro =
+    showErr &&
+    compensationType === "self_employed" &&
+    (c1Parsed === null || c1Parsed <= 0);
+  const salaryParsed = parseEuroStringToCents(monthlySalaryEuro);
+  const errMonthlySalary =
+    showErr && compensationType === "salaried" && (salaryParsed === null || salaryParsed <= 0);
+  const errBio = showErr && publicProfile && !publicBio.trim();
+  const errField =
+    "border-rose-400 placeholder:text-rose-600 focus:border-rose-500 focus:ring-rose-100";
+
+  const blockDatosAcceso = (
+    <>
       <div>
         <label htmlFor={fid("fullName")} className="mb-1 block text-xs font-medium text-slate-700">
           Nombre completo
@@ -262,20 +356,28 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
             <button
               type="button"
               onClick={() => void loadUserCode()}
-              className="mt-1.5 text-left text-xs font-medium text-blue-600 underline-offset-2 hover:underline"
+              className="mt-1.5 cursor-pointer text-left text-xs font-medium text-blue-600 underline-offset-2 hover:underline"
             >
               Reintentar código
             </button>
           ) : null}
         </div>
       </div>
+    </>
+  );
 
-      <div className="border-t border-slate-100 pt-4">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Rol y perfil web
-        </p>
+  const blockRolPerfil = (
+    <div
+      className={cn(
+        "border-t border-slate-100 pt-4",
+        wide && "lg:border-t-0 lg:pt-0",
+      )}
+    >
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        Rol · web
+      </p>
 
-        <div className="grid gap-3 md:grid-cols-2 md:items-start">
+      <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
           <div>
             <label htmlFor={fid("role")} className="mb-1 block text-xs font-medium text-slate-700">
               Rol
@@ -290,42 +392,33 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
               <option value="admin">Admin</option>
             </select>
           </div>
-          <div>
-            <span
-              className="mb-1 block text-xs font-medium text-transparent select-none"
-              aria-hidden
-            >
-              —
-            </span>
-            <label className={`${checkboxBoxClass} border-slate-200 bg-slate-50/90`}>
-              <input
-                type="checkbox"
-                checked={publicProfile}
-                onChange={(e) => {
-                  setPublicProfile(e.target.checked);
-                  if (!e.target.checked) clearAvatar();
-                }}
-                className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-xs font-medium text-slate-800">Perfil público en la web</span>
-            </label>
-          </div>
+          <label
+            className={`${checkboxBoxClass} min-h-[2.625rem] items-center border-slate-200 bg-slate-50/90 sm:mt-0`}
+          >
+            <input
+              type="checkbox"
+              checked={publicProfile}
+              onChange={(e) => {
+                setPublicProfile(e.target.checked);
+                if (!e.target.checked) clearAvatar();
+              }}
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs font-medium text-slate-800">Visible en la web</span>
+          </label>
         </div>
 
         {showAuthCheckbox ? (
           <label
-            className={`${checkboxBoxClass} mt-3 items-start border-blue-100 bg-blue-50/90 p-3`}
+            className={`${checkboxBoxClass} mt-2 items-center border-blue-100 bg-blue-50/90 py-2`}
           >
             <input
               type="checkbox"
               checked={requireAuthenticator}
               onChange={(e) => setRequireAuthenticator(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-xs leading-snug text-slate-700">
-              <strong className="block">Authenticator en 1.er acceso</strong>
-              QR tras el primer PIN (admin).
-            </span>
+            <span className="text-xs text-slate-700">Authenticator al entrar (admin)</span>
           </label>
         ) : null}
 
@@ -336,15 +429,14 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
                 htmlFor={fid("publicSpecialty")}
                 className="mb-1 block text-xs font-medium text-slate-700"
               >
-                Especialidad (web){" "}
-                <span className="font-normal text-slate-500">opcional</span>
+                Especialidad
               </label>
               <input
                 id={fid("publicSpecialty")}
                 value={publicSpecialty}
                 onChange={(e) => setPublicSpecialty(e.target.value)}
                 className={inputClass}
-                placeholder="Ej. Fisioterapia deportiva"
+                placeholder="Deportiva…"
                 autoComplete="off"
               />
             </div>
@@ -353,7 +445,7 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
                 htmlFor={fid("publicAvatar")}
                 className="mb-1 block text-xs font-medium text-slate-700"
               >
-                Foto en la web <span className="font-normal text-slate-500">opcional</span>
+                Foto
               </label>
               <div className="flex items-start gap-2">
                 <input
@@ -383,29 +475,187 @@ export function AltaUsuarioForm({ onSuccess, className }: AltaUsuarioFormProps) 
                   </div>
                 ) : null}
               </div>
-              <p className="mt-1 text-[10px] text-slate-500">JPG, PNG, WebP o GIF · máx. 2 MB</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">JPG/PNG/WebP/GIF · 2 MB</p>
             </div>
             <div className="md:col-span-2">
               <label htmlFor={fid("publicBio")} className="mb-1 block text-xs font-medium text-slate-700">
-                Biografía breve <span className="font-normal text-slate-500">opcional</span>
+                Bio
               </label>
               <textarea
                 id={fid("publicBio")}
                 value={publicBio}
                 onChange={(e) => setPublicBio(e.target.value)}
                 rows={2}
-                className={`${inputClass} resize-y min-h-[4rem] py-2`}
-                placeholder="Una o dos frases sobre su enfoque."
+                className={cn(
+                  inputClass,
+                  "resize-y min-h-[3.25rem] py-2",
+                  errBio && errField,
+                )}
+                placeholder="Texto público"
+                required={publicProfile}
               />
             </div>
           </div>
         ) : null}
       </div>
+  );
+
+  const blockTarifas = (
+    <div className="border-t border-slate-100 pt-4">
+      <div className="mb-4">
+        <span className="mb-2 block text-xs font-medium text-slate-700">Retribución</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "text-xs font-medium",
+              compensationType === "self_employed" ? "text-slate-900" : "text-slate-400",
+            )}
+          >
+            Autónomo
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={compensationType === "salaried"}
+            aria-label="Asalariado: activado. Autónomo: desactivado."
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+              compensationType === "salaried" ? "bg-blue-600" : "bg-slate-300",
+            )}
+            onClick={() =>
+              setCompensationType((prev) => (prev === "salaried" ? "self_employed" : "salaried"))
+            }
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                compensationType === "salaried" && "translate-x-5",
+              )}
+            />
+          </button>
+          <span
+            className={cn(
+              "text-xs font-medium",
+              compensationType === "salaried" ? "text-slate-900" : "text-slate-400",
+            )}
+          >
+            Asalariado
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-3 border-b border-slate-100 pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {compensationType === "salaried" ? "Salario mensual" : "Tarifas €/h"}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-600">
+          {compensationType === "salaried"
+            ? "Bruto (referencia interna)"
+            : "Al menos una tarifa con importe mayor que 0."}
+        </p>
+      </div>
+
+      {compensationType === "salaried" ? (
+        <div>
+          <label htmlFor={fid("monthlySalary")} className="mb-1 block text-xs font-medium text-slate-700">
+            Importe (€ bruto)
+          </label>
+          <input
+            id={fid("monthlySalary")}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={monthlySalaryEuro}
+            onChange={(e) => setMonthlySalaryEuro(e.target.value)}
+            className={cn(inputClass, "text-right tabular-nums", errMonthlySalary && errField)}
+            placeholder="0,00"
+            aria-label="Salario mensual bruto en euros"
+          />
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "flex flex-col gap-2",
+            wide && "sm:grid sm:grid-cols-2 sm:gap-3",
+          )}
+        >
+          {Array.from({ length: ALTA_TARIFF_SLOTS }, (_, idx) => {
+            const isFirst = idx === 0;
+            const name = isFirst ? tariff1Name : tariff2Name;
+            const setName = isFirst ? setTariff1Name : setTariff2Name;
+            const euro = isFirst ? tariff1Euro : tariff2Euro;
+            const setEuro = isFirst ? setTariff1Euro : setTariff2Euro;
+            return (
+              <div key={idx} className="flex min-w-0 items-center gap-2">
+                <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">
+                  {idx + 1}
+                </span>
+                <input
+                  id={fid(`tariff-name-${idx}`)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={cn(
+                    inputClass,
+                    "min-w-0 flex-1",
+                    isFirst && errTariff1Name && errField,
+                  )}
+                  placeholder="Nombre"
+                  autoComplete="off"
+                  aria-label={`Tarifa ${idx + 1} nombre`}
+                />
+                <input
+                  id={fid(`tariff-euro-${idx}`)}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={euro}
+                  onChange={(e) => setEuro(e.target.value)}
+                  className={cn(
+                    inputClass,
+                    "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
+                    isFirst && errTariff1Euro && errField,
+                  )}
+                  placeholder="€"
+                  aria-label={`Tarifa ${idx + 1} euros por hora`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={cn(wide ? "space-y-5" : "space-y-4", className)}
+    >
+      {wide ? (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-x-10 lg:items-start">
+            <div className="min-w-0 space-y-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Datos de acceso
+              </p>
+              {blockDatosAcceso}
+            </div>
+            <div className="min-w-0">{blockRolPerfil}</div>
+          </div>
+          <div className="min-w-0 w-full">{blockTarifas}</div>
+        </div>
+      ) : (
+        <>
+          {blockDatosAcceso}
+          {blockRolPerfil}
+          {blockTarifas}
+        </>
+      )}
 
       <button
         type="submit"
-        disabled={!canSubmit || loading}
-        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:opacity-95 disabled:opacity-50"
+        disabled={loading}
+        className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? "Guardando…" : "Crear usuario"}
       </button>

@@ -63,25 +63,25 @@ export function StaffAltaUsuarioModal() {
                 onClick={() => setOpen(false)}
                 aria-label="Cerrar"
               />
-              <div className="relative z-[10051] flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="relative z-[10051] flex max-h-[min(96vh,980px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
                   <h2 id="staff-alta-modal-title" className="text-base font-semibold text-slate-900">
                     Nuevo acceso
                   </h2>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                     aria-label="Cerrar"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
                   <p className="mb-4 text-xs text-slate-500">
-                    Completa los datos y pulsa crear usuario. La lista se actualizará al guardar.
+                    Completa y guarda; la lista se actualiza sola.
                   </p>
-                  <AltaUsuarioForm onSuccess={onSuccess} />
+                  <AltaUsuarioForm layout="wide" onSuccess={onSuccess} />
                 </div>
               </div>
             </div>,

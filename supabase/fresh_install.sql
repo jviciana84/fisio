@@ -33,6 +33,8 @@ create table if not exists public.staff_access (
   public_bio text,
   public_avatar_path text,
   hourly_tariffs jsonb not null default '[]'::jsonb,
+  compensation_type text not null default 'self_employed' check (compensation_type in ('salaried', 'self_employed')),
+  monthly_salary_cents integer,
   created_at timestamptz not null default now()
 );
 
@@ -49,6 +51,8 @@ alter table public.staff_access add column if not exists public_specialty text;
 alter table public.staff_access add column if not exists public_bio text;
 alter table public.staff_access add column if not exists public_avatar_path text;
 alter table public.staff_access add column if not exists hourly_tariffs jsonb not null default '[]'::jsonb;
+alter table public.staff_access add column if not exists compensation_type text not null default 'self_employed';
+alter table public.staff_access add column if not exists monthly_salary_cents integer;
 
 create unique index if not exists staff_access_employee_code_uidx
   on public.staff_access (employee_code)

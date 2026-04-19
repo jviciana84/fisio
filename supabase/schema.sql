@@ -16,6 +16,8 @@ create table if not exists public.staff_access (
   public_bio text,
   public_avatar_path text,
   hourly_tariffs jsonb not null default '[]'::jsonb,
+  compensation_type text not null default 'self_employed' check (compensation_type in ('salaried', 'self_employed')),
+  monthly_salary_cents integer,
   created_at timestamptz not null default now()
 );
 

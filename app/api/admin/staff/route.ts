@@ -4,6 +4,15 @@ import { generateSecret } from "otplib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import {
+  MAX_MONTHLY_SALARY_CENTS,
+  normalizeCompensationType,
+  parseEuroStringToCents,
+} from "@/lib/staff-compensation";
+import {
+  sanitizeHourlyTariffsForDb,
+  type HourlyTariffSlot,
+} from "@/lib/staff-hourly-tariffs";
 
 export const runtime = "nodejs";
 
@@ -21,6 +30,12 @@ type Body = {
   publicProfile?: boolean;
   publicSpecialty?: string;
   publicBio?: string;
+  /** 1–2 tarifas €/h (multipart: JSON en `hourlyTariffs`). */
+  hourlyTariffs?: HourlyTariffSlot[] | unknown;
+  /** `salaried` | `self_employed` (o alias `asalariado`). */
+  compensationType?: string;
+  /** Salario mensual en € (texto), solo si asalariado. */
+  monthlySalary?: string;
 };
 
 const STAFF_PUBLIC_BUCKET = "staff-public";
@@ -44,6 +59,36 @@ function isClientUserCodeFormat(code: string): boolean {
 function parseTruthy(v: unknown): boolean {
   if (typeof v !== "string") return false;
   return v === "1" || v === "true" || v === "on";
+}
+
+/** 1 obligatoria (nombre + importe &gt; 0), máx. 2. */
+function validateAltaHourlyTariffsData(data: unknown): HourlyTariffSlot[] | null {
+  if (!Array.isArray(data) || data.length < 1 || data.length > 2) return null;
+  const out: HourlyTariffSlot[] = [];
+  for (const item of data) {
+    if (!item || typeof item !== "object") return null;
+    const o = item as { label?: unknown; cents_per_hour?: unknown };
+    const label = typeof o.label === "string" ? o.label.trim() : "";
+    const cents = Math.round(Number(o.cents_per_hour));
+    if (!Number.isFinite(cents) || cents < 0) return null;
+    out.push({ label, cents_per_hour: cents });
+  }
+  const first = out[0];
+  if (!first?.label || first.cents_per_hour <= 0) return null;
+  if (out.length === 2) {
+    const second = out[1];
+    if (!second?.label || second.cents_per_hour <= 0) return null;
+  }
+  return out;
+}
+
+function parseAltaHourlyTariffs(raw: string | null): HourlyTariffSlot[] | null {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    return validateAltaHourlyTariffsData(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 function extFromMime(mime: string): string {
@@ -128,6 +173,7 @@ export async function POST(request: Request) {
       avatarFile = av instanceof File && av.size > 0 ? av : null;
       const roleRaw = String(fd.get("role") ?? "staff");
       const roleParsed: Role = roleRaw === "admin" ? "admin" : "staff";
+      const hourlyTariffsParsed = parseAltaHourlyTariffs(String(fd.get("hourlyTariffs") ?? ""));
       body = {
         fullName: String(fd.get("fullName") ?? "").trim(),
         email: String(fd.get("email") ?? "").trim().toLowerCase(),
@@ -139,6 +185,9 @@ export async function POST(request: Request) {
         publicProfile: !["0", "false"].includes(String(fd.get("publicProfile") ?? "1")),
         publicSpecialty: String(fd.get("publicSpecialty") ?? "").trim() || undefined,
         publicBio: String(fd.get("publicBio") ?? "").trim() || undefined,
+        hourlyTariffs: hourlyTariffsParsed ?? [],
+        compensationType: String(fd.get("compensationType") ?? "self_employed"),
+        monthlySalary: String(fd.get("monthlySalary") ?? "").trim(),
       };
     } else {
       body = (await request.json()) as Body;
@@ -154,6 +203,13 @@ export async function POST(request: Request) {
     const publicProfile = body.publicProfile !== false;
     const publicSpecialty = publicProfile ? body.publicSpecialty?.trim() || null : null;
     const publicBio = publicProfile ? body.publicBio?.trim() || null : null;
+
+    if (publicProfile && !publicBio) {
+      return NextResponse.json(
+        { ok: false, message: "La bio es obligatoria si el perfil está visible en la web." },
+        { status: 400 },
+      );
+    }
 
     if (!fullName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
@@ -185,6 +241,39 @@ export async function POST(request: Request) {
 
     if (!["admin", "staff"].includes(role)) {
       return NextResponse.json({ ok: false, message: "Rol inválido" }, { status: 400 });
+    }
+
+    const compensationType = normalizeCompensationType(body.compensationType);
+
+    let hourly_tariffs: HourlyTariffSlot[];
+    let monthly_salary_cents: number | null = null;
+
+    if (compensationType === "self_employed") {
+      const tariffPayload = validateAltaHourlyTariffsData(body.hourlyTariffs);
+      if (!tariffPayload) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Debes indicar entre 1 y 2 tarifas por hora: nombre e importe mayor que 0 (primera obligatoria).",
+          },
+          { status: 400 },
+        );
+      }
+      hourly_tariffs = sanitizeHourlyTariffsForDb(tariffPayload);
+    } else {
+      const cents = parseEuroStringToCents(String(body.monthlySalary ?? ""));
+      if (cents === null || cents <= 0 || cents > MAX_MONTHLY_SALARY_CENTS) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Indica un salario mensual bruto válido (mayor que 0).",
+          },
+          { status: 400 },
+        );
+      }
+      monthly_salary_cents = cents;
+      hourly_tariffs = sanitizeHourlyTariffsForDb([]);
     }
 
     const supabase = createSupabaseAdminClient();
@@ -230,26 +319,49 @@ export async function POST(request: Request) {
       totpOnboardingComplete = false;
     }
 
-    const { data, error } = await supabase
-      .from("staff_access")
-      .insert({
-        full_name: fullName,
-        email,
-        phone,
-        employee_code: storedUserCode,
-        role,
-        pin_hash: pinHash,
-        pin_salt: pinSalt,
-        requires_2fa: requires2fa,
-        totp_secret: totpSecret,
-        totp_onboarding_complete: totpOnboardingComplete,
-        is_active: true,
-        public_profile: publicProfile,
-        public_specialty: publicSpecialty,
-        public_bio: publicBio,
-      })
-      .select("id")
-      .single();
+    let insertPayload: Record<string, unknown> = {
+      full_name: fullName,
+      email,
+      phone,
+      employee_code: storedUserCode,
+      role,
+      pin_hash: pinHash,
+      pin_salt: pinSalt,
+      requires_2fa: requires2fa,
+      totp_secret: totpSecret,
+      totp_onboarding_complete: totpOnboardingComplete,
+      is_active: true,
+      public_profile: publicProfile,
+      public_specialty: publicSpecialty,
+      public_bio: publicBio,
+      hourly_tariffs,
+      compensation_type: compensationType,
+      monthly_salary_cents: monthly_salary_cents,
+    };
+
+    let { data, error } = await supabase.from("staff_access").insert(insertPayload).select("id").single();
+
+    if (error && error.code === "42703") {
+      const msg = String(error.message ?? "");
+      if (msg.includes("compensation_type") || msg.includes("monthly_salary")) {
+        const { compensation_type: _c, monthly_salary_cents: _m, ...rest } = insertPayload;
+        insertPayload = rest;
+        const retry = await supabase.from("staff_access").insert(insertPayload).select("id").single();
+        data = retry.data;
+        error = retry.error;
+      }
+    }
+
+    if (
+      error &&
+      (error.code === "42703" || String(error.message ?? "").includes("hourly_tariffs"))
+    ) {
+      const { hourly_tariffs: _omit, ...rest } = insertPayload;
+      insertPayload = rest;
+      const retry = await supabase.from("staff_access").insert(insertPayload).select("id").single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       if (error.code === "23505" || error.message?.includes("unique")) {

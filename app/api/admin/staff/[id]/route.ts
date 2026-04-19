@@ -2,6 +2,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApi } from "@/lib/auth/require-admin";
+import {
+  MAX_MONTHLY_SALARY_CENTS,
+  normalizeCompensationType,
+  parseEuroStringToCents,
+} from "@/lib/staff-compensation";
 import { sanitizeHourlyTariffsForDb, type HourlyTariffSlot } from "@/lib/staff-hourly-tariffs";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -64,6 +69,8 @@ export async function PATCH(
     let publicSpecialty: string | null;
     let publicBio: string | null;
     let hourlyTariffs: HourlyTariffSlot[];
+    let compensationType: ReturnType<typeof normalizeCompensationType> = "self_employed";
+    let monthlySalaryRaw = "";
     let role: "admin" | "staff" = "staff";
     let newPin = "";
     let avatarFile: File | null = null;
@@ -95,6 +102,8 @@ export async function PATCH(
       hourlyTariffs = Array.isArray(parsed)
         ? (parsed as HourlyTariffSlot[])
         : [];
+      compensationType = normalizeCompensationType(fd.get("compensationType"));
+      monthlySalaryRaw = String(fd.get("monthlySalary") ?? "").trim();
     } else {
       const j = (await request.json()) as {
         fullName?: string;
@@ -106,6 +115,8 @@ export async function PATCH(
         hourlyTariffs?: HourlyTariffSlot[];
         role?: string;
         newPin?: string;
+        compensationType?: string;
+        monthlySalary?: string;
       };
       fullName = j.fullName?.trim() ?? "";
       email = j.email?.trim().toLowerCase() ?? "";
@@ -119,6 +130,8 @@ export async function PATCH(
         role = r === "admin" ? "admin" : "staff";
       }
       newPin = String(j.newPin ?? "").trim();
+      compensationType = normalizeCompensationType(j.compensationType);
+      monthlySalaryRaw = String(j.monthlySalary ?? "").trim();
     }
 
     if (!fullName) {
@@ -135,7 +148,31 @@ export async function PATCH(
       );
     }
 
-    const tariffsJson = sanitizeHourlyTariffsForDb(hourlyTariffs);
+    let tariffsJson: HourlyTariffSlot[];
+    let monthly_salary_cents: number | null = null;
+
+    if (compensationType === "salaried") {
+      const cents = parseEuroStringToCents(monthlySalaryRaw);
+      if (cents === null || cents <= 0 || cents > MAX_MONTHLY_SALARY_CENTS) {
+        return NextResponse.json(
+          { ok: false, message: "Indica un salario mensual bruto válido (mayor que 0)." },
+          { status: 400 },
+        );
+      }
+      monthly_salary_cents = cents;
+      tariffsJson = sanitizeHourlyTariffsForDb([]);
+    } else {
+      tariffsJson = sanitizeHourlyTariffsForDb(hourlyTariffs);
+      if (tariffsJson.length === 0 || !tariffsJson.some((t) => t.cents_per_hour > 0)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "En modo autónomo debe existir al menos una tarifa €/h con importe mayor que 0.",
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     if (newPin && !/^\d{4}$/.test(newPin)) {
       return NextResponse.json(
@@ -149,22 +186,37 @@ export async function PATCH(
     const pinSalt = newPin ? randomBytes(16).toString("hex") : null;
     const pinHash = newPin && pinSalt ? hashPin(newPin, pinSalt) : null;
 
-    const { error: updErr } = await supabase
+    const updatePayload: Record<string, unknown> = {
+      full_name: fullName,
+      email,
+      phone,
+      role,
+      public_profile: publicProfile,
+      public_specialty: publicProfile ? publicSpecialty : null,
+      public_bio: publicProfile ? publicBio : null,
+      hourly_tariffs: tariffsJson,
+      compensation_type: compensationType,
+      monthly_salary_cents,
+      ...(publicProfile ? {} : { public_avatar_path: null }),
+      ...(pinHash && pinSalt ? { pin_hash: pinHash, pin_salt: pinSalt } : {}),
+    };
+
+    let { error: updErr } = await supabase
       .from("staff_access")
-      .update({
-        full_name: fullName,
-        email,
-        phone,
-        role,
-        public_profile: publicProfile,
-        public_specialty: publicProfile ? publicSpecialty : null,
-        public_bio: publicProfile ? publicBio : null,
-        hourly_tariffs: tariffsJson,
-        ...(publicProfile ? {} : { public_avatar_path: null }),
-        ...(pinHash && pinSalt ? { pin_hash: pinHash, pin_salt: pinSalt } : {}),
-      })
+      .update(updatePayload)
       .eq("id", id)
       .eq("is_active", true);
+
+    if (
+      updErr &&
+      (updErr.code === "42703" ||
+        String(updErr.message ?? "").includes("compensation_type") ||
+        String(updErr.message ?? "").includes("monthly_salary"))
+    ) {
+      const { compensation_type: _c, monthly_salary_cents: _m, ...rest } = updatePayload;
+      const retry = await supabase.from("staff_access").update(rest).eq("id", id).eq("is_active", true);
+      updErr = retry.error;
+    }
 
     if (updErr) {
       if (updErr.code === "23505" || updErr.message?.includes("unique")) {
@@ -178,7 +230,7 @@ export async function PATCH(
           {
             ok: false,
             message:
-              "Falta la migración de tarifas (hourly_tariffs). Aplica la migración 019 en Supabase.",
+              "Falta la migración de tarifas (hourly_tariffs) o de retribución (020). Aplica las migraciones en Supabase.",
           },
           { status: 500 },
         );

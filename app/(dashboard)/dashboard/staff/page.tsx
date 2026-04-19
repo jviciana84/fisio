@@ -2,6 +2,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { StaffDashboardLayout } from "@/components/dashboard/StaffDashboardLayout";
 import { type StaffGridRow } from "@/components/dashboard/StaffMetricsGrid";
 import { getStaffPublicAvatarUrl } from "@/lib/staff-public-avatar-url";
+import {
+  formatMadridMonthYearLabel,
+  madridCurrentMonthTicketInstantRange,
+  madridCurrentMonthWorkDateBounds,
+} from "@/lib/madrid-staff-metrics-period";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +23,8 @@ type StaffDbRow = {
   public_bio: string | null;
   public_avatar_path: string | null;
   hourly_tariffs: unknown;
+  compensation_type?: string | null;
+  monthly_salary_cents?: number | null;
 };
 
 type TicketRow = {
@@ -40,7 +47,7 @@ type MetricAcc = {
 };
 
 const STAFF_SELECT_WITH_TARIFFS =
-  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path, hourly_tariffs";
+  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path, hourly_tariffs, compensation_type, monthly_salary_cents";
 const STAFF_SELECT_NO_TARIFFS =
   "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path";
 
@@ -55,7 +62,10 @@ export default async function StaffDashboardPage() {
 
   const needsTariffFallback =
     staffRes.error &&
-    (staffRes.error.code === "42703" || String(staffRes.error.message ?? "").includes("hourly_tariffs"));
+    (staffRes.error.code === "42703" ||
+      String(staffRes.error.message ?? "").includes("hourly_tariffs") ||
+      String(staffRes.error.message ?? "").includes("compensation_type") ||
+      String(staffRes.error.message ?? "").includes("monthly_salary"));
 
   const staffRowsRaw = needsTariffFallback
     ? (
@@ -67,9 +77,21 @@ export default async function StaffDashboardPage() {
       ).data ?? []
     : (staffRes.data ?? []);
 
+  const ticketRange = madridCurrentMonthTicketInstantRange();
+  const workDateBounds = madridCurrentMonthWorkDateBounds();
+  const metricsPeriodLabel = formatMadridMonthYearLabel();
+
   const [ticketsRes, logsRes] = await Promise.all([
-    supabase.from("cash_tickets").select("total_cents, payment_method, created_by_staff_id"),
-    supabase.from("staff_work_logs").select("staff_id, worked_minutes"),
+    supabase
+      .from("cash_tickets")
+      .select("total_cents, payment_method, created_by_staff_id")
+      .gte("created_at", ticketRange.start.toISOString())
+      .lt("created_at", ticketRange.endExclusive.toISOString()),
+    supabase
+      .from("staff_work_logs")
+      .select("staff_id, worked_minutes")
+      .gte("work_date", workDateBounds.start)
+      .lte("work_date", workDateBounds.end),
   ]);
 
   const staffList: StaffDbRow[] = staffRowsRaw.map((row) => {
@@ -77,6 +99,8 @@ export default async function StaffDashboardPage() {
     return {
       ...s,
       hourly_tariffs: s.hourly_tariffs ?? [],
+      compensation_type: s.compensation_type ?? "self_employed",
+      monthly_salary_cents: s.monthly_salary_cents ?? null,
     };
   });
   const tickets = (ticketsRes.data ?? []) as TicketRow[];
@@ -135,6 +159,10 @@ export default async function StaffDashboardPage() {
       public_bio: s.public_bio,
       avatarUrl: getStaffPublicAvatarUrl(s.public_avatar_path),
       hourly_tariffs: s.hourly_tariffs,
+      compensation_type: (s.compensation_type === "salaried" ? "salaried" : "self_employed") as
+        | "salaried"
+        | "self_employed",
+      monthly_salary_cents: s.monthly_salary_cents ?? null,
     };
   });
 
@@ -149,6 +177,7 @@ export default async function StaffDashboardPage() {
         rankingSales={rankingSales}
         rankingHours={rankingHours}
         rankingCash={rankingCash}
+        metricsPeriodLabel={metricsPeriodLabel}
       />
     </main>
   );

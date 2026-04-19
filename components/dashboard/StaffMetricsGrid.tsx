@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronUp, Save } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { staffAvatarSrc } from "@/lib/hero-staff-data";
+import {
+  normalizeCompensationType,
+  parseEuroStringToCents,
+  type StaffCompensationType,
+} from "@/lib/staff-compensation";
 import {
   padHourlyTariffs,
   STAFF_HOURLY_TARIFF_SLOTS,
@@ -30,6 +35,8 @@ export type StaffGridRow = {
   public_bio: string | null;
   avatarUrl: string | null;
   hourly_tariffs: unknown;
+  compensation_type: StaffCompensationType;
+  monthly_salary_cents: number | null;
 };
 
 function euro(value: number): string {
@@ -56,10 +63,15 @@ type DraftState = {
   public_profile: boolean;
   public_specialty: string;
   public_bio: string;
+  compensation_type: StaffCompensationType;
+  /** Texto € para salario mensual (solo asalariado). */
+  monthlySalaryEuro: string;
   tariffs: HourlyTariffSlot[];
 };
 
 function draftFromRow(row: StaffGridRow): DraftState {
+  const ct = normalizeCompensationType(row.compensation_type);
+  const cents = row.monthly_salary_cents;
   return {
     fullName: row.name,
     email: row.email ?? "",
@@ -69,15 +81,20 @@ function draftFromRow(row: StaffGridRow): DraftState {
     public_profile: row.public_profile,
     public_specialty: row.public_specialty ?? "",
     public_bio: row.public_bio ?? "",
+    compensation_type: ct,
+    monthlySalaryEuro: cents != null && cents > 0 ? String(cents / 100) : "",
     tariffs: padHourlyTariffs(row.hourly_tariffs),
   };
 }
 
 export function StaffMetricsGrid({
   rows,
+  metricsPeriodLabel,
   onExpandedChange,
 }: {
   rows: StaffGridRow[];
+  /** Mes en curso (Madrid) para el texto de las métricas. */
+  metricsPeriodLabel: string;
   /** Notifica cuando se abre o cierra la ficha expandida (p. ej. para compactar el panel de ranking). */
   onExpandedChange?: (staffId: string | null) => void;
 }) {
@@ -88,6 +105,9 @@ export function StaffMetricsGrid({
   const [msg, setMsg] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarBlobUrl, setAvatarBlobUrl] = useState<string | null>(null);
+  /** Texto libre €/h por fila mientras se escribe (evita que `number`+`toFixed` rompa "30", etc.). */
+  const [tariffEuroDrafts, setTariffEuroDrafts] = useState<Record<number, string>>({});
+  const expandedCardRef = useRef<HTMLDivElement | null>(null);
 
   const expandedRow = useMemo(
     () => (expandedId ? rows.find((r) => r.id === expandedId) : null),
@@ -107,6 +127,7 @@ export function StaffMetricsGrid({
       setAvatarFile(null);
       setAvatarBlobUrl(null);
       setMsg(null);
+      setTariffEuroDrafts({});
       return;
     }
     const row = rows.find((r) => r.id === expandedId);
@@ -118,11 +139,20 @@ export function StaffMetricsGrid({
     setAvatarFile(null);
     setAvatarBlobUrl(null);
     setMsg(null);
+    setTariffEuroDrafts({});
   }, [expandedId, rows]);
 
   useEffect(() => {
     onExpandedChange?.(expandedId);
   }, [expandedId, onExpandedChange]);
+
+  /** Al abrir la ficha, desplazar el scroll para que «Ficha y tarifas» quede arriba del área visible. */
+  useLayoutEffect(() => {
+    if (!expandedId) return;
+    const el = expandedCardRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  }, [expandedId]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -144,6 +174,13 @@ export function StaffMetricsGrid({
 
   async function handleSave() {
     if (!expandedId || !formDraft) return;
+    if (formDraft.compensation_type === "salaried") {
+      const sc = parseEuroStringToCents(formDraft.monthlySalaryEuro);
+      if (sc === null || sc <= 0) {
+        setMsg("Indica un salario mensual bruto válido.");
+        return;
+      }
+    }
     setSaving(true);
     setMsg(null);
     try {
@@ -155,6 +192,8 @@ export function StaffMetricsGrid({
       fd.append("publicSpecialty", formDraft.public_specialty);
       fd.append("publicBio", formDraft.public_bio);
       fd.append("role", formDraft.role);
+      fd.append("compensationType", formDraft.compensation_type);
+      fd.append("monthlySalary", formDraft.monthlySalaryEuro.trim());
       if (formDraft.newPin.trim()) {
         fd.append("newPin", formDraft.newPin.trim());
       }
@@ -202,9 +241,10 @@ export function StaffMetricsGrid({
         return (
           <div
             key={s.id}
+            ref={isOpen ? expandedCardRef : undefined}
             className={cn(
               "min-w-0 transition-[grid-column] duration-200",
-              isOpen && "sm:col-span-2 sm:row-span-2 xl:col-span-3 xl:row-span-2",
+              isOpen && "scroll-mt-24 sm:scroll-mt-28 sm:col-span-2 sm:row-span-2 xl:col-span-3 xl:row-span-2",
             )}
           >
             {!isOpen ? (
@@ -243,6 +283,7 @@ export function StaffMetricsGrid({
                 <p className="mt-3 text-sm font-semibold text-slate-900">
                   Total vendido: {euro(s.totalSalesEuros)}
                 </p>
+                <p className="mt-1 text-[10px] text-slate-500">{metricsPeriodLabel}</p>
                 <p className="mt-2 text-[10px] text-slate-400">Pulsa para ficha y tarifas / h</p>
               </button>
             ) : isOpen && expandedRow && formDraft ? (
@@ -356,7 +397,7 @@ export function StaffMetricsGrid({
                     </div>
 
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
-                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
+                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 md:items-end">
                         <div className="min-w-0">
                           <input
                             className={inputCls}
@@ -489,92 +530,272 @@ export function StaffMetricsGrid({
                               aria-label="Código usuario (solo lectura)"
                             />
                           </div>
-                          <label
-                            htmlFor={`pp-${s.id}`}
-                            className="flex cursor-pointer items-center gap-1.5 text-[11px] leading-tight text-slate-700"
-                          >
-                            <input
-                              id={`pp-${s.id}`}
-                              type="checkbox"
-                              checked={formDraft.public_profile}
-                              onChange={(e) =>
-                                setDraft((d) => {
-                                  const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                                  if (!base) return d;
-                                  return { ...base, public_profile: e.target.checked };
-                                })
-                              }
-                              className="h-3.5 w-3.5 shrink-0 rounded border-slate-300"
-                            />
-                            <span className="whitespace-nowrap">Perfil público</span>
-                          </label>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-medium text-slate-600">Retribución</span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span
+                                  className={cn(
+                                    "text-[9px] font-medium leading-none",
+                                    formDraft.compensation_type === "self_employed"
+                                      ? "text-slate-900"
+                                      : "text-slate-400",
+                                  )}
+                                >
+                                  Autón.
+                                </span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={formDraft.compensation_type === "salaried"}
+                                  aria-label="Asalariado: activado. Autónomo: desactivado."
+                                  className={cn(
+                                    "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                                    formDraft.compensation_type === "salaried"
+                                      ? "bg-blue-600"
+                                      : "bg-slate-300",
+                                  )}
+                                  onClick={() => {
+                                    setDraft((d) => {
+                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                      if (!base) return d;
+                                      const next: typeof base.compensation_type =
+                                        base.compensation_type === "salaried"
+                                          ? "self_employed"
+                                          : "salaried";
+                                      return { ...base, compensation_type: next };
+                                    });
+                                  }}
+                                >
+                                  <span
+                                    className={cn(
+                                      "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                      formDraft.compensation_type === "salaried" && "translate-x-5",
+                                    )}
+                                  />
+                                </button>
+                                <span
+                                  className={cn(
+                                    "text-[9px] font-medium leading-none",
+                                    formDraft.compensation_type === "salaried"
+                                      ? "text-slate-900"
+                                      : "text-slate-400",
+                                  )}
+                                >
+                                  Nómina
+                                </span>
+                              </div>
+                              <label
+                                htmlFor={`pp-${s.id}`}
+                                className="flex cursor-pointer items-center gap-1.5 text-[10px] leading-tight text-slate-700"
+                              >
+                                <input
+                                  id={`pp-${s.id}`}
+                                  type="checkbox"
+                                  checked={formDraft.public_profile}
+                                  onChange={(e) =>
+                                    setDraft((d) => {
+                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                      if (!base) return d;
+                                      return { ...base, public_profile: e.target.checked };
+                                    })
+                                  }
+                                  className="h-3.5 w-3.5 shrink-0 rounded border-slate-300"
+                                />
+                                <span className="whitespace-nowrap">Perfil público</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-3 border-t border-slate-100 pt-2">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Tarifa por hora (€/h) — hasta {STAFF_HOURLY_TARIFF_SLOTS}
-                  </p>
-                  <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {formDraft.tariffs.map((slot, idx) => (
-                      <div
-                        key={idx}
-                        className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-1"
-                      >
-                        <input
-                          className={cn(inputCls, "min-w-0 flex-1 border-0 bg-transparent p-0 text-[11px]")}
-                          placeholder={`Concepto ${idx + 1}`}
-                          value={slot.label}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setDraft((d) => {
-                              const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                              if (!base) return d;
-                              const next = [...base.tariffs];
-                              next[idx] = { ...next[idx], label: v };
-                              return { ...base, tariffs: next };
-                            });
-                          }}
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          className={cn(inputCls, "w-[4.5rem] shrink-0 border-slate-200 px-1 py-1 text-right text-[11px]")}
-                          value={slot.cents_per_hour ? (slot.cents_per_hour / 100).toFixed(2) : ""}
-                          placeholder="€"
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(",", ".");
-                            const n = parseFloat(raw);
-                            const cents = Number.isFinite(n) ? Math.round(n * 100) : 0;
-                            setDraft((d) => {
-                              const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                              if (!base) return d;
-                              const next = [...base.tariffs];
-                              next[idx] = { ...next[idx], cents_per_hour: Math.max(0, cents) };
-                              return { ...base, tariffs: next };
-                            });
-                          }}
-                        />
+                {/* Bloque inferior: resumen | tarifas o salario */}
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <div className="grid min-h-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-slate-200">
+                    {/* Columna resumen */}
+                    <div className="flex min-h-0 min-w-0 flex-col lg:pr-6">
+                      <div className="min-h-[2.75rem] border-b border-slate-200 pb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          Resumen de datos
+                        </p>
+                        <p className="mt-0.5 text-[10px] font-medium capitalize leading-tight text-slate-600">
+                          {metricsPeriodLabel}
+                        </p>
                       </div>
-                    ))}
+                      <div className="mt-3 grid flex-1 grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-md bg-blue-50/80 px-2 py-2">
+                          <p className="text-[10px] text-slate-500">Ventas</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{s.salesCount}</p>
+                        </div>
+                        <div className="rounded-md bg-blue-50/80 px-2 py-2">
+                          <p className="text-[10px] text-slate-500">Horas</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">
+                            {hours(s.workedHours)}
+                          </p>
+                        </div>
+                        <div className="rounded-md bg-cyan-50/80 px-2 py-2">
+                          <p className="text-[10px] text-slate-500">Bizum</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{euro(s.bizumEuros)}</p>
+                        </div>
+                        <div className="rounded-md bg-emerald-50/80 px-2 py-2">
+                          <p className="text-[10px] text-slate-500">Efectivo</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{euro(s.cashEuros)}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-900">
+                        Total vendido: {euro(s.totalSalesEuros)}
+                      </p>
+                      <p className="mt-auto pt-2 text-[10px] leading-snug text-slate-400">
+                        Tickets de caja y registro de horas en {metricsPeriodLabel}.
+                      </p>
+                    </div>
+
+                    {/* Columna tarifas o salario */}
+                    <div className="flex min-h-0 min-w-0 flex-col lg:pl-6">
+                      <div className="min-h-[2.75rem] border-b border-slate-200 pb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          {formDraft.compensation_type === "salaried"
+                            ? "Salario mensual"
+                            : "Tarifas por hora"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] leading-tight text-slate-600">
+                          {formDraft.compensation_type === "salaried"
+                            ? "Bruto (referencia interna)"
+                            : `Hasta ${STAFF_HOURLY_TARIFF_SLOTS} conceptos (€/h)`}
+                        </p>
+                      </div>
+
+                      {formDraft.compensation_type === "salaried" ? (
+                        <div className="mt-3">
+                          <label className="mb-0.5 block text-[10px] font-medium text-slate-600">
+                            Importe (€)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            className={cn(inputCls, "text-right tabular-nums")}
+                            placeholder="0,00"
+                            aria-label="Salario mensual bruto en euros"
+                            value={formDraft.monthlySalaryEuro}
+                            onChange={(e) => {
+                              let raw = e.target.value.replace(",", ".");
+                              raw = raw.replace(/[^\d.]/g, "");
+                              const dot = raw.indexOf(".");
+                              if (dot !== -1) {
+                                raw =
+                                  raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "");
+                              }
+                              setDraft((d) => {
+                                const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                if (!base) return d;
+                                return { ...base, monthlySalaryEuro: raw };
+                              });
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mt-3 grid grid-cols-[1fr_minmax(5rem,5.5rem)] gap-x-2 gap-y-1 text-[10px] text-slate-500">
+                            <span className="pl-0.5">Nombre de la tarifa</span>
+                            <span className="pr-0.5 text-right">Importe</span>
+                          </div>
+                          <div className="mt-1 space-y-2">
+                            {formDraft.tariffs.map((slot, idx) => (
+                              <div
+                                key={idx}
+                                className="grid grid-cols-[1fr_minmax(5rem,5.5rem)] items-stretch gap-x-2 gap-y-0"
+                              >
+                                <input
+                                  className={cn(inputCls, "min-w-0 text-[11px]")}
+                                  placeholder={`Nombre tarifa ${idx + 1} (ej. fisioterapia)`}
+                                  aria-label={`Nombre tarifa ${idx + 1}`}
+                                  value={slot.label}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setDraft((d) => {
+                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                      if (!base) return d;
+                                      const next = [...base.tariffs];
+                                      next[idx] = { ...next[idx], label: v };
+                                      return { ...base, tariffs: next };
+                                    });
+                                  }}
+                                />
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  autoComplete="off"
+                                  className={cn(
+                                    inputCls,
+                                    "min-w-0 shrink-0 px-2 py-1.5 text-right text-[11px] tabular-nums",
+                                  )}
+                                  placeholder="0,00"
+                                  aria-label={`Importe €/h tarifa ${idx + 1}`}
+                                  value={
+                                    tariffEuroDrafts[idx] !== undefined
+                                      ? tariffEuroDrafts[idx]!
+                                      : slot.cents_per_hour
+                                        ? String(slot.cents_per_hour / 100)
+                                        : ""
+                                  }
+                                  onChange={(e) => {
+                                    let raw = e.target.value.replace(",", ".");
+                                    raw = raw.replace(/[^\d.]/g, "");
+                                    const dot = raw.indexOf(".");
+                                    if (dot !== -1) {
+                                      raw =
+                                        raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "");
+                                    }
+                                    setTariffEuroDrafts((prev) => ({ ...prev, [idx]: raw }));
+
+                                    if (raw === "" || raw === ".") {
+                                      setDraft((d) => {
+                                        const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                        if (!base) return d;
+                                        const next = [...base.tariffs];
+                                        next[idx] = { ...next[idx], cents_per_hour: 0 };
+                                        return { ...base, tariffs: next };
+                                      });
+                                      return;
+                                    }
+                                    const n = parseFloat(raw);
+                                    if (!Number.isFinite(n)) return;
+                                    const cents = Math.round(n * 100);
+                                    setDraft((d) => {
+                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                      if (!base) return d;
+                                      const next = [...base.tariffs];
+                                      next[idx] = {
+                                        ...next[idx],
+                                        cents_per_hour: Math.max(0, Math.min(cents, 99_999_999)),
+                                      };
+                                      return { ...base, tariffs: next };
+                                    });
+                                  }}
+                                  onBlur={() => {
+                                    setTariffEuroDrafts((prev) => {
+                                      const next = { ...prev };
+                                      delete next[idx];
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {msg ? (
                   <p className="mt-2 text-[11px] text-blue-800">{msg}</p>
                 ) : null}
-
-                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-2 text-[10px] text-slate-500">
-                  <span>Ventas: {s.salesCount}</span>
-                  <span>·</span>
-                  <span>Horas registradas: {hours(s.workedHours)}</span>
-                  <span>·</span>
-                  <span>Total vendido: {euro(s.totalSalesEuros)}</span>
-                </div>
               </div>
             ) : null}
           </div>
