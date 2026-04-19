@@ -2,8 +2,8 @@ import Link from "next/link";
 import { getStaffSession } from "@/lib/auth/get-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { CashRegisterCard } from "@/components/dashboard/CashRegisterCard";
-import { QuarterHealthCard } from "@/components/fiscal/QuarterHealthCard";
 import { DashboardWelcomeCard } from "@/components/dashboard/DashboardWelcomeCard";
+import { QuarterHealthCard } from "@/components/fiscal/QuarterHealthCard";
 import { DashboardTerrassaWeather } from "@/components/dashboard/DashboardTerrassaWeather";
 import { DashboardIncomeCards } from "@/components/dashboard/DashboardIncomeCards";
 import { DashboardTrendChart } from "@/components/dashboard/DashboardTrendChart";
@@ -144,33 +144,17 @@ export default async function DashboardPage() {
     );
   }
 
-  const [meRes, weather] = await Promise.all([
-    session
-      ? supabase.from("staff_access").select("full_name").eq("id", session.userId).maybeSingle()
-      : Promise.resolve({ data: null } as { data: { full_name?: string } | null }),
-    fetchTerrassaWeather(),
-  ]);
-  const userName = meRes.data?.full_name?.trim() || "equipo";
-
+  const weather = await fetchTerrassaWeather();
   return (
     <main className="p-6 md:p-8">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 xl:grid-cols-12">
-        <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:min-h-[420px] xl:items-stretch">
-          <div className="flex min-h-0 flex-col xl:col-span-7">
-            <DashboardWelcomeCard
-              userName={userName}
-              isAdmin={false}
-              activeStaffCount={0}
-              gastosFijosMensualesEuros={0}
-            />
+      <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:items-stretch">
+          <div className="flex min-h-0 xl:col-span-9" id="caja">
+            <CashRegisterCard />
           </div>
-          <div className="flex min-h-0 flex-col xl:col-span-5">
-            <DashboardTerrassaWeather weather={weather} />
+          <div className="flex min-h-0 xl:col-span-3">
+            <DashboardTerrassaWeather weather={weather} compact />
           </div>
-        </div>
-
-        <div id="caja" className="scroll-mt-6 xl:col-span-12">
-          <CashRegisterCard />
         </div>
       </div>
     </main>

@@ -46,6 +46,7 @@ export default async function DashboardGroupLayout({
             <DashboardTopStatus
               userName={displayName}
               sessionIssuedAtIso={session.issuedAt?.toISOString() ?? null}
+              enablePinSwitch={!isAdmin}
             />
             {children}
           </div>

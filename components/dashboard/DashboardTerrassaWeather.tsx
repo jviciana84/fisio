@@ -1,6 +1,7 @@
 import type { TerrassaWeather } from "@/lib/weather/terrassa";
 import { TERRASSA } from "@/lib/weather/terrassa";
 import { WeatherWmoIcon } from "@/components/dashboard/WeatherWmoIcon";
+import { cn } from "@/lib/utils";
 
 function formatFetchedAt(iso: string): string {
   const d = new Date(iso);
@@ -12,11 +13,83 @@ function formatFetchedAt(iso: string): string {
   });
 }
 
-export function DashboardTerrassaWeather({ weather }: { weather: TerrassaWeather | null }) {
+export function DashboardTerrassaWeather({
+  weather,
+  compact = false,
+}: {
+  weather: TerrassaWeather | null;
+  /** Staff junto a Caja: sin scroll, altura alineada a la fila, más denso. */
+  compact?: boolean;
+}) {
   if (!weather) {
     return (
-      <section className="glass-panel-strong glass-tint-cyan flex h-full min-h-[320px] flex-1 flex-col justify-center p-6 md:p-8 xl:min-h-0">
-        <p className="text-sm text-slate-600">No se pudo cargar el tiempo. Inténtalo más tarde.</p>
+      <section
+        className={cn(
+          "glass-panel-strong glass-tint-cyan flex flex-1 flex-col justify-center",
+          compact
+            ? "h-full min-h-0 overflow-hidden p-4"
+            : "h-full min-h-[320px] flex-1 p-6 md:p-8 xl:min-h-0",
+        )}
+      >
+        <p className={cn("text-slate-600", compact ? "text-xs" : "text-sm")}>
+          No se pudo cargar el tiempo. Inténtalo más tarde.
+        </p>
+      </section>
+    );
+  }
+
+  if (compact) {
+    return (
+      <section className="glass-panel-strong glass-tint-cyan relative flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4">
+        <div
+          className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-gradient-to-br from-cyan-400/25 to-blue-600/20 blur-2xl"
+          aria-hidden
+        />
+        <div className="relative flex min-h-0 flex-1 flex-col justify-between gap-3">
+          <div className="min-w-0 shrink-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-700/90">Tiempo</p>
+            <div className="mt-1 flex items-baseline justify-between gap-2">
+              <h2 className="truncate text-sm font-semibold leading-tight text-slate-900">{TERRASSA.name}</h2>
+              <p className="shrink-0 text-[10px] text-slate-500" title={weather.fetchedAt}>
+                {formatFetchedAt(weather.fetchedAt)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 shrink-0 items-center gap-3">
+            <WeatherWmoIcon code={weather.weatherCode} className="h-11 w-11 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-3xl font-bold tabular-nums leading-none tracking-tight text-slate-900">
+                {weather.currentTemp}°
+              </p>
+              <p className="mt-0.5 truncate text-xs font-medium text-slate-600">{weather.label}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                Hoy · máx {weather.todayMax}° / mín {weather.todayMin}°
+              </p>
+            </div>
+          </div>
+
+          <div className="min-h-0 shrink-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">7 días</p>
+            <div className="mt-1.5 grid w-full min-w-0 grid-cols-7 gap-1">
+              {weather.week.slice(0, 7).map((d) => (
+                <div
+                  key={d.dateISO}
+                  className="glass-inner flex min-w-0 flex-col items-center rounded-md px-0.5 py-1 text-center shadow-sm ring-1 ring-white/45"
+                >
+                  <span className="truncate text-[9px] font-medium capitalize leading-none text-slate-500">
+                    {d.weekdayShort}
+                  </span>
+                  <WeatherWmoIcon code={d.weatherCode} className="my-0.5 h-5 w-5 shrink-0" />
+                  <span className="text-[9px] font-semibold tabular-nums leading-tight text-slate-800">
+                    {d.maxC}°<span className="font-normal text-slate-400">/</span>
+                    {d.minC}°
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
     );
   }
