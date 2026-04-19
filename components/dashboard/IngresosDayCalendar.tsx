@@ -105,13 +105,12 @@ export function IngresosDayCalendar({
                 if (!inCurrentMonth) setViewMonth(startOfMonth(date));
               }}
               className={cn(
-                "flex h-5 w-full min-w-0 items-center justify-center rounded-[3px] text-[8px] font-semibold transition",
-                !inCurrentMonth && "bg-white/30 text-slate-400",
-                inCurrentMonth && "bg-white/85 text-slate-800",
+                "flex h-6 w-full min-w-0 items-center justify-center rounded-md text-[9px] font-semibold transition",
+                isSelected &&
+                  "z-[1] bg-blue-600 text-white shadow-md shadow-blue-600/35 ring-2 ring-blue-500 ring-offset-1 ring-offset-white/90",
+                !isSelected && !inCurrentMonth && "bg-white/30 text-slate-400",
+                !isSelected && inCurrentMonth && "bg-white/85 text-slate-800 hover:bg-white",
                 isToday && !isSelected && "ring-1 ring-blue-400/80",
-                isSelected
-                  ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-500/40"
-                  : inCurrentMonth && "hover:bg-white",
               )}
             >
               {date.getDate()}

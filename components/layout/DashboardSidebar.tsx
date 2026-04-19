@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /** Mismo isotipo que la web pública (`components/header.tsx`). */
@@ -215,6 +215,34 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Duración + easing compartidos (clases literales para que Tailwind las incluya).
+ * Cubic-bezier suave al final — menos sensación de “salto” que ease-out lineal.
+ */
+const SIDEBAR_TIMING =
+  "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+
+function NavLabel({
+  expanded,
+  children,
+}: {
+  expanded: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "block min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap transition-[max-width,opacity]",
+        SIDEBAR_TIMING,
+        expanded ? "max-w-[11rem] opacity-100" : "max-w-0 opacity-0",
+      )}
+      aria-hidden={!expanded}
+    >
+      {children}
+    </span>
+  );
+}
+
 function ReceiptIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -264,26 +292,26 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
     }
   }, [router]);
 
-  const itemBase =
-    "flex items-center rounded-xl py-2.5 text-sm font-medium text-slate-800 transition";
+  /** Siempre alineado a la izquierda: solo cambia el ancho del panel y la visibilidad del texto. */
+  const itemBase = cn(
+    "flex w-full min-w-0 items-center justify-start gap-3 rounded-xl px-2 py-2.5 text-sm font-medium text-slate-800",
+    SIDEBAR_TIMING,
+    "transition-[background-color,color,box-shadow]",
+  );
 
   return (
     <aside
       className={cn(
         "relative z-20 flex min-h-screen shrink-0 flex-col overflow-hidden",
         "border-r border-white/45 bg-white/20 shadow-[0_8px_32px_rgba(30,64,175,0.12)] backdrop-blur-2xl",
-        "transition-[width] duration-300 ease-out",
+        SIDEBAR_TIMING,
+        "transition-[width] will-change-[width]",
         expanded ? "w-64" : "w-[4.25rem]",
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
-        className={cn(
-          "flex shrink-0 items-center border-b border-white/35",
-          expanded ? "gap-3 px-4 py-4" : "justify-center px-2 py-4",
-        )}
-      >
+      <div className="flex shrink-0 items-center gap-3 border-b border-white/35 px-2 py-4">
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full glass-extreme p-1">
           <img
             src={LOGO_FRB3_SRC}
@@ -296,7 +324,8 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
         </div>
         <div
           className={cn(
-            "min-w-0 overflow-hidden transition-all duration-300",
+            "min-w-0 overflow-hidden transition-[max-width,opacity]",
+            SIDEBAR_TIMING,
             expanded ? "max-w-[11rem] opacity-100" : "max-w-0 opacity-0",
           )}
         >
@@ -312,24 +341,17 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
           href="/dashboard"
           className={cn(
             itemBase,
-            expanded ? "gap-3 px-2" : "justify-center px-0",
             pathname === "/dashboard"
               ? "bg-white/40 text-slate-900 shadow-sm"
               : "hover:bg-white/30",
           )}
           title={expanded ? undefined : "Inicio"}
+          aria-label={expanded ? undefined : "Inicio"}
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
             <HomeIcon />
           </span>
-          <span
-            className={cn(
-              "whitespace-nowrap",
-              expanded ? "opacity-100" : "sr-only",
-            )}
-          >
-            Inicio
-          </span>
+          <NavLabel expanded={expanded}>Inicio</NavLabel>
         </Link>
 
         {isAdmin ? (
@@ -338,48 +360,34 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
               href="/dashboard/ingresos"
               className={cn(
                 itemBase,
-                expanded ? "gap-3 px-2" : "justify-center px-0",
                 pathname.startsWith("/dashboard/ingresos")
                   ? "bg-white/40 text-slate-900 shadow-sm"
                   : "hover:bg-white/30",
               )}
               title={expanded ? undefined : "Ingresos"}
+              aria-label={expanded ? undefined : "Ingresos"}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
                 <BanknoteIcon />
               </span>
-              <span
-                className={cn(
-                  "whitespace-nowrap",
-                  expanded ? "opacity-100" : "sr-only",
-                )}
-              >
-                Ingresos
-              </span>
+              <NavLabel expanded={expanded}>Ingresos</NavLabel>
             </Link>
 
             <Link
               href="/dashboard/gastos"
               className={cn(
                 itemBase,
-                expanded ? "gap-3 px-2" : "justify-center px-0",
                 pathname.startsWith("/dashboard/gastos")
                   ? "bg-white/40 text-slate-900 shadow-sm"
                   : "hover:bg-white/30",
               )}
               title={expanded ? undefined : "Gastos"}
+              aria-label={expanded ? undefined : "Gastos"}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-rose-800">
                 <WalletOutIcon />
               </span>
-              <span
-                className={cn(
-                  "whitespace-nowrap",
-                  expanded ? "opacity-100" : "sr-only",
-                )}
-              >
-                Gastos
-              </span>
+              <NavLabel expanded={expanded}>Gastos</NavLabel>
             </Link>
           </>
         ) : (
@@ -387,24 +395,17 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/dashboard#caja"
             className={cn(
               itemBase,
-              expanded ? "gap-3 px-2" : "justify-center px-0",
               pathname === "/dashboard"
                 ? "bg-white/40 text-slate-900 shadow-sm"
                 : "hover:bg-white/30",
             )}
             title={expanded ? undefined : "Caja"}
+            aria-label={expanded ? undefined : "Caja"}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-emerald-800">
               <BanknoteIcon />
             </span>
-            <span
-              className={cn(
-                "whitespace-nowrap",
-                expanded ? "opacity-100" : "sr-only",
-              )}
-            >
-              Caja
-            </span>
+            <NavLabel expanded={expanded}>Caja</NavLabel>
           </Link>
         )}
 
@@ -413,24 +414,17 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/dashboard/fiscal"
             className={cn(
               itemBase,
-              expanded ? "gap-3 px-2" : "justify-center px-0",
               pathname.startsWith("/dashboard/fiscal")
                 ? "bg-white/40 text-slate-900 shadow-sm"
                 : "hover:bg-white/30",
             )}
             title={expanded ? undefined : "Impuestos"}
+            aria-label={expanded ? undefined : "Impuestos"}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
               <ReceiptIcon />
             </span>
-            <span
-              className={cn(
-                "whitespace-nowrap",
-                expanded ? "opacity-100" : "sr-only",
-              )}
-            >
-              Impuestos
-            </span>
+            <NavLabel expanded={expanded}>Impuestos</NavLabel>
           </Link>
         ) : null}
 
@@ -439,24 +433,17 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/dashboard/productos"
             className={cn(
               itemBase,
-              expanded ? "gap-3 px-2" : "justify-center px-0",
               pathname.startsWith("/dashboard/productos")
                 ? "bg-white/40 text-slate-900 shadow-sm"
                 : "hover:bg-white/30",
             )}
             title={expanded ? undefined : "Productos"}
+            aria-label={expanded ? undefined : "Productos"}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
               <PackageIcon />
             </span>
-            <span
-              className={cn(
-                "whitespace-nowrap",
-                expanded ? "opacity-100" : "sr-only",
-              )}
-            >
-              Productos
-            </span>
+            <NavLabel expanded={expanded}>Productos</NavLabel>
           </Link>
         ) : null}
 
@@ -465,24 +452,17 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/dashboard/staff"
             className={cn(
               itemBase,
-              expanded ? "gap-3 px-2" : "justify-center px-0",
               pathname.startsWith("/dashboard/staff")
                 ? "bg-white/40 text-slate-900 shadow-sm"
                 : "hover:bg-white/30",
             )}
             title={expanded ? undefined : "Staff"}
+            aria-label={expanded ? undefined : "Staff"}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
               <UsersIcon />
             </span>
-            <span
-              className={cn(
-                "whitespace-nowrap",
-                expanded ? "opacity-100" : "sr-only",
-              )}
-            >
-              Staff
-            </span>
+            <NavLabel expanded={expanded}>Staff</NavLabel>
           </Link>
         ) : null}
 
@@ -491,7 +471,6 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/dashboard/configuracion/usuarios"
             className={cn(
               itemBase,
-              "justify-center px-0",
               pathname.startsWith("/dashboard/configuracion/usuarios")
                 ? "bg-white/40 shadow-sm"
                 : "hover:bg-white/30",
@@ -512,7 +491,7 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
               onClick={() => setConfigOpen((v) => !v)}
               className={cn(
                 itemBase,
-                "w-full gap-2 px-2 text-left",
+                "w-full text-left",
                 pathname.startsWith("/dashboard/configuracion")
                   ? "bg-white/35 shadow-sm"
                   : "hover:bg-white/30",
@@ -602,17 +581,16 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
           onClick={handleLogout}
           disabled={loggingOut}
           className={cn(
-            "flex w-full items-center rounded-xl border border-white/40 bg-white/25 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-white/40 disabled:opacity-50",
-            expanded ? "justify-start gap-2 px-3" : "justify-center px-0",
+            "border border-white/40 bg-white/25 hover:bg-white/40 disabled:opacity-50",
+            itemBase,
           )}
           title={expanded ? undefined : "Cerrar sesión"}
+          aria-label={expanded ? undefined : loggingOut ? "Cerrando sesión" : "Cerrar sesión"}
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30">
             <LogOutIcon />
           </span>
-          <span className={cn(expanded ? "" : "sr-only")}>
-            {loggingOut ? "Cerrando…" : "Cerrar sesión"}
-          </span>
+          <NavLabel expanded={expanded}>{loggingOut ? "Cerrando…" : "Cerrar sesión"}</NavLabel>
         </button>
       </div>
     </aside>
