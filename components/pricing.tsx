@@ -4,6 +4,8 @@ import { motion, useInView, useReducedMotion } from "framer-motion"
 import { useRef, useState } from "react"
 import { AnimatePresence } from "framer-motion"
 import { Check, Sparkles, Clock, Gift, Zap, Crown, Star, X } from "lucide-react"
+import { BonoSignaturePad, type BonoSignaturePadHandle } from "@/components/bono-signature-pad"
+import { bonosWebRequireSignature } from "@/lib/bonos/web-signature-flag"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/cn"
@@ -255,6 +257,8 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
 }
 
 export function Pricing() {
+  /** `NEXT_PUBLIC_BONOS_WEB_REQUIRE_SIGNATURE=true` → lienzo de firma; por defecto solo casilla RGPD */
+  const requireWebSignature = bonosWebRequireSignature()
   const titleRef = useRef(null)
   const isInView = useInView(titleRef, { once: true })
   const [selectedBono, setSelectedBono] = useState<Bono | null>(null)
@@ -266,8 +270,12 @@ export function Pricing() {
     address: "",
     acceptedPolicy: false,
   })
-  const [paymentView, setPaymentView] = useState<"form" | "paypal_unavailable" | "bizum">("form")
+  const [paymentView, setPaymentView] = useState<"form" | "signature" | "paypal_unavailable" | "bizum">("form")
+  const [pendingPayment, setPendingPayment] = useState<"bizum" | "paypal" | null>(null)
+  const [hasSignatureDrawing, setHasSignatureDrawing] = useState(false)
+  const signatureRef = useRef<BonoSignaturePadHandle>(null)
   const [isRegisteringLead, setIsRegisteringLead] = useState(false)
+  const [isCheckingReuse, setIsCheckingReuse] = useState(false)
   const [leadError, setLeadError] = useState("")
 
   const isPurchaseFormComplete =
@@ -282,24 +290,32 @@ export function Pricing() {
     setSelectedBono(bono)
     setPaymentView("form")
     setLeadError("")
+    setIsCheckingReuse(false)
   }
 
   const closePurchaseModal = () => {
     setSelectedBono(null)
     setPaymentView("form")
+    setPendingPayment(null)
+    setHasSignatureDrawing(false)
     setLeadError("")
+    signatureRef.current?.clear()
   }
 
   const handlePurchaseChange = (field: keyof typeof purchaseForm, value: string | boolean) => {
     setPurchaseForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const registerLeadAndFlip = async (paymentMethod: "bizum" | "paypal") => {
-    if (!selectedBono) return
+  const goToSignatureStep = async (method: "bizum" | "paypal") => {
+    if (!isPurchaseFormComplete) return
     setLeadError("")
-    setIsRegisteringLead(true)
+    if (!requireWebSignature) {
+      await registerLeadAndFlip(method)
+      return
+    }
+    setIsCheckingReuse(true)
     try {
-      const res = await fetch("/api/bonos/lead", {
+      const check = await fetch("/api/bonos/signature-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -307,10 +323,58 @@ export function Pricing() {
           lastName: purchaseForm.lastName.trim(),
           email: purchaseForm.email.trim(),
           phone: purchaseForm.phone.trim(),
-          address: purchaseForm.address.trim(),
-          bonoSessions: selectedBono.sessions,
-          bonoPrice: selectedBono.price,
-          paymentMethod,
+        }),
+      })
+      const checkData = (await check.json()) as { ok?: boolean; skipSignature?: boolean; message?: string }
+      if (!check.ok) {
+        setLeadError(checkData.message ?? "No se pudo comprobar si ya existe tu firma.")
+        return
+      }
+      if (checkData.skipSignature) {
+        await registerLeadAndFlip(method, { reuseWebSignature: true })
+        return
+      }
+      setPendingPayment(method)
+      setHasSignatureDrawing(false)
+      setPaymentView("signature")
+    } catch {
+      setLeadError("No se pudo comprobar tus datos. Inténtalo de nuevo.")
+    } finally {
+      setIsCheckingReuse(false)
+    }
+  }
+
+  const registerLeadAndFlip = async (
+    paymentMethod: "bizum" | "paypal",
+    opts?: { reuseWebSignature?: boolean },
+  ) => {
+    if (!selectedBono) return
+    const reuse = requireWebSignature && opts?.reuseWebSignature === true
+    const signaturePngBase64 = requireWebSignature && !reuse ? signatureRef.current?.toDataUrl() : null
+    if (requireWebSignature && !reuse && !signaturePngBase64) {
+      setLeadError("Firma obligatoria: dibuja tu firma en el recuadro.")
+      return
+    }
+    setLeadError("")
+    setIsRegisteringLead(true)
+    try {
+      const base = {
+        name: purchaseForm.name.trim(),
+        lastName: purchaseForm.lastName.trim(),
+        email: purchaseForm.email.trim(),
+        phone: purchaseForm.phone.trim(),
+        address: purchaseForm.address.trim(),
+        bonoSessions: selectedBono.sessions,
+        bonoPrice: selectedBono.price,
+        paymentMethod,
+      }
+      const res = await fetch("/api/bonos/lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...base,
+          ...(reuse ? { reuseWebSignature: true } : {}),
+          ...(requireWebSignature && !reuse && signaturePngBase64 ? { signaturePngBase64 } : {}),
         }),
       })
       const data = (await res.json()) as { ok?: boolean; message?: string }
@@ -318,6 +382,7 @@ export function Pricing() {
         setLeadError(data.message ?? "No se pudo registrar tus datos.")
         return
       }
+      setPendingPayment(null)
       setPaymentView(paymentMethod === "bizum" ? "bizum" : "paypal_unavailable")
     } catch {
       setLeadError("No pudimos registrar tus datos. Inténtalo de nuevo.")
@@ -548,8 +613,8 @@ export function Pricing() {
                         <div className="grid gap-3 pt-2 sm:grid-cols-2">
                           <Button
                             type="button"
-                            onClick={() => registerLeadAndFlip("bizum")}
-                            disabled={!isPurchaseFormComplete || isRegisteringLead}
+                            onClick={() => void goToSignatureStep("bizum")}
+                            disabled={!isPurchaseFormComplete || isRegisteringLead || isCheckingReuse}
                             className="h-12 rounded-xl bg-[#2D7CF6] text-white hover:bg-[#1f68db] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -558,12 +623,18 @@ export function Pricing() {
                               alt="Logo Bizum"
                               className="mr-2 h-5 w-5 rounded-sm bg-white/95 p-[2px]"
                             />
-                            {isRegisteringLead ? "Registrando..." : "Pagar con Bizum"}
+                            {requireWebSignature
+                              ? isCheckingReuse
+                                ? "Comprobando…"
+                                : "Siguiente: firma"
+                              : isRegisteringLead
+                                ? "Registrando…"
+                                : "Pagar con Bizum"}
                           </Button>
                           <Button
                             type="button"
-                            onClick={() => registerLeadAndFlip("paypal")}
-                            disabled={!isPurchaseFormComplete || isRegisteringLead}
+                            onClick={() => void goToSignatureStep("paypal")}
+                            disabled={!isPurchaseFormComplete || isRegisteringLead || isCheckingReuse}
                             className="h-12 rounded-xl bg-[#0070BA] text-white hover:bg-[#005e9d] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -572,13 +643,77 @@ export function Pricing() {
                               alt="Logo PayPal"
                               className="mr-2 h-6 w-6 rounded-md bg-white p-1 shadow-sm"
                             />
-                            {isRegisteringLead ? "Registrando..." : "Pagar con PayPal"}
+                            {requireWebSignature
+                              ? isCheckingReuse
+                                ? "Comprobando…"
+                                : "Siguiente: firma"
+                              : isRegisteringLead
+                                ? "Registrando…"
+                                : "Pagar con PayPal"}
                           </Button>
                         </div>
                         {leadError ? (
                           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{leadError}</p>
                         ) : null}
                       </form>
+                    </motion.div>
+                  ) : paymentView === "signature" && pendingPayment ? (
+                    <motion.div
+                      key="purchase-signature"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-4"
+                    >
+                      <div className="mb-2 pr-8">
+                        <p className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                          Firma manuscrita
+                        </p>
+                        <h3 className="mt-2 text-xl font-bold text-slate-900">Firma en el recuadro</h3>
+                        <p className="mt-1 text-sm text-slate-600">
+                          Usa el ratón o el dedo. Después podrás enviar la solicitud (
+                          {pendingPayment === "bizum" ? "Bizum" : "PayPal"}).
+                        </p>
+                      </div>
+                      <BonoSignaturePad
+                        ref={signatureRef}
+                        key={pendingPayment + (selectedBono?.sessions ?? 0)}
+                        onDrawingChange={setHasSignatureDrawing}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => signatureRef.current?.clear()}
+                        >
+                          Limpiar firma
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => {
+                            setPaymentView("form")
+                            setPendingPayment(null)
+                            setHasSignatureDrawing(false)
+                          }}
+                        >
+                          Volver
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => void registerLeadAndFlip(pendingPayment)}
+                        disabled={!hasSignatureDrawing || isRegisteringLead}
+                        className="h-12 w-full rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isRegisteringLead ? "Enviando…" : "Confirmar y enviar solicitud"}
+                      </Button>
+                      {leadError ? (
+                        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{leadError}</p>
+                      ) : null}
                     </motion.div>
                   ) : (
                     <motion.div

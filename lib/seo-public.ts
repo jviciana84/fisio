@@ -48,8 +48,8 @@ export const CLINIC_ADDRESS = {
   country: "ES",
 } as const;
 
-/** Imagen social (OG/Twitter/WhatsApp) generada desde `logo FRB3.svg` — ver `npm run generate:icons`. */
-const OG_IMAGE_PATH = "/og-social.jpg";
+/** Imagen social (OG/Twitter/WhatsApp). Subir `v=` tras regenerar `og-social.jpg` para invalidar caché de redes. */
+const OG_IMAGE_PATH = "/og-social.jpg?v=2";
 
 export function absoluteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;

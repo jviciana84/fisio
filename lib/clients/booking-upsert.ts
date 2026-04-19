@@ -1,11 +1,6 @@
 import type { PostgrestError } from "@supabase/supabase-js";
+import { mergeClientNotesBlock } from "@/lib/bonos/merge-client-notes";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-
-function missingEstadoPagoColumn(err: PostgrestError | null): boolean {
-  if (!err) return false;
-  if (err.code === "42703") return true;
-  return /estado_pago|column .* does not exist/i.test(err.message ?? "");
-}
 
 type UpsertParams = {
   fullName: string;
@@ -27,10 +22,74 @@ function buildBookingNote(params: UpsertParams): string {
     .join(" · ");
 }
 
-function appendNotes(prev: string | null | undefined, block: string): string {
-  const p = prev?.trim();
-  if (!p) return block;
-  return `${p}\n\n---\n\n${block}`;
+function buildBookingUpdateVariants(
+  fullName: string,
+  email: string,
+  phone: string,
+  mergedNotes: string,
+): Record<string, unknown>[] {
+  const base = {
+    full_name: fullName,
+    email,
+    phone,
+    notes: mergedNotes,
+  };
+  return [
+    { ...base, estado_pago: "pendiente_validacion", origen_cliente: "internet" },
+    { ...base, estado_pago: "pendiente_validacion" },
+    {
+      ...base,
+      notes: `${mergedNotes} | estado: pendiente_validacion`,
+      origen_cliente: "internet",
+    },
+    { ...base, notes: `${mergedNotes} | estado: pendiente_validacion` },
+  ];
+}
+
+function buildBookingInsertVariants(
+  fullName: string,
+  email: string,
+  phone: string,
+  block: string,
+): Record<string, unknown>[] {
+  const base = { full_name: fullName, email, phone, notes: block };
+  return [
+    { ...base, estado_pago: "pendiente_validacion", origen_cliente: "internet" },
+    { ...base, estado_pago: "pendiente_validacion" },
+    {
+      ...base,
+      notes: `${block} | estado: pendiente_validacion`,
+      origen_cliente: "internet",
+    },
+    { ...base, notes: `${block} | estado: pendiente_validacion` },
+  ];
+}
+
+async function updateWithVariants(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  id: string,
+  variants: Record<string, unknown>[],
+): Promise<PostgrestError | null> {
+  let last: PostgrestError | null = null;
+  for (const row of variants) {
+    const { error } = await supabase.from("clients").update(row).eq("id", id);
+    if (!error) return null;
+    last = error;
+  }
+  return last;
+}
+
+async function insertWithVariants(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  variants: Record<string, unknown>[],
+) {
+  let last = await supabase.from("clients").insert(variants[0] as never);
+  if (!last.error) return last;
+  for (let i = 1; i < variants.length; i++) {
+    last = await supabase.from("clients").insert(variants[i] as never);
+    if (!last.error) return last;
+  }
+  return last;
 }
 
 /**
@@ -40,6 +99,7 @@ export async function upsertClientFromBooking(params: UpsertParams): Promise<{ o
   const email = params.email.trim().toLowerCase();
   const phone = params.phone.trim().replace(/\s+/g, " ");
   const block = buildBookingNote(params);
+  const fullName = params.fullName.trim();
 
   const supabase = createSupabaseAdminClient();
 
@@ -55,25 +115,9 @@ export async function upsertClientFromBooking(params: UpsertParams): Promise<{ o
   }
 
   if (byEmail?.id) {
-    const notes = appendNotes(byEmail.notes, block);
-    const rowWithEstado = {
-      full_name: params.fullName.trim(),
-      email,
-      phone,
-      notes,
-      estado_pago: "pendiente_validacion" as const,
-    };
-    const rowWithoutEstado = {
-      full_name: params.fullName.trim(),
-      email,
-      phone,
-      notes: `${notes} | estado: pendiente_validacion`,
-    };
-
-    let err = (await supabase.from("clients").update(rowWithEstado).eq("id", byEmail.id)).error;
-    if (missingEstadoPagoColumn(err)) {
-      err = (await supabase.from("clients").update(rowWithoutEstado).eq("id", byEmail.id)).error;
-    }
+    const mergedNotes = mergeClientNotesBlock(byEmail.notes, block);
+    const variants = buildBookingUpdateVariants(fullName, email, phone, mergedNotes);
+    const err = await updateWithVariants(supabase, byEmail.id, variants);
     if (err) {
       console.error("[booking] update client", err);
       return { ok: false };
@@ -81,24 +125,8 @@ export async function upsertClientFromBooking(params: UpsertParams): Promise<{ o
     return { ok: true };
   }
 
-  const rowWithEstado = {
-    full_name: params.fullName.trim(),
-    email,
-    phone,
-    notes: block,
-    estado_pago: "pendiente_validacion" as const,
-  };
-  const rowWithoutEstado = {
-    full_name: params.fullName.trim(),
-    email,
-    phone,
-    notes: `${block} | estado: pendiente_validacion`,
-  };
-
-  let ins = await supabase.from("clients").insert(rowWithEstado);
-  if (missingEstadoPagoColumn(ins.error)) {
-    ins = await supabase.from("clients").insert(rowWithoutEstado);
-  }
+  const insertVariants = buildBookingInsertVariants(fullName, email, phone, block);
+  let ins = await insertWithVariants(supabase, insertVariants);
 
   if (!ins.error) {
     return { ok: true };
@@ -107,24 +135,9 @@ export async function upsertClientFromBooking(params: UpsertParams): Promise<{ o
   if (ins.error.code === "23505") {
     const { data: byPhone } = await supabase.from("clients").select("id, notes").eq("phone", phone).maybeSingle();
     if (byPhone?.id) {
-      const notes = appendNotes(byPhone.notes, block);
-      const up = {
-        full_name: params.fullName.trim(),
-        email,
-        phone,
-        notes,
-        estado_pago: "pendiente_validacion" as const,
-      };
-      const upNo = {
-        full_name: params.fullName.trim(),
-        email,
-        phone,
-        notes: `${notes} | estado: pendiente_validacion`,
-      };
-      let uperr = (await supabase.from("clients").update(up).eq("id", byPhone.id)).error;
-      if (missingEstadoPagoColumn(uperr)) {
-        uperr = (await supabase.from("clients").update(upNo).eq("id", byPhone.id)).error;
-      }
+      const mergedNotes = mergeClientNotesBlock(byPhone.notes, block);
+      const variants = buildBookingUpdateVariants(fullName, email, phone, mergedNotes);
+      const uperr = await updateWithVariants(supabase, byPhone.id, variants);
       if (!uperr) return { ok: true };
       console.error("[booking] update by phone", uperr);
     }

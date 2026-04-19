@@ -18,7 +18,6 @@ function rasterize() {
 
 async function main() {
   const bg = { r: 255, g: 255, b: 255, alpha: 1 };
-  const ogBg = { r: 241, g: 245, b: 249, alpha: 1 };
 
   await rasterize()
     .resize(180, 180, { fit: "contain", background: bg })
@@ -40,8 +39,10 @@ async function main() {
     .png()
     .toFile(path.join(root, "public", "icon-512.png"));
 
+  // JPEG sin alpha: la transparencia del SVG pasaría a negro si no aplanamos antes.
   await rasterize()
-    .resize(1200, 630, { fit: "contain", background: ogBg })
+    .resize(1200, 630, { fit: "contain", background: bg })
+    .flatten({ background: "#ffffff" })
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(path.join(root, "public", "og-social.jpg"));
 
