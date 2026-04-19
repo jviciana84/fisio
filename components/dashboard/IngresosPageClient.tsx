@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Check, Pencil, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { IngresosDayCalendar, localDayKeyFromIso } from "@/components/dashboard/IngresosDayCalendar";
 import {
@@ -44,6 +46,12 @@ type PaymentFilter = "all" | IncomeTicketRow["payment_method"];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
+const PAYMENT_EDIT_OPTIONS: { value: IncomeTicketRow["payment_method"]; label: string }[] = [
+  { value: "cash", label: "Efectivo" },
+  { value: "bizum", label: "Bizum" },
+  { value: "card", label: "Tarjeta" },
+];
+
 export function IngresosPageClient({
   tickets,
   fiscalPrefs,
@@ -51,6 +59,12 @@ export function IngresosPageClient({
   tickets: IncomeTicketRow[];
   fiscalPrefs: IncomeBreakdownFiscalPrefs;
 }) {
+  const router = useRouter();
+  const [ticketList, setTicketList] = useState<IncomeTicketRow[]>(tickets);
+  useEffect(() => {
+    setTicketList(tickets);
+  }, [tickets]);
+
   const [range, setRange] = useState<ChartRange>("week");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
@@ -58,6 +72,15 @@ export function IngresosPageClient({
   const [modalTicket, setModalTicket] = useState<IncomeTicketRow | null>(null);
   const [pageSize, setPageSize] = useState<number>(25);
   const [page, setPage] = useState(1);
+
+  const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
+  const [editPayment, setEditPayment] = useState<IncomeTicketRow["payment_method"]>("cash");
+  const [editTotalStr, setEditTotalStr] = useState("");
+  const [ingresosActionError, setIngresosActionError] = useState<string | null>(null);
+  const [savingTicket, setSavingTicket] = useState(false);
+  const [deleteTicketId, setDeleteTicketId] = useState<string | null>(null);
+  const [deletingTicket, setDeletingTicket] = useState(false);
+  const [deleteTicketModalError, setDeleteTicketModalError] = useState<string | null>(null);
 
   const modalBreakdown = useMemo(() => {
     if (!modalTicket) return null;
@@ -75,10 +98,10 @@ export function IngresosPageClient({
 
   const filtered = useMemo(() => {
     if (selectedDay) {
-      return tickets.filter((t) => localDayKeyFromIso(t.created_at) === selectedDay);
+      return ticketList.filter((t) => localDayKeyFromIso(t.created_at) === selectedDay);
     }
-    return tickets.filter((t) => ticketInRange(t.created_at, range));
-  }, [tickets, range, selectedDay]);
+    return ticketList.filter((t) => ticketInRange(t.created_at, range));
+  }, [ticketList, range, selectedDay]);
 
   const paymentFiltered = useMemo(() => {
     if (paymentFilter === "all") return filtered;
@@ -112,6 +135,119 @@ export function IngresosPageClient({
       id != null && sorted.some((r) => r.id === id) ? id : null,
     );
   }, [sorted]);
+
+  useEffect(() => {
+    setEditingTicketId((id) =>
+      id != null && ticketList.some((t) => t.id === id) ? id : null,
+    );
+  }, [ticketList]);
+
+  function startEditTicket(row: IncomeTicketRow) {
+    setEditingTicketId(row.id);
+    setEditPayment(row.payment_method);
+    setEditTotalStr((row.total_cents / 100).toFixed(2).replace(".", ","));
+    setIngresosActionError(null);
+  }
+
+  function cancelEditTicket() {
+    setEditingTicketId(null);
+    setIngresosActionError(null);
+  }
+
+  useEffect(() => {
+    if (!editingTicketId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setEditingTicketId(null);
+        setIngresosActionError(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editingTicketId]);
+
+  async function saveTicketEdit(id: string) {
+    const raw = editTotalStr.replace(/\s/g, "").replace(",", ".");
+    const euros = parseFloat(raw);
+    if (!Number.isFinite(euros) || euros <= 0) {
+      setIngresosActionError("Indica un importe válido mayor que cero.");
+      return;
+    }
+    setSavingTicket(true);
+    setIngresosActionError(null);
+    try {
+      const res = await fetch(`/api/admin/cash/tickets/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethod: editPayment, totalEuros: euros }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setIngresosActionError(data.message ?? "No se pudo guardar");
+        return;
+      }
+      const amountCents = Math.round(euros * 100);
+      setTicketList((list) =>
+        list.map((t) =>
+          t.id === id ? { ...t, payment_method: editPayment, total_cents: amountCents } : t,
+        ),
+      );
+      setModalTicket((prev) =>
+        prev?.id === id ? { ...prev, payment_method: editPayment, total_cents: amountCents } : prev,
+      );
+      setEditingTicketId(null);
+      router.refresh();
+    } catch {
+      setIngresosActionError("Error de red");
+    } finally {
+      setSavingTicket(false);
+    }
+  }
+
+  async function confirmDeleteTicket() {
+    if (!deleteTicketId) return;
+    setDeletingTicket(true);
+    setIngresosActionError(null);
+    setDeleteTicketModalError(null);
+    try {
+      const res = await fetch(`/api/admin/cash/tickets/${encodeURIComponent(deleteTicketId)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      let data: { ok?: boolean; message?: string } = {};
+      try {
+        const text = await res.text();
+        if (text) data = JSON.parse(text) as { ok?: boolean; message?: string };
+      } catch {
+        setDeleteTicketModalError("Respuesta inválida del servidor");
+        setIngresosActionError("Respuesta inválida del servidor");
+        return;
+      }
+      if (!res.ok || data.ok !== true) {
+        const msg = data.message ?? `No se pudo eliminar (${res.status})`;
+        setDeleteTicketModalError(msg);
+        setIngresosActionError(msg);
+        return;
+      }
+      setTicketList((list) => list.filter((t) => t.id !== deleteTicketId));
+      setSelectedRowId((x) => (x === deleteTicketId ? null : x));
+      setModalTicket((prev) => (prev?.id === deleteTicketId ? null : prev));
+      if (editingTicketId === deleteTicketId) setEditingTicketId(null);
+      setDeleteTicketId(null);
+      router.refresh();
+    } catch {
+      const msg = "Error de red";
+      setDeleteTicketModalError(msg);
+      setIngresosActionError(msg);
+    } finally {
+      setDeletingTicket(false);
+    }
+  }
+
+  const deleteTargetTicket = deleteTicketId
+    ? ticketList.find((t) => t.id === deleteTicketId)
+    : undefined;
 
   const totals = useMemo(() => {
     let total = 0;
@@ -150,8 +286,8 @@ export function IngresosPageClient({
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600">Caja</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Ingresos detallados</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Usa el periodo como en el panel o el calendario para filtrar por un día concreto. La tabla y el resumen se
-              actualizan al instante.
+              Filtra por periodo o día; clic en una fila para el desglose o usa Acciones para editar, borrar o ver
+              detalle.
             </p>
           </div>
 
@@ -275,6 +411,15 @@ export function IngresosPageClient({
 
             {/* Fila 3: tabla 100% justo debajo del calendario */}
             <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 md:col-span-2 md:row-start-3 md:col-start-1">
+              <p className="border-b border-slate-100/90 bg-slate-50/40 px-3 py-2 text-[11px] leading-snug text-slate-500 md:px-3">
+                Clic en fila para desglose fiscal; edita método o importe (reescala líneas) o elimina el ticket desde
+                Acciones.
+              </p>
+              {ingresosActionError ? (
+                <p className="border-b border-rose-100/80 bg-rose-50/50 px-3 py-2 text-sm text-rose-800" role="alert">
+                  {ingresosActionError}
+                </p>
+              ) : null}
               <table className="min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -283,12 +428,18 @@ export function IngresosPageClient({
                   <th className="min-w-[6rem] px-2 py-2 md:px-3">Cliente</th>
                   <th className="whitespace-nowrap px-2 py-2 md:px-3">Método</th>
                   <th className="whitespace-nowrap px-2 py-2 text-right md:px-3">Importe</th>
+                  <th
+                    className="whitespace-nowrap px-2 py-2 text-right md:px-3"
+                    title="Editar método o importe; eliminar ticket; o ver desglose al editar con el lápiz y guardar."
+                  >
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-slate-600">
+                    <td colSpan={6} className="px-3 py-6 text-center text-slate-600">
                       {filtered.length === 0
                         ? selectedDay
                           ? "No hay tickets en este día."
@@ -299,12 +450,19 @@ export function IngresosPageClient({
                 ) : (
                   paginatedRows.map((row) => {
                     const isSelected = selectedRowId === row.id;
+                    const isEditing = editingTicketId === row.id;
+                    const inputCls =
+                      "w-full min-w-[5rem] rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[13px] text-slate-900 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400";
                     return (
                     <tr
                       key={row.id}
                       aria-selected={isSelected}
                       aria-label={`Ticket ${row.ticket_number}`}
-                      onClick={() => {
+                      onClick={(e) => {
+                        const t = e.target as HTMLElement;
+                        if (t.closest("button, input, select, textarea, label")) return;
+                        if (editingTicketId === row.id) return;
+                        if (editingTicketId != null) cancelEditTicket();
                         setSelectedRowId(row.id);
                         setModalTicket(row);
                       }}
@@ -325,9 +483,117 @@ export function IngresosPageClient({
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 font-medium text-slate-900 md:px-3">{row.ticket_number}</td>
                       <td className="px-2 py-2 text-slate-700 md:px-3">{row.client_name?.trim() || "—"}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-slate-700 md:px-3">{paymentLabel(row.payment_method)}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums text-slate-900 md:px-3">
-                        {fmtEuro(row.total_cents / 100)}
+                      <td
+                        className="max-w-[9rem] px-2 py-2 md:px-3"
+                        title="Clic para editar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditTicket(row);
+                        }}
+                      >
+                        {isEditing ? (
+                          <select
+                            className={`${inputCls} min-w-[6.5rem]`}
+                            value={editPayment}
+                            onChange={(e) =>
+                              setEditPayment(e.target.value as IncomeTicketRow["payment_method"])
+                            }
+                            aria-label="Forma de pago"
+                          >
+                            {PAYMENT_EDIT_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="block py-0.5 text-slate-700">{paymentLabel(row.payment_method)}</span>
+                        )}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-2 py-2 text-right md:px-3"
+                        title="Clic para editar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditTicket(row);
+                        }}
+                      >
+                        {isEditing ? (
+                          <input
+                            className={`${inputCls} text-right tabular-nums`}
+                            inputMode="decimal"
+                            value={editTotalStr}
+                            onChange={(e) => setEditTotalStr(e.target.value)}
+                            aria-label="Importe en euros"
+                          />
+                        ) : (
+                          <span className="block py-0.5 font-semibold tabular-nums text-slate-900">
+                            {fmtEuro(row.total_cents / 100)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-1 py-1.5 text-right md:px-2">
+                        <div className="inline-flex items-center gap-0.5">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                title="Guardar"
+                                disabled={savingTicket}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void saveTicketEdit(row.id);
+                                }}
+                                className="inline-flex rounded-md p-1.5 text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40"
+                              >
+                                <Check className="h-4 w-4" aria-hidden />
+                                <span className="sr-only">Guardar</span>
+                              </button>
+                              <button
+                                type="button"
+                                title="Cancelar"
+                                disabled={savingTicket}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  cancelEditTicket();
+                                }}
+                                className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+                              >
+                                <X className="h-4 w-4" aria-hidden />
+                                <span className="sr-only">Cancelar</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Editar"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditTicket(row);
+                              }}
+                              className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-blue-50 hover:text-blue-800"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                              <span className="sr-only">Editar</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            title="Eliminar ticket"
+                            disabled={savingTicket || deletingTicket}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIngresosActionError(null);
+                              setDeleteTicketModalError(null);
+                              if (editingTicketId === row.id) setEditingTicketId(null);
+                              setDeleteTicketId(row.id);
+                            }}
+                            className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden />
+                            <span className="sr-only">Eliminar</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     );
@@ -441,6 +707,61 @@ export function IngresosPageClient({
           </div>
         </section>
       </div>
+
+      {deleteTicketId && deleteTargetTicket ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ingresos-delete-ticket-title"
+          onClick={() => {
+            if (!deletingTicket) {
+              setDeleteTicketId(null);
+              setDeleteTicketModalError(null);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="ingresos-delete-ticket-title" className="text-lg font-semibold text-slate-900">
+              ¿Eliminar este ticket?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Se eliminará el ticket {deleteTargetTicket.ticket_number} (
+              {fmtEuro(deleteTargetTicket.total_cents / 100)}). Esta acción no se puede deshacer.
+            </p>
+            {deleteTicketModalError ? (
+              <p className="mt-3 text-sm text-rose-700" role="alert">
+                {deleteTicketModalError}
+              </p>
+            ) : null}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={deletingTicket}
+                onClick={() => {
+                  setDeleteTicketId(null);
+                  setDeleteTicketModalError(null);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deletingTicket}
+                onClick={() => void confirmDeleteTicket()}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+              >
+                {deletingTicket ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <IncomeTicketBreakdownModal
         open={modalTicket != null}

@@ -44,54 +44,53 @@ function monthlyEquivalent(cents: number, recurrence: ExpenseRow["recurrence"]) 
 
 export default async function DashboardPage() {
   const session = await getStaffSession();
+  const isAdmin = session?.role === "admin";
   const supabase = createSupabaseAdminClient();
 
-  const [staffRes, meRes, expensesRes, weather] = await Promise.all([
-    supabase.from("staff_access").select("id", { count: "exact", head: true }).eq("is_active", true),
-    session
-      ? supabase.from("staff_access").select("full_name").eq("id", session.userId).maybeSingle()
-      : Promise.resolve({ data: null } as { data: { full_name?: string } | null }),
-    supabase
-      .from("expenses")
-      .select("amount_cents, recurrence, expense_date")
-      .order("expense_date", { ascending: false }),
-    fetchTerrassaWeather(),
-  ]);
-  const ticketsRes = await supabase
-    .from("cash_tickets")
-    .select("total_cents, payment_method, created_at")
-    .order("created_at", { ascending: false });
+  if (isAdmin) {
+    const [staffRes, meRes, expensesRes, weather] = await Promise.all([
+      supabase.from("staff_access").select("id", { count: "exact", head: true }).eq("is_active", true),
+      session
+        ? supabase.from("staff_access").select("full_name").eq("id", session.userId).maybeSingle()
+        : Promise.resolve({ data: null } as { data: { full_name?: string } | null }),
+      supabase
+        .from("expenses")
+        .select("amount_cents, recurrence, expense_date")
+        .order("expense_date", { ascending: false }),
+      fetchTerrassaWeather(),
+    ]);
+    const ticketsRes = await supabase
+      .from("cash_tickets")
+      .select("total_cents, payment_method, created_at")
+      .order("created_at", { ascending: false });
 
-  const userName = meRes.data?.full_name?.trim() || "equipo";
-  const activeUsers = staffRes.count ?? 0;
-  const expenses = (expensesRes.data ?? []) as ExpenseRow[];
-  const tickets = (ticketsRes.data ?? []) as TicketRow[];
+    const userName = meRes.data?.full_name?.trim() || "equipo";
+    const activeUsers = staffRes.count ?? 0;
+    const expenses = (expensesRes.data ?? []) as ExpenseRow[];
+    const tickets = (ticketsRes.data ?? []) as TicketRow[];
 
-  const gastosFijosMensuales = expenses.reduce(
-    (acc, e) => acc + monthlyEquivalent(e.amount_cents, e.recurrence),
-    0,
-  );
+    const gastosFijosMensuales = expenses.reduce(
+      (acc, e) => acc + monthlyEquivalent(e.amount_cents, e.recurrence),
+      0,
+    );
 
-  return (
-    <main className="p-6 md:p-8">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 xl:grid-cols-12">
-        {/* Fila 1: bienvenida + tiempo Terrassa */}
-        <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:min-h-[420px] xl:items-stretch">
-          <div className="flex min-h-0 flex-col xl:col-span-7">
-            <DashboardWelcomeCard
-              userName={userName}
-              isAdmin={session?.role === "admin"}
-              activeStaffCount={activeUsers}
-              gastosFijosMensualesEuros={gastosFijosMensuales}
-            />
+    return (
+      <main className="p-6 md:p-8">
+        <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 xl:grid-cols-12">
+          <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:min-h-[420px] xl:items-stretch">
+            <div className="flex min-h-0 flex-col xl:col-span-7">
+              <DashboardWelcomeCard
+                userName={userName}
+                isAdmin
+                activeStaffCount={activeUsers}
+                gastosFijosMensualesEuros={gastosFijosMensuales}
+              />
+            </div>
+            <div className="flex min-h-0 flex-col xl:col-span-5">
+              <DashboardTerrassaWeather weather={weather} />
+            </div>
           </div>
-          <div className="flex min-h-0 flex-col xl:col-span-5">
-            <DashboardTerrassaWeather weather={weather} />
-          </div>
-        </div>
 
-        {/* Ingresos + impuestos (misma fila en xl) */}
-        {session?.role === "admin" ? (
           <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:items-stretch">
             <div className="flex min-h-0 flex-col xl:col-span-7">
               <DashboardIncomeCards tickets={tickets} />
@@ -100,51 +99,79 @@ export default async function DashboardPage() {
               <QuarterHealthCard />
             </div>
           </div>
-        ) : (
-          <div className="xl:col-span-12">
-            <DashboardIncomeCards tickets={tickets} />
+
+          <DashboardTrendChart tickets={tickets} expenses={expenses} />
+
+          <div id="caja" className="scroll-mt-6 xl:col-span-12">
+            <CashRegisterCard />
           </div>
-        )}
 
-        <DashboardTrendChart tickets={tickets} expenses={expenses} />
-
-        <CashRegisterCard />
-
-        <section className="glass-panel glass-tint-emerald xl:col-span-12 rounded-2xl p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Accesos</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">Gestión rápida</h2>
-          <p className="mt-2 text-xs text-slate-600">
-            Enlaces al catálogo, usuarios y gastos. El detalle de impuestos está en Impuestos (admin).
-          </p>
-          <div className="mt-4 space-y-2">
-            <Link
-              href="/dashboard/configuracion/usuarios"
-              className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
-            >
-              Usuarios
-            </Link>
-            <Link
-              href="/dashboard/configuracion/productos"
-              className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
-            >
-              Productos / precios
-            </Link>
-            <Link
-              href="/dashboard/configuracion/gastos"
-              className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
-            >
-              Gastos fijos
-            </Link>
-            {session?.role === "admin" ? (
+          <section className="glass-panel glass-tint-emerald xl:col-span-12 rounded-2xl p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Accesos</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">Gestión rápida</h2>
+            <p className="mt-2 text-xs text-slate-600">
+              Enlaces al catálogo, usuarios y gastos. El detalle de impuestos está en Impuestos (admin).
+            </p>
+            <div className="mt-4 space-y-2">
+              <Link
+                href="/dashboard/configuracion/usuarios"
+                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+              >
+                Usuarios
+              </Link>
+              <Link
+                href="/dashboard/configuracion/productos"
+                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+              >
+                Productos / precios
+              </Link>
+              <Link
+                href="/dashboard/configuracion/gastos"
+                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+              >
+                Gastos fijos
+              </Link>
               <Link
                 href="/dashboard/fiscal"
                 className="block rounded-xl border border-cyan-300/40 bg-gradient-to-r from-cyan-500/15 to-teal-500/10 px-4 py-3 text-sm font-medium text-cyan-950 backdrop-blur-sm transition hover:from-cyan-500/25 hover:to-teal-500/15"
               >
                 Simulador fiscal
               </Link>
-            ) : null}
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  const [meRes, weather] = await Promise.all([
+    session
+      ? supabase.from("staff_access").select("full_name").eq("id", session.userId).maybeSingle()
+      : Promise.resolve({ data: null } as { data: { full_name?: string } | null }),
+    fetchTerrassaWeather(),
+  ]);
+  const userName = meRes.data?.full_name?.trim() || "equipo";
+
+  return (
+    <main className="p-6 md:p-8">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12 xl:min-h-[420px] xl:items-stretch">
+          <div className="flex min-h-0 flex-col xl:col-span-7">
+            <DashboardWelcomeCard
+              userName={userName}
+              isAdmin={false}
+              activeStaffCount={0}
+              gastosFijosMensualesEuros={0}
+            />
           </div>
-        </section>
+          <div className="flex min-h-0 flex-col xl:col-span-5">
+            <DashboardTerrassaWeather weather={weather} />
+          </div>
+        </div>
+
+        <div id="caja" className="scroll-mt-6 xl:col-span-12">
+          <CashRegisterCard />
+        </div>
       </div>
     </main>
   );

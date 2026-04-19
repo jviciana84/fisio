@@ -105,8 +105,8 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
         aria-label="Cerrar"
         onClick={onClose}
       />
-      <div className="relative z-[1] flex max-h-[min(92vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200/80 bg-white shadow-2xl sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200/80 px-4 py-3 md:px-5">
+      <div className="relative z-[1] flex max-h-[min(94vh,900px)] w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl border border-slate-200/80 bg-white shadow-2xl sm:rounded-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200/80 px-4 py-3 md:px-6">
           <div className="min-w-0">
             <p id="income-breakdown-title" className="text-base font-semibold text-slate-900">
               Desglose del cobro
@@ -127,45 +127,49 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5">
-          <ul className="space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-4">
+          <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-x-4 md:gap-y-2.5">
             {rows.map((r) => (
               <li
                 key={r.label}
-                className="flex flex-col gap-0.5 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"
+                className="flex flex-col gap-0.5 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[13px] font-medium text-slate-800">{r.label}</span>
+                  <span className="text-[13px] font-medium leading-tight text-slate-800">{r.label}</span>
                   <span className="shrink-0 text-[13px] font-semibold tabular-nums text-slate-900">
                     {fmtEuroFromCents(r.amountCents)}
                   </span>
                 </div>
-                {r.hint ? <p className="text-[11px] leading-snug text-slate-500">{r.hint}</p> : null}
+                {r.hint ? <p className="text-[10px] leading-snug text-slate-500 md:text-[11px]">{r.hint}</p> : null}
               </li>
             ))}
           </ul>
 
-          <div className="mt-4 space-y-3 rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-600/8 to-cyan-500/5 p-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-900">Total a reservar (orientativo)</span>
-              <span className="text-lg font-bold tabular-nums text-blue-800">
-                {fmtEuroFromCents(breakdown.totalSuggestedReserveCents)}
-              </span>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:mt-5 md:grid-cols-2 md:gap-4">
+            <div className="rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-600/8 to-cyan-500/5 p-3 md:p-3.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-900">Total a reservar (orientativo)</span>
+                <span className="text-lg font-bold tabular-nums text-blue-800">
+                  {fmtEuroFromCents(breakdown.totalSuggestedReserveCents)}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-600 md:text-[11px]">
+                IVA estimado + estructura + cuota autónomo + IRPF. No incluye otros gastos deducibles ni tu tramo
+                real; es una guía para apartar liquidez.
+              </p>
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-600">
-              IVA estimado + estructura + cuota autónomo + IRPF. No incluye otros gastos deducibles ni tu tramo
-              real; es una guía para apartar liquidez.
-            </p>
+
+            <div className="rounded-xl border border-emerald-200/60 bg-emerald-500/8 px-3 py-3 md:px-3.5 md:py-3.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-semibold text-emerald-950">Neto líquido estimado (tras reservas)</span>
+                <span className="text-lg font-bold tabular-nums text-emerald-900">
+                  {fmtEuroFromCents(breakdown.professionalNetCents)}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between gap-2 rounded-xl border border-emerald-200/60 bg-emerald-500/8 px-3 py-2.5">
-            <span className="text-sm font-semibold text-emerald-950">Neto líquido estimado (tras reservas)</span>
-            <span className="text-lg font-bold tabular-nums text-emerald-900">
-              {fmtEuroFromCents(breakdown.professionalNetCents)}
-            </span>
-          </div>
-
-          <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+          <p className="mt-4 text-[10px] leading-relaxed text-slate-500 md:text-[11px]">
             Cálculo orientativo. Más adelante podrás fijar <strong className="font-medium text-slate-600">€/hora</strong>{" "}
             y <strong className="font-medium text-slate-600">nómina</strong>, y sustituir el % de cuota REASEG por tu
             cuota mensual real.

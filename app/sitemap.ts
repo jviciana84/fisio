@@ -1,38 +1,21 @@
-import type { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo-public";
 
+/** Genera `/sitemap.xml`; enlázalo en Search Console / Bing. URLs canónicas (sin `#`). */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://fisioterapiarocblanc.es'
-  
+  const now = new Date();
   return [
     {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
+      url: SITE_URL,
+      lastModified: now,
+      changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/#servicios`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
+      url: `${SITE_URL}/reservar`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
-    {
-      url: `${baseUrl}/#contacto`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/#horario`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/#nosotros`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-  ]
+  ];
 }

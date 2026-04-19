@@ -7,7 +7,7 @@ export default async function GastosPage() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("expenses")
-    .select("id, concept, notes, category, amount_cents, expense_date, recurrence")
+    .select("id, concept, notes, category, amount_cents, expense_date, recurrence, created_at")
     .order("expense_date", { ascending: false });
 
   if (error) {
@@ -28,6 +28,7 @@ export default async function GastosPage() {
     amount_cents: Number(row.amount_cents ?? 0),
     expense_date: String(row.expense_date ?? ""),
     recurrence: String(row.recurrence ?? "monthly"),
+    created_at: String((row as { created_at?: string }).created_at ?? ""),
   }));
 
   return <GastosPageClient expenses={expenses} />;

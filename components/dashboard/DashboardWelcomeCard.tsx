@@ -22,21 +22,32 @@ export function DashboardWelcomeCard({
           Bienvenido, {userName}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-600">
-          Aquí tienes el pulso del día: equipo, gastos recurrentes y enlaces rápidos. Los ingresos por mes y método de
-          pago están en la zona inferior.
+          {isAdmin ? (
+            <>
+              Aquí tienes el pulso del día: equipo, gastos recurrentes y enlaces rápidos. Los ingresos por mes y método
+              de pago están en la zona inferior.
+            </>
+          ) : (
+            <>
+              Registra cobros y genera el bono desde <span className="font-medium text-slate-800">Caja</span> más abajo.
+              Si necesitas consultar ingresos o gastos, pide acceso al administrador.
+            </>
+          )}
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="glass-inner rounded-2xl px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Equipo activo</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{activeStaffCount}</p>
+      {isAdmin ? (
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="glass-inner rounded-2xl px-4 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Equipo activo</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{activeStaffCount}</p>
+          </div>
+          <div className="glass-inner rounded-2xl px-4 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Gasto fijo mensual (est.)</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{fmt(gastosFijosMensualesEuros)}</p>
+          </div>
         </div>
-        <div className="glass-inner rounded-2xl px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Gasto fijo mensual (est.)</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{fmt(gastosFijosMensualesEuros)}</p>
-        </div>
-      </div>
+      ) : null}
 
       {isAdmin ? (
         <div className="mt-4 flex flex-wrap gap-2">

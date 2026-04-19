@@ -151,11 +151,11 @@ export function DashboardTrendChart({
     () =>
       hoverPoint
         ? [
-            { label: "Total ingresos", v: hoverPoint.ingresos, c: COLORS.ingresos },
-            { label: "Gastos", v: hoverPoint.gastos, c: COLORS.gastos },
-            { label: "Bizum", v: hoverPoint.bizum, c: COLORS.bizum },
-            { label: "Efectivo", v: hoverPoint.efectivo, c: COLORS.efectivo },
-            { label: "Tarjeta", v: hoverPoint.tarjeta, c: COLORS.tarjeta },
+            { label: "Ingresos acumulados", v: hoverPoint.ingresos, c: COLORS.ingresos },
+            { label: "Gastos acumulados", v: hoverPoint.gastos, c: COLORS.gastos },
+            { label: "Bizum acumulado", v: hoverPoint.bizum, c: COLORS.bizum },
+            { label: "Efectivo acumulado", v: hoverPoint.efectivo, c: COLORS.efectivo },
+            { label: "Tarjeta acumulada", v: hoverPoint.tarjeta, c: COLORS.tarjeta },
           ]
         : [],
     [hoverPoint],
@@ -181,7 +181,13 @@ export function DashboardTrendChart({
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase leading-none tracking-[0.16em] text-blue-600">Tendencia</p>
         <div className="mt-1 flex flex-row flex-wrap items-start justify-between gap-x-4 gap-y-3">
-          <h2 className="min-w-0 text-lg font-semibold leading-tight text-slate-900">Gastos e ingresos</h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight text-slate-900">Gastos e ingresos</h2>
+            <p className="mt-1 max-w-xl text-xs leading-snug text-slate-600">
+              Líneas acumulativas: cada punto suma todo lo anterior en el periodo (hora a hora o día a día), para ver si
+              los gastos se acercan o superan a los ingresos y cómo crece efectivo frente a Bizum.
+            </p>
+          </div>
           <div className="flex min-w-0 max-w-full shrink-0 flex-col items-end gap-2 sm:max-w-[min(100%,36rem)]">
             <p className="w-full text-right text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               Periodo
@@ -225,7 +231,7 @@ export function DashboardTrendChart({
             viewBox={`0 0 ${W} ${H}`}
             className="h-[clamp(260px,50vh,380px)] w-full cursor-crosshair"
             role="img"
-            aria-label="Tendencia de gastos e ingresos"
+            aria-label="Tendencia acumulada de gastos e ingresos en el periodo"
             onMouseMove={handleSvgPointer}
             onMouseLeave={clearHover}
           >
@@ -343,11 +349,11 @@ export function DashboardTrendChart({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800">Total ingresos</span>
-        <span className="rounded-full bg-red-100 px-3 py-1 font-medium text-red-700">Gastos registrados</span>
-        <span className="rounded-full bg-violet-100 px-3 py-1 font-medium text-violet-700">Bizum</span>
-        <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">Efectivo</span>
-        <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Tarjeta</span>
+        <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800">Ingresos (acum.)</span>
+        <span className="rounded-full bg-red-100 px-3 py-1 font-medium text-red-700">Gastos (acum.)</span>
+        <span className="rounded-full bg-violet-100 px-3 py-1 font-medium text-violet-700">Bizum (acum.)</span>
+        <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">Efectivo (acum.)</span>
+        <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Tarjeta (acum.)</span>
       </div>
     </section>
   );

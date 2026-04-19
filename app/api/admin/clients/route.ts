@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth/require-admin";
+import { requireStaffOrAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ function compact(s: string) {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireAdminApi();
+  const auth = await requireStaffOrAdminApi();
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);

@@ -332,53 +332,81 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
           </span>
         </Link>
 
-        <Link
-          href="/dashboard/ingresos"
-          className={cn(
-            itemBase,
-            expanded ? "gap-3 px-2" : "justify-center px-0",
-            pathname.startsWith("/dashboard/ingresos")
-              ? "bg-white/40 text-slate-900 shadow-sm"
-              : "hover:bg-white/30",
-          )}
-          title={expanded ? undefined : "Ingresos"}
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
-            <BanknoteIcon />
-          </span>
-          <span
-            className={cn(
-              "whitespace-nowrap",
-              expanded ? "opacity-100" : "sr-only",
-            )}
-          >
-            Ingresos
-          </span>
-        </Link>
+        {isAdmin ? (
+          <>
+            <Link
+              href="/dashboard/ingresos"
+              className={cn(
+                itemBase,
+                expanded ? "gap-3 px-2" : "justify-center px-0",
+                pathname.startsWith("/dashboard/ingresos")
+                  ? "bg-white/40 text-slate-900 shadow-sm"
+                  : "hover:bg-white/30",
+              )}
+              title={expanded ? undefined : "Ingresos"}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
+                <BanknoteIcon />
+              </span>
+              <span
+                className={cn(
+                  "whitespace-nowrap",
+                  expanded ? "opacity-100" : "sr-only",
+                )}
+              >
+                Ingresos
+              </span>
+            </Link>
 
-        <Link
-          href="/dashboard/gastos"
-          className={cn(
-            itemBase,
-            expanded ? "gap-3 px-2" : "justify-center px-0",
-            pathname.startsWith("/dashboard/gastos")
-              ? "bg-white/40 text-slate-900 shadow-sm"
-              : "hover:bg-white/30",
-          )}
-          title={expanded ? undefined : "Gastos"}
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-rose-800">
-            <WalletOutIcon />
-          </span>
-          <span
+            <Link
+              href="/dashboard/gastos"
+              className={cn(
+                itemBase,
+                expanded ? "gap-3 px-2" : "justify-center px-0",
+                pathname.startsWith("/dashboard/gastos")
+                  ? "bg-white/40 text-slate-900 shadow-sm"
+                  : "hover:bg-white/30",
+              )}
+              title={expanded ? undefined : "Gastos"}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-rose-800">
+                <WalletOutIcon />
+              </span>
+              <span
+                className={cn(
+                  "whitespace-nowrap",
+                  expanded ? "opacity-100" : "sr-only",
+                )}
+              >
+                Gastos
+              </span>
+            </Link>
+          </>
+        ) : (
+          <Link
+            href="/dashboard#caja"
             className={cn(
-              "whitespace-nowrap",
-              expanded ? "opacity-100" : "sr-only",
+              itemBase,
+              expanded ? "gap-3 px-2" : "justify-center px-0",
+              pathname === "/dashboard"
+                ? "bg-white/40 text-slate-900 shadow-sm"
+                : "hover:bg-white/30",
             )}
+            title={expanded ? undefined : "Caja"}
           >
-            Gastos
-          </span>
-        </Link>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-emerald-800">
+              <BanknoteIcon />
+            </span>
+            <span
+              className={cn(
+                "whitespace-nowrap",
+                expanded ? "opacity-100" : "sr-only",
+              )}
+            >
+              Caja
+            </span>
+          </Link>
+        )}
 
         {isAdmin ? (
           <Link

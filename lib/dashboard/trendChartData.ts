@@ -1,4 +1,7 @@
-/** Datos para el gráfico de tendencia del dashboard (caja + gastos por fecha). */
+/**
+ * Datos para el gráfico de tendencia del dashboard (caja + gastos por fecha).
+ * Las series se devuelven acumuladas (suma corrida hora a hora o día a día en el periodo).
+ */
 
 export type ChartRange = "day" | "week" | "month" | "quarter" | "semester" | "years";
 
@@ -56,6 +59,33 @@ function startOfSemesterCal(d: Date): Date {
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+/**
+ * Convierte valores por bucket (hora o día) en totales acumulados desde el inicio del periodo.
+ * Así se comparan pendientes (gastos vs ingresos) y la evolución de efectivo vs Bizum.
+ */
+export function cumulateTrendPoints(points: TrendPoint[]): TrendPoint[] {
+  let gastos = 0;
+  let ingresos = 0;
+  let bizum = 0;
+  let efectivo = 0;
+  let tarjeta = 0;
+  return points.map((p) => {
+    gastos += p.gastos;
+    ingresos += p.ingresos;
+    bizum += p.bizum;
+    efectivo += p.efectivo;
+    tarjeta += p.tarjeta;
+    return {
+      ...p,
+      gastos,
+      ingresos,
+      bizum,
+      efectivo,
+      tarjeta,
+    };
+  });
 }
 
 /** Escala máxima “bonita” para el eje Y (evita líneas pegadas al borde). */
@@ -126,7 +156,7 @@ export function buildTrendSeries(
       }
       points.push(p);
     }
-    return points;
+    return cumulateTrendPoints(points);
   }
 
   if (range === "week") {
@@ -147,7 +177,7 @@ export function buildTrendSeries(
       }
       points.push(p);
     }
-    return points;
+    return cumulateTrendPoints(points);
   }
 
   /* Mes / trimestre / semestre / año: desde inicio del periodo natural hasta hoy (un punto por día). */
@@ -177,7 +207,7 @@ export function buildTrendSeries(
       }
       points.push(p);
     }
-    return points;
+    return cumulateTrendPoints(points);
   }
 
   const _exhaustive: never = range;

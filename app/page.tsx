@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { BookingCtaProvider } from "@/components/booking-cta-modal"
 import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
@@ -9,6 +10,10 @@ import { Contact } from "@/components/contact"
 import { Footer } from "@/components/footer"
 import { HomeStaffProvider } from "@/components/home-staff-context"
 import { getGoogleBusinessRating } from "@/lib/google-business-rating"
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+}
 
 export default async function Home() {
   const googleRating = await getGoogleBusinessRating()
