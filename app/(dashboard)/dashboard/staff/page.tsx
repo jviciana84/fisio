@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { StaffAltaUsuarioModal } from "@/components/dashboard/StaffAltaUsuarioModal";
 
 export const dynamic = "force-dynamic";
 
@@ -99,13 +100,18 @@ export default async function StaffDashboardPage() {
     <main className="p-6 md:p-8">
       <div className="mx-auto grid max-w-[1300px] grid-cols-1 gap-5 xl:grid-cols-12">
         <section className="glass-panel xl:col-span-8 p-6 md:p-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Staff</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
-            Ventas, horas y cobros por persona
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Vista de rendimiento individual: número de ventas, importe total, cobro por Bizum/Efectivo y horas trabajadas.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Staff</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
+                Ventas, horas y cobros por persona
+              </h1>
+              <p className="mt-2 text-sm text-slate-600">
+                Vista de rendimiento individual: número de ventas, importe total, cobro por Bizum/Efectivo y horas trabajadas. Cada tarjeta corresponde a un usuario activo en base de datos; las cifras se calculan con los tickets y el registro de horas.
+              </p>
+            </div>
+            <StaffAltaUsuarioModal />
+          </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {rows.map((s) => (
