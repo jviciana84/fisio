@@ -1,3 +1,5 @@
+import { parseSpanishDecimalInput } from "@/lib/format-es";
+
 /** Retribución: nómina fija vs tarifas por hora (autónomo). */
 export type StaffCompensationType = "salaried" | "self_employed";
 
@@ -9,11 +11,11 @@ export function normalizeCompensationType(raw: unknown): StaffCompensationType {
   return "self_employed";
 }
 
-/** Convierte texto con coma o punto en céntimos (salario mensual en €). */
+/** Convierte texto con formato español (miles . y decimales ,) en céntimos (salario mensual en €). */
 export function parseEuroStringToCents(s: string): number | null {
-  const raw = s.replace(",", ".").trim();
-  if (raw === "") return null;
-  const n = parseFloat(raw);
+  const trimmed = s.trim();
+  if (trimmed === "") return null;
+  const n = parseSpanishDecimalInput(trimmed);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.round(n * 100);
 }

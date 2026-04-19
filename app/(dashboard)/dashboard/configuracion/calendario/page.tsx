@@ -1,6 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 type Status = {
   ok?: boolean;
@@ -130,8 +133,7 @@ export default function CalendarioGooglePage() {
     }
   }
 
-  const inputClass =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100";
+  const inputClass = DASHBOARD_INPUT_CLASS_FORM;
 
   return (
     <main className="p-6 md:p-8">
@@ -183,19 +185,18 @@ export default function CalendarioGooglePage() {
               {status?.envConfigured ? (
                 <a
                   href="/api/admin/google-calendar/connect"
-                  className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                  className={cn(
+                    buttonVariants({ variant: "gradient" }),
+                    "inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm",
+                  )}
                 >
                   {status?.connected ? "Volver a conectar" : "Conectar con Google"}
                 </a>
               ) : null}
               {status?.connected ? (
-                <button
-                  type="button"
-                  onClick={() => void onDisconnect()}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
-                >
+                <Button type="button" variant="outline" className="rounded-xl px-4 py-2.5 text-sm" onClick={() => void onDisconnect()}>
                   Desconectar
-                </button>
+                </Button>
               ) : null}
             </div>
 
@@ -258,13 +259,14 @@ export default function CalendarioGooglePage() {
                 </label>
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="gradient"
                 disabled={!canSave || saving}
-                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
               >
                 {saving ? "Guardando…" : "Guardar horario"}
-              </button>
+              </Button>
             </form>
           </div>
         )}

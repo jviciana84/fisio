@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatEuroEsWhole, formatIntegerEs } from "@/lib/format-es";
 
 export function DashboardWelcomeCard({
   userName,
@@ -11,9 +12,6 @@ export function DashboardWelcomeCard({
   activeStaffCount: number;
   gastosFijosMensualesEuros: number;
 }) {
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-
   return (
     <section className="glass-panel-strong glass-tint-blue flex h-full min-h-[320px] flex-1 flex-col justify-between rounded-2xl p-6 md:p-8 xl:min-h-0">
       <div className="glass-inner rounded-2xl p-5 md:p-6">
@@ -40,11 +38,11 @@ export function DashboardWelcomeCard({
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="glass-inner rounded-2xl px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Equipo activo</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{activeStaffCount}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatIntegerEs(activeStaffCount)}</p>
           </div>
           <div className="glass-inner rounded-2xl px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Gasto fijo mensual (est.)</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{fmt(gastosFijosMensualesEuros)}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatEuroEsWhole(gastosFijosMensualesEuros)}</p>
           </div>
         </div>
       ) : null}

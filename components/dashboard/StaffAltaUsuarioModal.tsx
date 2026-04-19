@@ -68,14 +68,16 @@ export function StaffAltaUsuarioModal() {
                   <h2 id="staff-alta-modal-title" className="text-base font-semibold text-slate-900">
                     Nuevo acceso
                   </h2>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => setOpen(false)}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                     aria-label="Cerrar"
                   >
-                    <X className="h-5 w-5" />
-                  </button>
+                    <X className="h-4 w-4" strokeWidth={2} />
+                  </Button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
                   <p className="mb-4 text-xs text-slate-500">

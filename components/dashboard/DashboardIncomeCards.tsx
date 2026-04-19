@@ -11,6 +11,9 @@ import {
   formatIncomeRangeLabel,
   ticketInRange,
 } from "@/lib/dashboard/trendChartData";
+import { formatEuroEsWhole, formatIntegerEs } from "@/lib/format-es";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 export function DashboardIncomeCards({ tickets }: { tickets: TicketRow[] }) {
   const [range, setRange] = useState<ChartRange>("week");
@@ -33,34 +36,31 @@ export function DashboardIncomeCards({ tickets }: { tickets: TicketRow[] }) {
     return { total, efectivo, bizum, tarjeta, count: filtered.length };
   }, [tickets, range]);
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-
   const items = [
     {
       label: "Total ingresos",
-      value: fmt(totals.total),
-      sub: `${totals.count} ticket${totals.count === 1 ? "" : "s"}`,
+      value: formatEuroEsWhole(totals.total),
+      sub: `${formatIntegerEs(totals.count)} ticket${totals.count === 1 ? "" : "s"}`,
       accent: "from-blue-600/15 to-cyan-500/10",
       border: "border-blue-200/60",
     },
     {
       label: "Efectivo",
-      value: fmt(totals.efectivo),
+      value: formatEuroEsWhole(totals.efectivo),
       sub: "Cobros en metálico",
       accent: "from-emerald-500/15 to-teal-500/5",
       border: "border-emerald-200/60",
     },
     {
       label: "Bizum",
-      value: fmt(totals.bizum),
+      value: formatEuroEsWhole(totals.bizum),
       sub: "Pagos instantáneos",
       accent: "from-violet-500/12 to-purple-500/8",
       border: "border-violet-200/60",
     },
     {
       label: "Tarjeta",
-      value: fmt(totals.tarjeta),
+      value: formatEuroEsWhole(totals.tarjeta),
       sub: "TPV / datáfono",
       accent: "from-slate-500/12 to-slate-600/8",
       border: "border-slate-200/60",
@@ -72,7 +72,10 @@ export function DashboardIncomeCards({ tickets }: { tickets: TicketRow[] }) {
       <Link
         href="/dashboard/ingresos"
         title="Abrir ingresos detallados"
-        className="absolute right-4 top-4 z-10 inline-flex shrink-0 items-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 md:right-5 md:top-5"
+        className={cn(
+          buttonVariants({ variant: "gradient", size: "sm" }),
+          "absolute right-4 top-4 z-10 inline-flex shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold shadow-sm md:right-5 md:top-5",
+        )}
       >
         Ingresos
       </Link>

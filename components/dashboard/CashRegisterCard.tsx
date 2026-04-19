@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatEuroEsTwoDecimals } from "@/lib/format-es";
+import { Button } from "@/components/ui/button";
 
 type Client = {
   id: string;
@@ -26,13 +28,6 @@ type Receipt = {
   lines: { concept: string; amountEuros: number }[];
   totalEuros: number;
 };
-
-function money(value: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
-}
 
 export function CashRegisterCard() {
   const [clientQuery, setClientQuery] = useState("");
@@ -160,7 +155,7 @@ export function CashRegisterCard() {
           <h2 className="mt-1 text-2xl font-semibold text-slate-900">Cobro rápido y ticket</h2>
         </div>
         <div className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30">
-          Total actual: {money(total)}
+          Total actual: {formatEuroEsTwoDecimals(total)}
         </div>
       </div>
 
@@ -218,7 +213,7 @@ export function CashRegisterCard() {
                 className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs hover:bg-blue-50"
               >
                 <span className="font-medium text-slate-800">{p.name}</span>
-                <span className="text-slate-500">{money(p.priceEuros)}</span>
+                <span className="text-slate-500">{formatEuroEsTwoDecimals(p.priceEuros)}</span>
               </button>
             ))}
           </div>
@@ -281,14 +276,15 @@ export function CashRegisterCard() {
               Tarjeta
             </label>
           </div>
-          <button
+          <Button
             type="button"
+            variant="gradient"
             onClick={() => void handleSave()}
             disabled={!canSave}
-            className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:opacity-95 disabled:opacity-45"
+            className="mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold shadow-lg shadow-blue-500/25 disabled:opacity-45"
           >
             {saving ? "Grabando ticket..." : "Grabar y generar recibo"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -298,7 +294,7 @@ export function CashRegisterCard() {
           <div className="mt-2 flex flex-wrap gap-2">
             {selectedProducts.map((p) => (
               <span key={p.id} className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
-                {p.name} · {money(p.priceEuros)}
+                {p.name} · {formatEuroEsTwoDecimals(p.priceEuros)}
               </span>
             ))}
           </div>
@@ -337,12 +333,12 @@ export function CashRegisterCard() {
             {receipt.lines.map((line, idx) => (
               <div key={`${line.concept}-${idx}`} className="flex items-center justify-between">
                 <span className="text-slate-700">{line.concept}</span>
-                <span className="font-medium text-slate-900">{money(line.amountEuros)}</span>
+                <span className="font-medium text-slate-900">{formatEuroEsTwoDecimals(line.amountEuros)}</span>
               </div>
             ))}
           </div>
           <div className="mt-3 border-t border-slate-200 pt-3 text-right text-lg font-bold text-slate-900">
-            Total {money(receipt.totalEuros)}
+            Total {formatEuroEsTwoDecimals(receipt.totalEuros)}
           </div>
         </div>
       ) : null}

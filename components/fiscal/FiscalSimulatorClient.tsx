@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
+import { formatEuroEsWhole } from "@/lib/format-es";
 
 type ChartRow = {
   monthKey: string;
@@ -64,14 +65,6 @@ type YearProgress = {
     totalTaxesEuros: number;
   };
 };
-
-function money(n: number) {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 export function FiscalSimulatorClient() {
   const [loading, setLoading] = useState(true);
@@ -229,17 +222,17 @@ export function FiscalSimulatorClient() {
                 Si declaras el {sim.declareCashPercent}% del efectivo…
               </p>
               <p className="mt-3 text-2xl font-bold text-slate-900">
-                Hacienda (estim. trim. {quarter}): {money(sim.totalTaxesEuros)}
+                Hacienda (estim. trim. {quarter}): {formatEuroEsWhole(sim.totalTaxesEuros)}
               </p>
               <p className="mt-2 text-sm text-slate-700">
                 Dinero limpio después de impuestos (todo lo cobrado − impuestos):{" "}
-                <span className="font-semibold text-emerald-700">{money(sim.netAfterTaxesEuros)}</span>
+                <span className="font-semibold text-emerald-700">{formatEuroEsWhole(sim.netAfterTaxesEuros)}</span>
               </p>
               <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
-                <li>IVA (modelo 303 aprox.): {money(sim.ivaToPayEuros)}</li>
-                <li>IRPF fraccionado (20% sobre beneficio estimado): {money(sim.irpfEuros)}</li>
-                <li>Retención alquiler (modelo 115, si aplica): {money(sim.model115Euros)}</li>
-                <li>Efectivo no declarado en simulación: {money(sim.cashPocketEuros)}</li>
+                <li>IVA (modelo 303 aprox.): {formatEuroEsWhole(sim.ivaToPayEuros)}</li>
+                <li>IRPF fraccionado (20% sobre beneficio estimado): {formatEuroEsWhole(sim.irpfEuros)}</li>
+                <li>Retención alquiler (modelo 115, si aplica): {formatEuroEsWhole(sim.model115Euros)}</li>
+                <li>Efectivo no declarado en simulación: {formatEuroEsWhole(sim.cashPocketEuros)}</li>
               </ul>
             </div>
           ) : null}
@@ -253,7 +246,7 @@ export function FiscalSimulatorClient() {
             <p className="font-semibold">Atención: liquidez</p>
             <p className="mt-1">
               Los impuestos previstos superan el saldo orientativo en cuenta oficial (
-              {money(settings?.officialLiquidityEuros ?? 0)}). Falta aprox. {money(sim.liquidityGapEuros)} para cubrir el
+              {formatEuroEsWhole(settings?.officialLiquidityEuros ?? 0)}). Falta aprox. {formatEuroEsWhole(sim.liquidityGapEuros)} para cubrir el
               pago sin entrar en descubierto, o bien reduce gastos / anticipa ingresos declarados.
             </p>
           </div>
@@ -284,20 +277,20 @@ export function FiscalSimulatorClient() {
                 </p>
                 <p className="mt-2 text-sm text-slate-700">
                   IVA (303) acumulado:{" "}
-                  <span className="font-semibold text-slate-900">{money(yearProgress.yearToDate.ivaEuros)}</span>
+                  <span className="font-semibold text-slate-900">{formatEuroEsWhole(yearProgress.yearToDate.ivaEuros)}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   IRPF fraccionado (130) acumulado:{" "}
-                  <span className="font-semibold text-slate-900">{money(yearProgress.yearToDate.irpfEuros)}</span>
+                  <span className="font-semibold text-slate-900">{formatEuroEsWhole(yearProgress.yearToDate.irpfEuros)}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   Retención alquiler (115) acumulada:{" "}
                   <span className="font-semibold text-slate-900">
-                    {money(yearProgress.yearToDate.model115Euros)}
+                    {formatEuroEsWhole(yearProgress.yearToDate.model115Euros)}
                   </span>
                 </p>
                 <p className="mt-3 border-t border-blue-200/80 pt-3 text-sm font-semibold text-slate-900">
-                  Total impuestos acumulados: {money(yearProgress.yearToDate.totalTaxesEuros)}
+                  Total impuestos acumulados: {formatEuroEsWhole(yearProgress.yearToDate.totalTaxesEuros)}
                 </p>
               </div>
 
@@ -307,20 +300,20 @@ export function FiscalSimulatorClient() {
                 </p>
                 <p className="mt-2 text-sm text-slate-700">
                   IVA anual estimado:{" "}
-                  <span className="font-semibold text-slate-900">{money(yearProgress.annualEstimate.ivaEuros)}</span>
+                  <span className="font-semibold text-slate-900">{formatEuroEsWhole(yearProgress.annualEstimate.ivaEuros)}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   IRPF anual estimado:{" "}
-                  <span className="font-semibold text-slate-900">{money(yearProgress.annualEstimate.irpfEuros)}</span>
+                  <span className="font-semibold text-slate-900">{formatEuroEsWhole(yearProgress.annualEstimate.irpfEuros)}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   Retención 115 anual estimada:{" "}
                   <span className="font-semibold text-slate-900">
-                    {money(yearProgress.annualEstimate.model115Euros)}
+                    {formatEuroEsWhole(yearProgress.annualEstimate.model115Euros)}
                   </span>
                 </p>
                 <p className="mt-3 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-900">
-                  Total impuestos estimado (año): {money(yearProgress.annualEstimate.totalTaxesEuros)}
+                  Total impuestos estimado (año): {formatEuroEsWhole(yearProgress.annualEstimate.totalTaxesEuros)}
                 </p>
               </div>
             </div>
@@ -345,16 +338,16 @@ export function FiscalSimulatorClient() {
                           <div
                             className="w-2/5 rounded-t-md bg-violet-500/90"
                             style={{ height: `${hIva}%`, minHeight: q.ivaEuros > 0 ? 4 : 0 }}
-                            title={`IVA ${money(q.ivaEuros)}`}
+                            title={`IVA ${formatEuroEsWhole(q.ivaEuros)}`}
                           />
                           <div
                             className="w-2/5 rounded-t-md bg-amber-500/90"
                             style={{ height: `${hIrpf}%`, minHeight: q.irpfEuros > 0 ? 4 : 0 }}
-                            title={`IRPF ${money(q.irpfEuros)}`}
+                            title={`IRPF ${formatEuroEsWhole(q.irpfEuros)}`}
                           />
                         </div>
                         <span className="text-center text-[11px] font-medium text-slate-600">{q.label}</span>
-                        <span className="text-[10px] text-slate-500">{money(q.totalTaxesEuros)}</span>
+                        <span className="text-[10px] text-slate-500">{formatEuroEsWhole(q.totalTaxesEuros)}</span>
                       </div>
                     );
                   })}
@@ -389,10 +382,10 @@ export function FiscalSimulatorClient() {
                       className={q.quarter > currentQuarter ? "text-slate-400" : "text-slate-800"}
                     >
                       <td className="px-4 py-3 font-medium">{q.label}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{money(q.ivaEuros)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{money(q.irpfEuros)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{money(q.model115Euros)}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(q.totalTaxesEuros)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatEuroEsWhole(q.ivaEuros)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatEuroEsWhole(q.irpfEuros)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatEuroEsWhole(q.model115Euros)}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatEuroEsWhole(q.totalTaxesEuros)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -414,7 +407,7 @@ export function FiscalSimulatorClient() {
                     <div
                       className="w-1/2 rounded-t-md bg-blue-400/90"
                       style={{ height: `${(row.realEuros / maxBar) * 100}%`, minHeight: row.realEuros > 0 ? 4 : 0 }}
-                      title={`Real ${money(row.realEuros)}`}
+                      title={`Real ${formatEuroEsWhole(row.realEuros)}`}
                     />
                     <div
                       className="w-1/2 rounded-t-md bg-emerald-500/90"
@@ -422,7 +415,7 @@ export function FiscalSimulatorClient() {
                         height: `${(row.officialEuros / maxBar) * 100}%`,
                         minHeight: row.officialEuros > 0 ? 4 : 0,
                       }}
-                      title={`Oficial simulado ${money(row.officialEuros)}`}
+                      title={`Oficial simulado ${formatEuroEsWhole(row.officialEuros)}`}
                     />
                   </div>
                   <span className="text-[10px] text-slate-500">{row.monthKey.slice(5)}</span>

@@ -21,17 +21,12 @@ import {
 import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
 import { computeStructureFromRecurringRows } from "@/lib/dashboard/structureCost";
+import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 export type { ExpenseDetailRow };
 export { canonicalConceptForFixedKey };
-
-function fmtEuro(n: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(n);
-}
 
 /** Para ordenar / deduplicar: prioriza created_at; si falta, usa expense_date. */
 function expenseRowTimestampMs(r: ExpenseDetailRow): number {
@@ -301,7 +296,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditingFixedId(row.id);
     setEditCategory(row.category?.trim() || "");
     setEditRecurrence(row.recurrence || "monthly");
-    setEditAmountStr((row.amount_cents / 100).toFixed(2).replace(".", ","));
+    setEditAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
     setFixedActionError(null);
   }
 
@@ -312,7 +307,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditMainConcept(row.concept);
     setEditMainCategory(row.category?.trim() || "");
     setEditMainRecurrence(row.recurrence || "monthly");
-    setEditMainAmountStr((row.amount_cents / 100).toFixed(2).replace(".", ","));
+    setEditMainAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
     setEditMainDate(row.expense_date?.slice(0, 10) || "");
     setMainListError(null);
   }
@@ -352,8 +347,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   }, [editingMainId]);
 
   async function saveMainEdit(id: string) {
-    const raw = editMainAmountStr.replace(/\s/g, "").replace(",", ".");
-    const amountEuros = parseFloat(raw);
+    const amountEuros = parseSpanishDecimalInput(editMainAmountStr);
     const concept = editMainConcept.trim();
     if (concept.length < 2) {
       setMainListError("Indica un concepto (mín. 2 caracteres).");
@@ -463,8 +457,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   }
 
   async function saveFixedEdit(id: string) {
-    const raw = editAmountStr.replace(/\s/g, "").replace(",", ".");
-    const amountEuros = parseFloat(raw);
+    const amountEuros = parseSpanishDecimalInput(editAmountStr);
     const row = expenseList.find((e) => e.id === id);
     if (!row) {
       setFixedActionError("No se encontró el cargo.");
@@ -575,7 +568,10 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           <Link
             href="/dashboard"
             title="Volver al panel principal"
-            className="absolute right-4 top-4 z-10 inline-flex shrink-0 items-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 md:right-5 md:top-5"
+            className={cn(
+              buttonVariants({ variant: "gradient", size: "sm" }),
+              "absolute right-4 top-4 z-10 inline-flex shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold shadow-sm md:right-5 md:top-5",
+            )}
           >
             Panel
           </Link>
@@ -605,14 +601,14 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">≈ Por día</p>
                     <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-indigo-950 sm:text-4xl">
-                      {fmtEuro(structureCost.dailyEur)}
+                      {formatEuroEsTwoDecimals(structureCost.dailyEur)}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-500">Equivalente mensual ÷ 30,44</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estructura / mes</p>
                     <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl">
-                      {fmtEuro(structureCost.totalMonthlyEur)}
+                      {formatEuroEsTwoDecimals(structureCost.totalMonthlyEur)}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-500">Recurrentes ponderados</p>
                   </div>
@@ -658,7 +654,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                           >
                             <span className="block truncate">{cat}</span>
                             <span className="block font-mono text-[10px] font-semibold tabular-nums opacity-90">
-                              {fmtEuro(weighted)}/mes ponderado
+                              {formatEuroEsTwoDecimals(weighted)}/mes ponderado
                             </span>
                           </button>
                         );
@@ -683,11 +679,11 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
               >
                 <div className="rounded-xl border border-indigo-200/45 bg-white/70 px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">≈ Por día</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-indigo-950">{fmtEuro(structureCost.dailyEur)}</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-indigo-950">{formatEuroEsTwoDecimals(structureCost.dailyEur)}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Estructura / mes</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{fmtEuro(structureCost.totalMonthlyEur)}</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{formatEuroEsTwoDecimals(structureCost.totalMonthlyEur)}</p>
                 </div>
                 <div className="rounded-xl border border-violet-200/50 bg-violet-500/[0.06] px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Acumulado impuestos</p>
@@ -696,15 +692,15 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </div>
                 <div className="rounded-xl border border-emerald-200/50 bg-emerald-500/[0.07] px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Fijo predecible</p>
-                  <p className="mt-0.5 text-base font-bold tabular-nums text-emerald-950">{fmtEuro(structureCost.strictMonthlyEur)}</p>
+                  <p className="mt-0.5 text-base font-bold tabular-nums text-emerald-950">{formatEuroEsTwoDecimals(structureCost.strictMonthlyEur)}</p>
                   <p className="mt-0.5 text-[9px] text-slate-500">Sin margen</p>
                 </div>
                 <div className="rounded-xl border border-amber-200/50 bg-amber-500/[0.08] px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Resto (+10&nbsp;%)</p>
                   <p className="mt-0.5 text-base font-bold tabular-nums text-amber-950">
-                    {fmtEuro(structureCost.variableWeightedMonthlyEur)}
+                    {formatEuroEsTwoDecimals(structureCost.variableWeightedMonthlyEur)}
                   </p>
-                  <p className="mt-0.5 text-[9px] text-slate-500">Base {fmtEuro(structureCost.variableBaseMonthlyEur)}</p>
+                  <p className="mt-0.5 text-[9px] text-slate-500">Base {formatEuroEsTwoDecimals(structureCost.variableBaseMonthlyEur)}</p>
                 </div>
                 <div className="rounded-xl border border-sky-200/55 bg-sky-500/[0.06] px-3 py-2.5 shadow-sm">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Horas / semana</p>
@@ -725,15 +721,15 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
               <div className="mt-3 flex min-w-0 flex-wrap gap-2 md:flex-nowrap md:gap-3">
                 <div className="relative min-w-[5.25rem] flex-1 overflow-hidden rounded-xl border border-rose-200/60 bg-gradient-to-br from-rose-500/12 to-orange-500/8 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Total</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{fmtEuro(totals.total)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{formatEuroEsTwoDecimals(totals.total)}</p>
                 </div>
                 <div className="relative min-w-[5rem] flex-1 overflow-hidden rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-500/10 to-slate-600/5 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Puntuales</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{fmtEuro(totals.puntuales)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{formatEuroEsTwoDecimals(totals.puntuales)}</p>
                 </div>
                 <div className="relative min-w-[5rem] flex-1 overflow-hidden rounded-xl border border-amber-200/55 bg-gradient-to-br from-amber-500/12 to-orange-500/5 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Recurrentes</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-amber-950 md:text-lg">{fmtEuro(totals.recurrentes)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-amber-950 md:text-lg">{formatEuroEsTwoDecimals(totals.recurrentes)}</p>
                 </div>
                 <div className="relative min-w-[4.5rem] flex-1 overflow-hidden rounded-xl border border-slate-200/70 bg-white/55 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Registros</p>
@@ -1007,7 +1003,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                                 />
                               ) : (
                                 <span className="font-semibold tabular-nums text-slate-900">
-                                  {fmtEuro(row.amount_cents / 100)}
+                                  {formatEuroEsTwoDecimals(row.amount_cents / 100)}
                                 </span>
                               )}
                             </td>
@@ -1173,12 +1169,9 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                         className="w-14 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-center text-[12px] tabular-nums text-slate-800 shadow-sm focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-400"
                         aria-label="Número de página"
                       />
-                      <button
-                        type="submit"
-                        className="rounded-md bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-rose-700"
-                      >
+                      <Button type="submit" variant="gradient" size="sm" className="h-7 px-2.5 text-[11px]">
                         Ir
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </div>
@@ -1361,7 +1354,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               />
                             ) : (
                               <span className="block py-0.5 font-semibold tabular-nums text-slate-900">
-                                {fmtEuro(row.amount_cents / 100)}
+                                {formatEuroEsTwoDecimals(row.amount_cents / 100)}
                               </span>
                             )}
                           </td>
@@ -1530,12 +1523,9 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                         className="w-14 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-center text-[12px] tabular-nums text-slate-800 shadow-sm focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-400"
                         aria-label="Número de página (gastos fijos)"
                       />
-                      <button
-                        type="submit"
-                        className="rounded-md bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-rose-700"
-                      >
+                      <Button type="submit" variant="gradient" size="sm" className="h-7 px-2.5 text-[11px]">
                         Ir
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </div>
@@ -1572,7 +1562,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                   ¿Eliminar este apunte?
                 </h3>
                 <p className="mt-2 text-sm text-slate-600">
-                  Se eliminará «{deleteMainTargetRow.concept}» ({fmtEuro(deleteMainTargetRow.amount_cents / 100)}).
+                  Se eliminará «{deleteMainTargetRow.concept}» ({formatEuroEsTwoDecimals(deleteMainTargetRow.amount_cents / 100)}).
                   Esta acción no se puede deshacer.
                 </p>
                 {deleteMainModalError ? (
@@ -1581,25 +1571,29 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                   </p>
                 ) : null}
                 <div className="mt-5 flex flex-wrap justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-sm"
                     disabled={deletingMain}
                     onClick={() => {
                       setDeleteMainId(null);
                       setDeleteMainModalError(null);
                     }}
-                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="text-sm"
                     disabled={deletingMain}
                     onClick={() => void confirmDeleteMain()}
-                    className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
                   >
                     {deletingMain ? "Eliminando…" : "Eliminar"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1628,7 +1622,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </h3>
                 <p className="mt-2 text-sm text-slate-600">
                   Se eliminará del registro «{canonicalConceptForFixedKey(deleteTargetRow.concept)}» (
-                  {fmtEuro(deleteTargetRow.amount_cents / 100)}). Esta acción no se puede deshacer.
+                  {formatEuroEsTwoDecimals(deleteTargetRow.amount_cents / 100)}). Esta acción no se puede deshacer.
                 </p>
                 {deleteFixedModalError ? (
                   <p className="mt-3 text-sm text-rose-700" role="alert">
@@ -1636,25 +1630,29 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                   </p>
                 ) : null}
                 <div className="mt-5 flex flex-wrap justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-sm"
                     disabled={deletingFixed}
                     onClick={() => {
                       setDeleteTargetId(null);
                       setDeleteFixedModalError(null);
                     }}
-                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="text-sm"
                     disabled={deletingFixed}
                     onClick={() => void confirmDeleteFixed()}
-                    className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
                   >
                     {deletingFixed ? "Eliminando…" : "Eliminar"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

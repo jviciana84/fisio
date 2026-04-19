@@ -12,6 +12,7 @@ import {
   formatIncomeRangeLabel,
   maxTrendValue,
 } from "@/lib/dashboard/trendChartData";
+import { formatEuroEsWhole } from "@/lib/format-es";
 
 const COLORS = {
   ingresos: "#2563eb",
@@ -36,14 +37,6 @@ function buildLinePath(values: number[], maxValue: number, plotW: number, plotH:
       return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
-}
-
-function fmtEuro(n: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(n);
 }
 
 function indexFromSvgX(svgX: number, n: number, plotW: number, ml: number): number {
@@ -256,7 +249,7 @@ export function DashboardTrendChart({
             <g fill="#64748b" fontSize="10" textAnchor="end">
               {tickVals.map((v, i) => (
                 <text key={`y-${i}`} x={ml - 8} y={yGrid(i) + 4}>
-                  {fmtEuro(v)}
+                  {formatEuroEsWhole(v)}
                 </text>
               ))}
             </g>
@@ -340,7 +333,7 @@ export function DashboardTrendChart({
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: row.c }} />
                     {row.label}
                   </span>
-                  <span className="font-semibold tabular-nums text-slate-900">{fmtEuro(row.v)}</span>
+                  <span className="font-semibold tabular-nums text-slate-900">{formatEuroEsWhole(row.v)}</span>
                 </li>
               ))}
             </ul>

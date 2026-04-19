@@ -10,10 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        /** CTA principal intranet (misma línea que «Ficha y tarifas» / marketing). */
+        gradient:
+          'border-0 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm hover:from-blue-600/92 hover:to-cyan-500/92 focus-visible:ring-2 focus-visible:ring-blue-400/45 focus-visible:ring-offset-0',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline:
-          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+          'border border-slate-200/90 bg-white shadow-xs hover:bg-slate-50 hover:text-slate-900 dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:

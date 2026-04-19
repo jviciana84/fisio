@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, HelpCircle, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Check, HelpCircle, Pencil, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
@@ -10,6 +10,9 @@ import {
   matchFixedSuggestion,
 } from "@/lib/dashboard/fixedExpenseSuggestions";
 import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
+import { DASHBOARD_INPUT_CLASS } from "@/components/dashboard/dashboard-ui";
+import { Button } from "@/components/ui/button";
+import { formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
 
 const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Sin periodicidad (puntual)" },
@@ -43,9 +46,7 @@ type Props = {
   expenses: ExpenseDetailRow[];
 };
 
-/** Campos del formulario registrar/editar: más compacto que antes, mismos colores */
-const inputCls =
-  "w-full rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[13px] leading-tight text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100";
+const inputCls = DASHBOARD_INPUT_CLASS;
 
 const labelFormCls = "mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500";
 
@@ -127,7 +128,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
   }, [open, resetForm]);
 
   const amountNum = useMemo(() => {
-    const n = parseFloat(amountStr.replace(/\s/g, "").replace(",", "."));
+    const n = parseSpanishDecimalInput(amountStr);
     return Number.isFinite(n) ? n : NaN;
   }, [amountStr]);
 
@@ -171,7 +172,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
     setPrefillSuggestion(s);
     setConcept(canonicalConceptForFixedKey(row.concept));
     setCategory(row.category?.trim() || "");
-    setAmountStr((row.amount_cents / 100).toFixed(2).replace(".", ","));
+    setAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
     setRecurrence(row.recurrence || "monthly");
     setDeductibility((row.deductibility as "full" | "partial" | "none") || "full");
     setDeductiblePercent(row.deductible_percent ?? 100);
@@ -364,14 +365,16 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
                     Izquierda: costes más estables. Derecha: más fluctuantes. Elija la acción en cada fila.
                   </p>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="h-8 w-8 shrink-0"
                   onClick={onClose}
-                  className="cursor-pointer rounded-xl p-2 text-slate-500 transition hover:bg-slate-200/60 hover:text-slate-800"
                   aria-label="Cerrar"
                 >
-                  <span className="text-xl leading-none">×</span>
-                </button>
+                  <X className="h-4 w-4" strokeWidth={2} />
+                </Button>
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
@@ -463,13 +466,9 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
               </div>
             </div>
             <div className="shrink-0 border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 sm:px-5">
-              <button
-                type="button"
-                onClick={onClose}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800"
-              >
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onClose}>
                 Cerrar
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -487,17 +486,19 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
                     <p className="mt-0 truncate text-[11px] text-slate-500">Ref.: {prefillSuggestion.label}</p>
                   ) : null}
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 border-indigo-200/80 px-2.5 text-xs font-semibold text-indigo-900 hover:border-indigo-300 hover:bg-indigo-50"
                   onClick={() => {
                     setPhase("list");
                     setFormError(null);
                   }}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-200/80 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-900 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:shadow active:scale-[0.99]"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-indigo-600" strokeWidth={2.25} aria-hidden />
                   Volver a la lista
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -602,20 +603,24 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
 
               <div className="shrink-0 border-t border-slate-100 bg-slate-50/40 px-3 py-2 sm:px-4">
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="submit"
+                    variant="gradient"
+                    size="sm"
                     disabled={!formValid || submitting}
-                    className="cursor-pointer rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:from-indigo-700 hover:to-indigo-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                    className="h-8 text-xs sm:text-sm"
                   >
                     {submitting ? "Guardando…" : formMode === "create" ? "Registrar cargo" : "Guardar cambios"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs sm:text-sm"
                     onClick={() => setPhase("list")}
-                    className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:text-sm"
                   >
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
@@ -630,14 +635,16 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
 /** Botón que abre el modal */
 export function FixedExpenseModalTrigger({ onClick }: { onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="icon"
+      className="mb-0.5 h-10 w-10 shrink-0 rounded-xl border-indigo-200/60 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50"
       onClick={onClick}
-      className="mb-0.5 inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-indigo-200/60 bg-white/90 text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:shadow"
       aria-label="Sugerencias de gastos fijos"
       title="Sugerencias de gastos fijos"
     >
       <HelpCircle className="h-5 w-5" strokeWidth={2} aria-hidden />
-    </button>
+    </Button>
   );
 }

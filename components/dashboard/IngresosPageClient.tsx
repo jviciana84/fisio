@@ -18,6 +18,9 @@ import {
   computeTicketReserveBreakdown,
 } from "@/lib/dashboard/incomeTicketBreakdown";
 import { IncomeTicketBreakdownModal } from "@/components/dashboard/IncomeTicketBreakdownModal";
+import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 export type IncomeTicketRow = {
   id: string;
@@ -27,14 +30,6 @@ export type IncomeTicketRow = {
   created_at: string;
   client_name: string | null;
 };
-
-function fmtEuro(n: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(n);
-}
 
 function paymentLabel(m: IncomeTicketRow["payment_method"]): string {
   if (m === "cash") return "Efectivo";
@@ -145,7 +140,7 @@ export function IngresosPageClient({
   function startEditTicket(row: IncomeTicketRow) {
     setEditingTicketId(row.id);
     setEditPayment(row.payment_method);
-    setEditTotalStr((row.total_cents / 100).toFixed(2).replace(".", ","));
+    setEditTotalStr(formatEurosFieldFromNumber(row.total_cents / 100));
     setIngresosActionError(null);
   }
 
@@ -167,8 +162,7 @@ export function IngresosPageClient({
   }, [editingTicketId]);
 
   async function saveTicketEdit(id: string) {
-    const raw = editTotalStr.replace(/\s/g, "").replace(",", ".");
-    const euros = parseFloat(raw);
+    const euros = parseSpanishDecimalInput(editTotalStr);
     if (!Number.isFinite(euros) || euros <= 0) {
       setIngresosActionError("Indica un importe válido mayor que cero.");
       return;
@@ -277,7 +271,10 @@ export function IngresosPageClient({
           <Link
             href="/dashboard"
             title="Volver al panel principal"
-            className="absolute right-4 top-4 z-10 inline-flex shrink-0 items-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 md:right-5 md:top-5"
+            className={cn(
+              buttonVariants({ variant: "gradient", size: "sm" }),
+              "absolute right-4 top-4 z-10 inline-flex shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold shadow-sm md:right-5 md:top-5",
+            )}
           >
             Panel
           </Link>
@@ -298,19 +295,19 @@ export function IngresosPageClient({
               <div className="mt-3 flex min-w-0 flex-wrap gap-2 md:flex-nowrap md:gap-3">
                 <div className="relative min-w-[5.25rem] flex-1 overflow-hidden rounded-xl border border-blue-200/60 bg-gradient-to-br from-blue-600/12 to-cyan-500/8 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Total</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{fmtEuro(totals.total)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-slate-900 md:text-lg">{formatEuroEsTwoDecimals(totals.total)}</p>
                 </div>
                 <div className="relative min-w-[5rem] flex-1 overflow-hidden rounded-xl border border-emerald-200/55 bg-gradient-to-br from-emerald-500/12 to-teal-500/5 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Efectivo</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-emerald-800 md:text-lg">{fmtEuro(totals.efectivo)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-emerald-800 md:text-lg">{formatEuroEsTwoDecimals(totals.efectivo)}</p>
                 </div>
                 <div className="relative min-w-[5rem] flex-1 overflow-hidden rounded-xl border border-violet-200/50 bg-gradient-to-br from-violet-500/10 to-purple-500/5 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Bizum</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-violet-900 md:text-lg">{fmtEuro(totals.bizum)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-violet-900 md:text-lg">{formatEuroEsTwoDecimals(totals.bizum)}</p>
                 </div>
                 <div className="relative min-w-[5rem] flex-1 overflow-hidden rounded-xl border border-amber-200/55 bg-gradient-to-br from-amber-500/12 to-orange-500/5 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Tarjeta</p>
-                  <p className="mt-1 text-base font-bold tabular-nums text-amber-950 md:text-lg">{fmtEuro(totals.tarjeta)}</p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-amber-950 md:text-lg">{formatEuroEsTwoDecimals(totals.tarjeta)}</p>
                 </div>
                 <div className="relative min-w-[4.5rem] flex-1 overflow-hidden rounded-xl border border-slate-200/70 bg-white/55 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Tickets</p>
@@ -528,7 +525,7 @@ export function IngresosPageClient({
                           />
                         ) : (
                           <span className="block py-0.5 font-semibold tabular-nums text-slate-900">
-                            {fmtEuro(row.total_cents / 100)}
+                            {formatEuroEsTwoDecimals(row.total_cents / 100)}
                           </span>
                         )}
                       </td>
@@ -693,12 +690,9 @@ export function IngresosPageClient({
                         className="w-14 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-center text-[12px] tabular-nums text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                         aria-label="Número de página"
                       />
-                      <button
-                        type="submit"
-                        className="rounded-md bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                      >
+                      <Button type="submit" variant="gradient" size="sm" className="h-7 px-2.5 text-[11px]">
                         Ir
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </div>
@@ -731,7 +725,7 @@ export function IngresosPageClient({
             </h3>
             <p className="mt-2 text-sm text-slate-600">
               Se eliminará el ticket {deleteTargetTicket.ticket_number} (
-              {fmtEuro(deleteTargetTicket.total_cents / 100)}). Esta acción no se puede deshacer.
+              {formatEuroEsTwoDecimals(deleteTargetTicket.total_cents / 100)}). Esta acción no se puede deshacer.
             </p>
             {deleteTicketModalError ? (
               <p className="mt-3 text-sm text-rose-700" role="alert">
@@ -739,25 +733,29 @@ export function IngresosPageClient({
               </p>
             ) : null}
             <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="text-sm"
                 disabled={deletingTicket}
                 onClick={() => {
                   setDeleteTicketId(null);
                   setDeleteTicketModalError(null);
                 }}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="destructive"
+                size="sm"
+                className="text-sm"
                 disabled={deletingTicket}
                 onClick={() => void confirmDeleteTicket()}
-                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
               >
                 {deletingTicket ? "Eliminando…" : "Eliminar"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

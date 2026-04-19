@@ -201,6 +201,9 @@ export async function PATCH(
       ...(pinHash && pinSalt ? { pin_hash: pinHash, pin_salt: pinSalt } : {}),
     };
 
+    type SaveStrategy = "full" | "no_compensation_columns" | "no_tariff_columns";
+    let saveStrategy: SaveStrategy = "full";
+
     let { error: updErr } = await supabase
       .from("staff_access")
       .update(updatePayload)
@@ -216,6 +219,22 @@ export async function PATCH(
       const { compensation_type: _c, monthly_salary_cents: _m, ...rest } = updatePayload;
       const retry = await supabase.from("staff_access").update(rest).eq("id", id).eq("is_active", true);
       updErr = retry.error;
+      if (!updErr) saveStrategy = "no_compensation_columns";
+    }
+
+    if (
+      updErr &&
+      (updErr.code === "42703" || String(updErr.message ?? "").includes("hourly_tariffs"))
+    ) {
+      const {
+        hourly_tariffs: _h,
+        compensation_type: _c2,
+        monthly_salary_cents: _m2,
+        ...restNoTariffs
+      } = updatePayload;
+      const retry2 = await supabase.from("staff_access").update(restNoTariffs).eq("id", id).eq("is_active", true);
+      updErr = retry2.error;
+      if (!updErr) saveStrategy = "no_tariff_columns";
     }
 
     if (updErr) {
@@ -230,12 +249,17 @@ export async function PATCH(
           {
             ok: false,
             message:
-              "Falta la migración de tarifas (hourly_tariffs) o de retribución (020). Aplica las migraciones en Supabase.",
+              "No se pudieron guardar los datos: falta alguna columna en staff_access (suele ser migración 019 «hourly_tariffs» o 020 «compensation_type» / «monthly_salary_cents»). Comprueba que las migraciones están en el mismo proyecto que usa el .env de esta aplicación.",
+            detail: updErr.message ?? null,
+            code: updErr.code ?? null,
           },
           { status: 500 },
         );
       }
-      return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: "No se pudo guardar", detail: updErr.message ?? null, code: updErr.code ?? null },
+        { status: 500 },
+      );
     }
 
     let avatarWarning: string | undefined;
@@ -271,9 +295,19 @@ export async function PATCH(
       }
     }
 
+    let migrateNotice: string | undefined;
+    if (saveStrategy === "no_compensation_columns") {
+      migrateNotice =
+        "Se guardó el perfil sin retribución (faltan columnas compensation_type / monthly_salary_cents). Aplica la migración 020 en el proyecto Supabase que usa esta app.";
+    } else if (saveStrategy === "no_tariff_columns") {
+      migrateNotice =
+        "Se guardó solo nombre, contacto y perfil público; no se guardaron tarifas ni retribución (faltan columnas en la base). Aplica las migraciones 019 (hourly_tariffs) y 020 (retribución) en el mismo proyecto Supabase que enlaza NEXT_PUBLIC_SUPABASE_URL / service role.";
+    }
+
     return NextResponse.json({
       ok: true,
       ...(avatarWarning ? { avatarWarning } : {}),
+      ...(migrateNotice ? { migrateNotice } : {}),
     });
   } catch {
     return NextResponse.json({ ok: false, message: "Solicitud inválida" }, { status: 400 });

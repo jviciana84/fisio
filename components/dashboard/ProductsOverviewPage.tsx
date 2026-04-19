@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DASHBOARD_INPUT_CLASS } from "@/components/dashboard/dashboard-ui";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
+import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, formatIntegerEs, parseSpanishDecimalInput } from "@/lib/format-es";
 
 type ProductMetric = {
   id: string;
@@ -14,13 +18,6 @@ type ProductMetric = {
   lastSaleAt: string | null;
   sellers: string[];
 };
-
-function euro(v: number) {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-  }).format(v);
-}
 
 export function ProductsOverviewPage() {
   const [products, setProducts] = useState<ProductMetric[]>([]);
@@ -62,7 +59,7 @@ export function ProductsOverviewPage() {
 
   async function savePrice(product: ProductMetric) {
     const raw = editing[product.id];
-    const parsed = Number(String(raw ?? "").replace(",", "."));
+    const parsed = parseSpanishDecimalInput(String(raw ?? ""));
     if (!Number.isFinite(parsed) || parsed < 0) {
       setMessage({ type: "err", text: `Precio inválido para ${product.name}` });
       return;
@@ -182,24 +179,26 @@ export function ProductsOverviewPage() {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
                           <input
-                            value={editing[p.id] ?? String(p.priceEuros)}
+                            value={editing[p.id] ?? formatEurosFieldFromNumber(p.priceEuros)}
                             onChange={(e) =>
                               setEditing((prev) => ({ ...prev, [p.id]: e.target.value }))
                             }
-                            className="w-24 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            className={cn(DASHBOARD_INPUT_CLASS, "w-24 py-1.5 text-sm")}
                           />
-                          <button
-                            type="button"
-                            onClick={() => void savePrice(p)}
-                            disabled={savingId === p.id}
-                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                          >
-                            Guardar
-                          </button>
+                        <Button
+                          type="button"
+                          variant="gradient"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => void savePrice(p)}
+                          disabled={savingId === p.id}
+                        >
+                          Guardar
+                        </Button>
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-medium text-slate-800">{p.salesCount}</td>
-                      <td className="px-4 py-4 font-medium text-slate-900">{euro(p.revenueEuros)}</td>
+                      <td className="px-4 py-4 font-medium text-slate-800">{formatIntegerEs(p.salesCount)}</td>
+                      <td className="px-4 py-4 font-medium text-slate-900">{formatEuroEsTwoDecimals(p.revenueEuros)}</td>
                       <td className="px-4 py-4 text-slate-700">
                         {p.lastSaleAt
                           ? new Date(p.lastSaleAt).toLocaleString("es-ES", {
@@ -251,21 +250,19 @@ export function ProductsOverviewPage() {
               Esta acción no se puede deshacer y el producto desaparecerá del catálogo.
             </p>
             <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
+              <Button type="button" variant="outline" size="sm" className="text-sm" onClick={() => setDeleteTarget(null)}>
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="destructive"
+                size="sm"
+                className="text-sm"
                 onClick={() => void deleteProduct()}
                 disabled={savingId === deleteTarget.id}
-                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
                 Sí, eliminar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

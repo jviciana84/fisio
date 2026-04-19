@@ -15,7 +15,15 @@ import {
   STAFF_HOURLY_TARIFF_SLOTS,
   type HourlyTariffSlot,
 } from "@/lib/staff-hourly-tariffs";
+import { DASHBOARD_INPUT_CLASS } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
+import {
+  formatEuroEsWhole,
+  formatEurosFieldFromNumber,
+  formatHoursEs,
+  formatIntegerEs,
+  parseSpanishDecimalInput,
+} from "@/lib/format-es";
 
 export type StaffGridRow = {
   id: string;
@@ -38,18 +46,6 @@ export type StaffGridRow = {
   compensation_type: StaffCompensationType;
   monthly_salary_cents: number | null;
 };
-
-function euro(value: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function hours(value: number): string {
-  return `${value.toFixed(1)} h`;
-}
 
 type StaffRole = "admin" | "staff";
 
@@ -82,7 +78,8 @@ function draftFromRow(row: StaffGridRow): DraftState {
     public_specialty: row.public_specialty ?? "",
     public_bio: row.public_bio ?? "",
     compensation_type: ct,
-    monthlySalaryEuro: cents != null && cents > 0 ? String(cents / 100) : "",
+    monthlySalaryEuro:
+      cents != null && cents > 0 ? formatEurosFieldFromNumber(cents / 100) : "",
     tariffs: padHourlyTariffs(row.hourly_tariffs),
   };
 }
@@ -214,12 +211,21 @@ export function StaffMetricsGrid({
         method: "PATCH",
         body: fd,
       });
-      const data = (await res.json()) as { ok?: boolean; message?: string; avatarWarning?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        avatarWarning?: string;
+        migrateNotice?: string;
+        detail?: string | null;
+      };
       if (!res.ok || !data.ok) {
-        setMsg(data.message ?? "Error al guardar");
+        const base = data.message ?? "Error al guardar";
+        const extra = data.detail ? ` (${data.detail})` : "";
+        setMsg(`${base}${extra}`);
         return;
       }
       let t = "Guardado.";
+      if (data.migrateNotice) t += ` ${data.migrateNotice}`;
       if (data.avatarWarning) t += ` ${data.avatarWarning}`;
       setMsg(t);
       setAvatarFile(null);
@@ -231,8 +237,7 @@ export function StaffMetricsGrid({
     }
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100";
+  const inputCls = DASHBOARD_INPUT_CLASS;
 
   return (
     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3 xl:auto-rows-min">
@@ -265,23 +270,23 @@ export function StaffMetricsGrid({
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg bg-blue-50 px-2 py-2">
                     <p className="text-slate-500">Ventas</p>
-                    <p className="mt-0.5 font-semibold text-slate-900">{s.salesCount}</p>
+                    <p className="mt-0.5 font-semibold text-slate-900">{formatIntegerEs(s.salesCount)}</p>
                   </div>
                   <div className="rounded-lg bg-blue-50 px-2 py-2">
                     <p className="text-slate-500">Horas</p>
-                    <p className="mt-0.5 font-semibold text-slate-900">{hours(s.workedHours)}</p>
+                    <p className="mt-0.5 font-semibold text-slate-900">{formatHoursEs(s.workedHours)}</p>
                   </div>
                   <div className="rounded-lg bg-cyan-50 px-2 py-2">
                     <p className="text-slate-500">Bizum</p>
-                    <p className="mt-0.5 font-semibold text-slate-900">{euro(s.bizumEuros)}</p>
+                    <p className="mt-0.5 font-semibold text-slate-900">{formatEuroEsWhole(s.bizumEuros)}</p>
                   </div>
                   <div className="rounded-lg bg-emerald-50 px-2 py-2">
                     <p className="text-slate-500">Efectivo</p>
-                    <p className="mt-0.5 font-semibold text-slate-900">{euro(s.cashEuros)}</p>
+                    <p className="mt-0.5 font-semibold text-slate-900">{formatEuroEsWhole(s.cashEuros)}</p>
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-slate-900">
-                  Total vendido: {euro(s.totalSalesEuros)}
+                  Total vendido: {formatEuroEsWhole(s.totalSalesEuros)}
                 </p>
                 <p className="mt-1 text-[10px] text-slate-500">{metricsPeriodLabel}</p>
                 <p className="mt-2 text-[10px] text-slate-400">Pulsa para ficha y tarifas / h</p>
@@ -308,8 +313,9 @@ export function StaffMetricsGrid({
                     </Button>
                     <Button
                       type="button"
+                      variant="gradient"
                       size="sm"
-                      className="h-8 gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-xs text-white"
+                      className="h-8 gap-1 px-2 text-xs"
                       disabled={saving}
                       onClick={() => void handleSave()}
                     >
@@ -628,25 +634,25 @@ export function StaffMetricsGrid({
                       <div className="mt-3 grid flex-1 grid-cols-2 gap-2 text-xs">
                         <div className="rounded-md bg-blue-50/80 px-2 py-2">
                           <p className="text-[10px] text-slate-500">Ventas</p>
-                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{s.salesCount}</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{formatIntegerEs(s.salesCount)}</p>
                         </div>
                         <div className="rounded-md bg-blue-50/80 px-2 py-2">
                           <p className="text-[10px] text-slate-500">Horas</p>
                           <p className="mt-0.5 font-bold tabular-nums text-slate-900">
-                            {hours(s.workedHours)}
+                            {formatHoursEs(s.workedHours)}
                           </p>
                         </div>
                         <div className="rounded-md bg-cyan-50/80 px-2 py-2">
                           <p className="text-[10px] text-slate-500">Bizum</p>
-                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{euro(s.bizumEuros)}</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{formatEuroEsWhole(s.bizumEuros)}</p>
                         </div>
                         <div className="rounded-md bg-emerald-50/80 px-2 py-2">
                           <p className="text-[10px] text-slate-500">Efectivo</p>
-                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{euro(s.cashEuros)}</p>
+                          <p className="mt-0.5 font-bold tabular-nums text-slate-900">{formatEuroEsWhole(s.cashEuros)}</p>
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-semibold text-slate-900">
-                        Total vendido: {euro(s.totalSalesEuros)}
+                        Total vendido: {formatEuroEsWhole(s.totalSalesEuros)}
                       </p>
                       <p className="mt-auto pt-2 text-[10px] leading-snug text-slate-400">
                         Tickets de caja y registro de horas en {metricsPeriodLabel}.
@@ -682,12 +688,10 @@ export function StaffMetricsGrid({
                             aria-label="Salario mensual bruto en euros"
                             value={formDraft.monthlySalaryEuro}
                             onChange={(e) => {
-                              let raw = e.target.value.replace(",", ".");
-                              raw = raw.replace(/[^\d.]/g, "");
-                              const dot = raw.indexOf(".");
-                              if (dot !== -1) {
-                                raw =
-                                  raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "");
+                              let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
+                              const ci = raw.indexOf(",");
+                              if (ci !== -1) {
+                                raw = raw.slice(0, ci + 1) + raw.slice(ci + 1).replace(/,/g, "");
                               }
                               setDraft((d) => {
                                 const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
@@ -739,20 +743,18 @@ export function StaffMetricsGrid({
                                     tariffEuroDrafts[idx] !== undefined
                                       ? tariffEuroDrafts[idx]!
                                       : slot.cents_per_hour
-                                        ? String(slot.cents_per_hour / 100)
+                                        ? formatEurosFieldFromNumber(slot.cents_per_hour / 100)
                                         : ""
                                   }
                                   onChange={(e) => {
-                                    let raw = e.target.value.replace(",", ".");
-                                    raw = raw.replace(/[^\d.]/g, "");
-                                    const dot = raw.indexOf(".");
-                                    if (dot !== -1) {
-                                      raw =
-                                        raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "");
+                                    let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
+                                    const ci = raw.indexOf(",");
+                                    if (ci !== -1) {
+                                      raw = raw.slice(0, ci + 1) + raw.slice(ci + 1).replace(/,/g, "");
                                     }
                                     setTariffEuroDrafts((prev) => ({ ...prev, [idx]: raw }));
 
-                                    if (raw === "" || raw === ".") {
+                                    if (raw === "" || raw === "." || raw === ",") {
                                       setDraft((d) => {
                                         const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
                                         if (!base) return d;
@@ -762,7 +764,7 @@ export function StaffMetricsGrid({
                                       });
                                       return;
                                     }
-                                    const n = parseFloat(raw);
+                                    const n = parseSpanishDecimalInput(raw);
                                     if (!Number.isFinite(n)) return;
                                     const cents = Math.round(n * 100);
                                     setDraft((d) => {

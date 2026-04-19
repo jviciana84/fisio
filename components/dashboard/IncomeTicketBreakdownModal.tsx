@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { IncomeTicketRow } from "@/components/dashboard/IngresosPageClient";
 import {
   DEFAULT_CUOTA_AUTONOMO_RESERVE_PERCENT_OF_BASE,
@@ -9,14 +10,7 @@ import {
   DEFAULT_STRUCTURE_RESERVE_PERCENT_OF_BASE,
   type TicketReserveBreakdown,
 } from "@/lib/dashboard/incomeTicketBreakdown";
-
-function fmtEuroFromCents(cents: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(cents / 100);
-}
+import { formatEuroFromCents } from "@/lib/format-es";
 
 function paymentLabel(m: IncomeTicketRow["payment_method"]): string {
   if (m === "cash") return "Efectivo";
@@ -117,14 +111,16 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
               {paymentLabel(ticket.payment_method)}
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
+            className="h-8 w-8 shrink-0"
             onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
             aria-label="Cerrar"
           >
-            <X className="h-5 w-5" />
-          </button>
+            <X className="h-4 w-4" strokeWidth={2} />
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-4">
@@ -137,7 +133,7 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[13px] font-medium leading-tight text-slate-800">{r.label}</span>
                   <span className="shrink-0 text-[13px] font-semibold tabular-nums text-slate-900">
-                    {fmtEuroFromCents(r.amountCents)}
+                    {formatEuroFromCents(r.amountCents)}
                   </span>
                 </div>
                 {r.hint ? <p className="text-[10px] leading-snug text-slate-500 md:text-[11px]">{r.hint}</p> : null}
@@ -150,7 +146,7 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-semibold text-slate-900">Total a reservar (orientativo)</span>
                 <span className="text-lg font-bold tabular-nums text-blue-800">
-                  {fmtEuroFromCents(breakdown.totalSuggestedReserveCents)}
+                  {formatEuroFromCents(breakdown.totalSuggestedReserveCents)}
                 </span>
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-slate-600 md:text-[11px]">
@@ -163,7 +159,7 @@ export function IncomeTicketBreakdownModal({ open, onClose, ticket, breakdown }:
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-semibold text-emerald-950">Neto líquido estimado (tras reservas)</span>
                 <span className="text-lg font-bold tabular-nums text-emerald-900">
-                  {fmtEuroFromCents(breakdown.professionalNetCents)}
+                  {formatEuroFromCents(breakdown.professionalNetCents)}
                 </span>
               </div>
             </div>

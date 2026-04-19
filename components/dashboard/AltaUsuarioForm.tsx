@@ -9,6 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { type StaffCompensationType, parseEuroStringToCents } from "@/lib/staff-compensation";
 
@@ -255,8 +257,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     }
   }
 
-  const inputClass =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100";
+  const inputClass = DASHBOARD_INPUT_CLASS_FORM;
 
   const checkboxBoxClass =
     "flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 text-left";
@@ -652,13 +653,14 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
         </>
       )}
 
-      <button
+      <Button
         type="submit"
+        variant="gradient"
         disabled={loading}
-        className="w-full cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl px-4 py-3 text-sm font-semibold shadow-lg shadow-blue-500/25"
       >
         {loading ? "Guardando…" : "Crear usuario"}
-      </button>
+      </Button>
 
       {message ? (
         <p

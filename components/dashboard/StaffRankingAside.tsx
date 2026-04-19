@@ -1,16 +1,5 @@
 import type { StaffGridRow } from "@/components/dashboard/StaffMetricsGrid";
-
-function euro(value: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function hours(value: number): string {
-  return `${value.toFixed(1)} h`;
-}
+import { formatEuroEsWhole, formatHoursEs } from "@/lib/format-es";
 
 type Props = {
   rankingSales: StaffGridRow[];
@@ -75,7 +64,7 @@ export function StaffRankingAside({
                   {i + 1}. {s.name}
                 </span>
                 {!compact ? (
-                  <span className="shrink-0 font-semibold text-slate-900">{euro(s.totalSalesEuros)}</span>
+                  <span className="shrink-0 font-semibold text-slate-900">{formatEuroEsWhole(s.totalSalesEuros)}</span>
                 ) : null}
               </li>
             ))}
@@ -96,7 +85,7 @@ export function StaffRankingAside({
                 <span className="min-w-0 truncate text-slate-700">
                   {i + 1}. {s.name}
                 </span>
-                <span className="shrink-0 font-semibold text-slate-900">{hours(s.workedHours)}</span>
+                <span className="shrink-0 font-semibold text-slate-900">{formatHoursEs(s.workedHours)}</span>
               </li>
             ))}
           </ol>
@@ -119,7 +108,7 @@ export function StaffRankingAside({
                   {i + 1}. {s.name}
                 </span>
                 {!compact ? (
-                  <span className="shrink-0 font-semibold text-slate-900">{euro(s.cashEuros)}</span>
+                  <span className="shrink-0 font-semibold text-slate-900">{formatEuroEsWhole(s.cashEuros)}</span>
                 ) : null}
               </li>
             ))}

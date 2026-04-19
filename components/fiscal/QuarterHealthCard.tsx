@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { formatEuroEsWhole } from "@/lib/format-es";
+import { cn } from "@/lib/cn";
 
 export function QuarterHealthCard() {
   const [loading, setLoading] = useState(true);
@@ -41,9 +44,6 @@ export function QuarterHealthCard() {
     })();
   }, []);
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-
   if (loading) {
     return (
       <section className="glass-panel glass-tint-amber flex h-full min-h-[200px] flex-col rounded-2xl p-5">
@@ -57,7 +57,10 @@ export function QuarterHealthCard() {
       <Link
         href="/dashboard/fiscal"
         title="Abrir simulador fiscal"
-        className="absolute right-4 top-4 z-10 inline-flex shrink-0 items-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 md:right-5 md:top-5"
+        className={cn(
+          buttonVariants({ variant: "gradient", size: "sm" }),
+          "absolute right-4 top-4 z-10 inline-flex shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold shadow-sm md:right-5 md:top-5",
+        )}
       >
         Simulador
       </Link>
@@ -71,11 +74,11 @@ export function QuarterHealthCard() {
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="glass-inner rounded-xl p-4">
           <p className="text-xs uppercase text-slate-500">Hacienda (estim.)</p>
-          <p className="mt-1 text-xl font-bold text-slate-900">{taxes != null ? fmt(taxes) : "—"}</p>
+          <p className="mt-1 text-xl font-bold text-slate-900">{taxes != null ? formatEuroEsWhole(taxes) : "—"}</p>
         </div>
         <div className="glass-inner rounded-xl p-4">
           <p className="text-xs uppercase text-slate-500">Dinero limpio (estim.)</p>
-          <p className="mt-1 text-xl font-bold text-emerald-700">{net != null ? fmt(net) : "—"}</p>
+          <p className="mt-1 text-xl font-bold text-emerald-700">{net != null ? formatEuroEsWhole(net) : "—"}</p>
         </div>
         <div
           className={`rounded-xl p-4 ${
@@ -96,9 +99,9 @@ export function QuarterHealthCard() {
         <div className="glass-inner mt-4 rounded-xl px-4 py-3 text-sm text-slate-700">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Acumulado {yearLabel} (estim.)</p>
           <p className="mt-1">
-            IVA acumulado: <span className="font-semibold text-slate-900">{fmt(ytdIva ?? 0)}</span>
+            IVA acumulado: <span className="font-semibold text-slate-900">{formatEuroEsWhole(ytdIva ?? 0)}</span>
             {" · "}
-            IRPF acumulado: <span className="font-semibold text-slate-900">{fmt(ytdIrpf ?? 0)}</span>
+            IRPF acumulado: <span className="font-semibold text-slate-900">{formatEuroEsWhole(ytdIrpf ?? 0)}</span>
           </p>
         </div>
       ) : null}
