@@ -170,7 +170,7 @@ export function DashboardTrendChart({
   }, [hover]);
 
   return (
-    <section className="glass-panel glass-tint-violet xl:col-span-12 rounded-2xl p-6 md:p-7">
+    <section className="glass-panel glass-tint-violet xl:col-span-12 p-6 md:p-7">
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase leading-none tracking-[0.16em] text-blue-600">Tendencia</p>
         <div className="mt-1 flex flex-row flex-wrap items-start justify-between gap-x-4 gap-y-3">
@@ -219,7 +219,7 @@ export function DashboardTrendChart({
       </div>
 
       <div className="relative mt-5 overflow-x-auto">
-        <div className="glass-inner min-w-[min(100%,920px)] rounded-xl p-2 md:p-3">
+        <div className="glass-inner min-w-[min(100%,920px)] p-2 shadow-sm ring-1 ring-white/50 md:p-3">
           <svg
             viewBox={`0 0 ${W} ${H}`}
             className="h-[clamp(260px,50vh,380px)] w-full cursor-crosshair"

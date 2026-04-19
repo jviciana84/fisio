@@ -148,7 +148,7 @@ export function CashRegisterCard() {
   }
 
   return (
-    <section className="glass-panel-strong glass-tint-blue xl:col-span-12 rounded-2xl p-6 md:p-8">
+    <section className="glass-panel-strong glass-tint-blue xl:col-span-12 p-6 md:p-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Caja</p>
@@ -160,7 +160,7 @@ export function CashRegisterCard() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-12">
-        <div className="glass-inner rounded-2xl p-5 xl:col-span-4">
+        <div className="glass-inner p-5 shadow-sm ring-1 ring-white/50 xl:col-span-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
           <label className="mt-2 block text-sm font-medium text-slate-700">Nº cliente / nombre / teléfono / email</label>
           <input
@@ -195,7 +195,7 @@ export function CashRegisterCard() {
           ) : null}
         </div>
 
-        <div className="glass-inner rounded-2xl p-5 xl:col-span-5">
+        <div className="glass-inner p-5 shadow-sm ring-1 ring-white/50 xl:col-span-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</p>
           <label className="mt-2 block text-sm font-medium text-slate-700">Buscar y añadir productos</label>
           <input
@@ -314,7 +314,7 @@ export function CashRegisterCard() {
       ) : null}
 
       {receipt ? (
-        <div className="glass-inner mt-4 rounded-2xl p-5 shadow-inner">
+        <div className="glass-inner mt-4 p-5 shadow-inner ring-1 ring-white/50">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-slate-900">Ticket {receipt.ticketNumber}</h3>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">

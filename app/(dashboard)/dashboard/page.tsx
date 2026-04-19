@@ -106,7 +106,7 @@ export default async function DashboardPage() {
             <CashRegisterCard />
           </div>
 
-          <section className="glass-panel glass-tint-emerald xl:col-span-12 rounded-2xl p-6">
+          <section className="glass-panel glass-tint-emerald xl:col-span-12 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Accesos</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">Gestión rápida</h2>
             <p className="mt-2 text-xs text-slate-600">
@@ -115,25 +115,25 @@ export default async function DashboardPage() {
             <div className="mt-4 space-y-2">
               <Link
                 href="/dashboard/configuracion/usuarios"
-                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+                className="glass-inner block rounded-lg px-4 py-3 text-sm font-medium text-slate-800 shadow-sm ring-1 ring-white/45 transition hover:bg-white/25"
               >
                 Usuarios
               </Link>
               <Link
                 href="/dashboard/configuracion/productos"
-                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+                className="glass-inner block rounded-lg px-4 py-3 text-sm font-medium text-slate-800 shadow-sm ring-1 ring-white/45 transition hover:bg-white/25"
               >
                 Productos / precios
               </Link>
               <Link
                 href="/dashboard/configuracion/gastos"
-                className="glass-inner block rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-white/25"
+                className="glass-inner block rounded-lg px-4 py-3 text-sm font-medium text-slate-800 shadow-sm ring-1 ring-white/45 transition hover:bg-white/25"
               >
                 Gastos fijos
               </Link>
               <Link
                 href="/dashboard/fiscal"
-                className="block rounded-xl border border-cyan-300/40 bg-gradient-to-r from-cyan-500/15 to-teal-500/10 px-4 py-3 text-sm font-medium text-cyan-950 backdrop-blur-sm transition hover:from-cyan-500/25 hover:to-teal-500/15"
+                className="block rounded-lg border border-cyan-300/40 bg-gradient-to-r from-cyan-500/15 to-teal-500/10 px-4 py-3 text-sm font-medium text-cyan-950 shadow-md ring-1 ring-cyan-200/35 backdrop-blur-sm transition hover:from-cyan-500/25 hover:to-teal-500/15"
               >
                 Simulador fiscal
               </Link>

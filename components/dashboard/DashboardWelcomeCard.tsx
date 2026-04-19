@@ -13,8 +13,8 @@ export function DashboardWelcomeCard({
   gastosFijosMensualesEuros: number;
 }) {
   return (
-    <section className="glass-panel-strong glass-tint-blue flex h-full min-h-[320px] flex-1 flex-col justify-between rounded-2xl p-6 md:p-8 xl:min-h-0">
-      <div className="glass-inner rounded-2xl p-5 md:p-6">
+    <section className="glass-panel-strong glass-tint-blue flex h-full min-h-[320px] flex-1 flex-col justify-between p-6 md:p-8 xl:min-h-0">
+      <div className="glass-inner p-5 shadow-sm ring-1 ring-white/50 md:p-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-600/90">Panel</p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
           Bienvenido, {userName}
@@ -36,11 +36,11 @@ export function DashboardWelcomeCard({
 
       {isAdmin ? (
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="glass-inner rounded-2xl px-4 py-3">
+          <div className="glass-inner px-4 py-3 shadow-sm ring-1 ring-white/50">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Equipo activo</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatIntegerEs(activeStaffCount)}</p>
           </div>
-          <div className="glass-inner rounded-2xl px-4 py-3">
+          <div className="glass-inner px-4 py-3 shadow-sm ring-1 ring-white/50">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Gasto fijo mensual (est.)</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatEuroEsWhole(gastosFijosMensualesEuros)}</p>
           </div>

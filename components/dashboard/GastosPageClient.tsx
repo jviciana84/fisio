@@ -564,7 +564,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   return (
     <main className="p-6 md:p-8">
       <div className="mx-auto max-w-7xl">
-        <section className="glass-panel glass-tint-violet relative rounded-2xl p-6 md:p-7">
+        <section className="glass-panel glass-tint-rose relative p-6 md:p-7">
           <Link
             href="/dashboard"
             title="Volver al panel principal"
@@ -587,7 +587,12 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           <section id="section-estructura" className="mt-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_19rem]">
               {/* Columna izquierda: tarjeta grande */}
-              <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-indigo-200/65 bg-gradient-to-br from-indigo-500/[0.1] via-white/50 to-slate-500/[0.05] p-5 shadow-md md:p-7">
+              <div className="relative flex min-h-0 min-w-0 flex-col overflow-hidden glass-card p-5 ring-1 ring-indigo-300/35 md:p-7">
+                <div
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-500/[0.12] via-white/40 to-slate-500/[0.06]"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex min-h-0 min-w-0 flex-col">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700">Estructura</p>
                 <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-900 md:text-xl">
                   Coste fijo mensual estimado
@@ -670,6 +675,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     .
                   </p>
                 )}
+                </div>
               </div>
 
               {/* Columna derecha: mini cards */}
@@ -714,7 +720,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           </section>
 
           <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] md:items-start">
-            <div className="min-w-0 rounded-2xl border border-slate-200/70 glass-inner p-4 md:p-5 md:row-start-1 md:col-start-1">
+            <div className="min-w-0 glass-inner p-4 shadow-sm ring-1 ring-white/50 md:p-5 md:row-start-1 md:col-start-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-600">
                 Resumen del periodo
               </p>
@@ -738,7 +744,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
               </div>
             </div>
 
-            <div className="min-w-0 rounded-2xl border border-slate-200/70 glass-inner p-2.5 md:p-3 md:row-start-1 md:row-span-2 md:col-start-2 md:self-stretch">
+            <div className="min-w-0 glass-inner p-2.5 shadow-sm ring-1 ring-white/50 md:p-3 md:row-start-1 md:row-span-2 md:col-start-2 md:self-stretch">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-600">Calendario</p>
               <div className="mt-2">
                 <IngresosDayCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
@@ -746,7 +752,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
             </div>
 
             <div className="flex min-w-0 flex-col gap-3 md:row-start-2 md:col-start-1 md:flex-row md:items-stretch">
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-slate-200/70 glass-inner p-3 md:p-4">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col glass-inner p-3 shadow-sm ring-1 ring-white/50 md:p-4">
                 <div className="flex min-w-0 items-center justify-between gap-x-3 gap-y-1">
                   <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Periodo</p>
                   <p
@@ -787,7 +793,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-slate-200/70 glass-inner p-3 md:p-4">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col glass-inner p-3 shadow-sm ring-1 ring-white/50 md:p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Categoría</p>
                 <div className="mt-2 flex min-w-0 flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
                   <button
@@ -1182,7 +1188,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           <section
             ref={sectionGastosFijosRef}
             id="section-gastos-fijos"
-            className="mt-10 scroll-mt-6 rounded-2xl border border-rose-200/55 bg-gradient-to-br from-rose-500/[0.04] to-white/35 p-4 shadow-sm md:p-6"
+            className="glass-card mt-10 scroll-mt-6 border border-rose-200/45 bg-gradient-to-br from-rose-500/[0.08] to-white/40 p-4 shadow-md ring-1 ring-rose-200/35 md:p-6"
           >
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 pr-[5.75rem] md:pr-0">

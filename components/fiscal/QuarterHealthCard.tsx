@@ -46,7 +46,7 @@ export function QuarterHealthCard() {
 
   if (loading) {
     return (
-      <section className="glass-panel glass-tint-amber flex h-full min-h-[200px] flex-col rounded-2xl p-5">
+      <section className="glass-panel glass-tint-amber flex h-full min-h-[200px] flex-col p-5">
         <p className="text-sm text-slate-500">Cargando estado fiscal…</p>
       </section>
     );
@@ -72,18 +72,18 @@ export function QuarterHealthCard() {
         </p>
       </div>
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="glass-inner rounded-xl p-4">
+        <div className="glass-inner p-4 shadow-sm ring-1 ring-white/45">
           <p className="text-xs uppercase text-slate-500">Hacienda (estim.)</p>
           <p className="mt-1 text-xl font-bold text-slate-900">{taxes != null ? formatEuroEsWhole(taxes) : "—"}</p>
         </div>
-        <div className="glass-inner rounded-xl p-4">
+        <div className="glass-inner p-4 shadow-sm ring-1 ring-white/45">
           <p className="text-xs uppercase text-slate-500">Dinero limpio (estim.)</p>
           <p className="mt-1 text-xl font-bold text-emerald-700">{net != null ? formatEuroEsWhole(net) : "—"}</p>
         </div>
         <div
-          className={`rounded-xl p-4 ${
+          className={`rounded-lg p-4 ${
             alert
-              ? "glass-inner ring-1 ring-rose-400/45 bg-rose-500/[0.12]"
+              ? "glass-inner ring-1 ring-rose-400/45 bg-rose-500/[0.12] shadow-sm"
               : "border border-emerald-300/50 bg-gradient-to-br from-emerald-100/80 via-emerald-50/70 to-teal-50/60 ring-1 ring-emerald-400/35 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)] backdrop-blur-[2px]"
           }`}
         >
@@ -96,7 +96,7 @@ export function QuarterHealthCard() {
         </div>
       </div>
       {yearLabel != null && (ytdIva != null || ytdIrpf != null) ? (
-        <div className="glass-inner mt-4 rounded-xl px-4 py-3 text-sm text-slate-700">
+        <div className="glass-inner mt-4 px-4 py-3 text-sm text-slate-700 shadow-sm ring-1 ring-white/45">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Acumulado {yearLabel} (estim.)</p>
           <p className="mt-1">
             IVA acumulado: <span className="font-semibold text-slate-900">{formatEuroEsWhole(ytdIva ?? 0)}</span>

@@ -289,9 +289,12 @@
   backdrop-filter: blur(18px) saturate(165%);
   -webkit-backdrop-filter: blur(18px) saturate(165%);
   border: 1px solid oklch(1 0 0 / 0.55);
+  /* Esquinas más “cuadradas” que rounded-2xl: lectura más clara de bloques */
+  border-radius: 0.75rem;
   box-shadow:
-    0 10px 40px oklch(0.129 0.042 264.695 / 0.07),
-    inset 0 1px 0 oklch(1 0 0 / 0.65);
+    0 18px 52px oklch(0.129 0.042 264.695 / 0.095),
+    0 6px 22px oklch(0.129 0.042 264.695 / 0.055),
+    inset 0 1px 0 oklch(1 0 0 / 0.68);
 }
 
 .glass-panel-strong {
@@ -307,22 +310,43 @@
   backdrop-filter: blur(22px) saturate(175%);
   -webkit-backdrop-filter: blur(22px) saturate(175%);
   border: 1px solid oklch(1 0 0 / 0.62);
+  border-radius: 0.75rem;
   box-shadow:
-    0 14px 48px oklch(0.129 0.042 264.695 / 0.09),
-    inset 0 1px 0 oklch(1 0 0 / 0.72);
+    0 20px 56px oklch(0.129 0.042 264.695 / 0.1),
+    0 8px 26px oklch(0.129 0.042 264.695 / 0.065),
+    inset 0 1px 0 oklch(1 0 0 / 0.74);
 }
 
 /* Sub-bloques dentro de un panel (stats, columnas, avisos) */
 .glass-inner {
   background: linear-gradient(
     160deg,
-    oklch(1 0 0 / 0.42) 0%,
-    oklch(1 0 0 / 0.22) 100%
+    oklch(1 0 0 / 0.46) 0%,
+    oklch(1 0 0 / 0.2) 100%
   );
   backdrop-filter: blur(14px) saturate(155%);
   -webkit-backdrop-filter: blur(14px) saturate(155%);
-  border: 1px solid oklch(1 0 0 / 0.5);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.45);
+  border: 1px solid oklch(1 0 0 / 0.52);
+  border-radius: 0.5rem;
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.48),
+    0 4px 14px oklch(0.129 0.042 264.695 / 0.05);
+}
+
+/* Capa intermedia: flota sobre el fondo sin tanto anidamiento visual plano */
+.glass-card {
+  border-radius: 0.75rem;
+  border: 1px solid oklch(1 0 0 / 0.55);
+  background: linear-gradient(
+    155deg,
+    oklch(1 0 0 / 0.55) 0%,
+    oklch(0.98 0.02 250 / 0.38) 100%
+  );
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow:
+    0 12px 36px oklch(0.129 0.042 264.695 / 0.08),
+    inset 0 1px 0 oklch(1 0 0 / 0.55);
 }
 
 /* Tintes: combinar con .glass-panel o .glass-panel-strong */
@@ -386,6 +410,17 @@
     );
 }
 
+/* Gastos / alertas suaves (diferencia páginas con violet/cyan) */
+.glass-tint-rose {
+  background:
+    radial-gradient(ellipse 90% 70% at 0% 0%, oklch(0.62 0.18 15 / 0.14) 0%, transparent 52%),
+    linear-gradient(
+      145deg,
+      oklch(1 0 0 / 0.5) 0%,
+      oklch(0.98 0.03 15 / 0.4) 100%
+    );
+}
+
 .dark .glass-panel,
 .dark .glass-panel-strong {
   border-color: oklch(1 0 0 / 0.12);
@@ -417,6 +452,18 @@
     oklch(0.2 0.015 260 / 0.35) 100%
   );
   border-color: oklch(1 0 0 / 0.1);
+}
+
+.dark .glass-card {
+  background: linear-gradient(
+    155deg,
+    oklch(0.24 0.02 260 / 0.55) 0%,
+    oklch(0.19 0.02 250 / 0.42) 100%
+  );
+  border-color: oklch(1 0 0 / 0.14);
+  box-shadow:
+    0 12px 36px oklch(0 0 0 / 0.35),
+    inset 0 1px 0 oklch(1 0 0 / 0.1);
 }
 
 .dark .glass-tint-blue {
@@ -453,6 +500,12 @@
   background:
     radial-gradient(ellipse 100% 80% at 50% 0%, oklch(0.45 0.02 250 / 0.15) 0%, transparent 55%),
     linear-gradient(145deg, oklch(0.23 0.02 260 / 0.48) 0%, oklch(0.18 0.015 260 / 0.42) 100%);
+}
+
+.dark .glass-tint-rose {
+  background:
+    radial-gradient(ellipse 90% 70% at 0% 0%, oklch(0.5 0.14 15 / 0.2) 0%, transparent 52%),
+    linear-gradient(145deg, oklch(0.24 0.03 260 / 0.52) 0%, oklch(0.2 0.03 15 / 0.44) 100%);
 }
 
 /* Inputs cristal (onboarding, formularios sobre fondo claro) */

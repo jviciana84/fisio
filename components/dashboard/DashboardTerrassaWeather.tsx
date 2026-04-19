@@ -15,14 +15,14 @@ function formatFetchedAt(iso: string): string {
 export function DashboardTerrassaWeather({ weather }: { weather: TerrassaWeather | null }) {
   if (!weather) {
     return (
-      <section className="glass-panel-strong glass-tint-cyan flex h-full min-h-[320px] flex-1 flex-col justify-center rounded-2xl p-6 md:p-8 xl:min-h-0">
+      <section className="glass-panel-strong glass-tint-cyan flex h-full min-h-[320px] flex-1 flex-col justify-center p-6 md:p-8 xl:min-h-0">
         <p className="text-sm text-slate-600">No se pudo cargar el tiempo. Inténtalo más tarde.</p>
       </section>
     );
   }
 
   return (
-    <section className="glass-panel-strong glass-tint-cyan relative flex h-full min-h-[320px] flex-1 flex-col overflow-hidden rounded-2xl p-6 md:p-8 xl:min-h-0">
+    <section className="glass-panel-strong glass-tint-cyan relative flex h-full min-h-[320px] flex-1 flex-col overflow-hidden p-6 md:p-8 xl:min-h-0">
       <div
         className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-gradient-to-br from-cyan-400/25 to-blue-600/20 blur-2xl"
         aria-hidden
@@ -55,7 +55,7 @@ export function DashboardTerrassaWeather({ weather }: { weather: TerrassaWeather
             {weather.week.slice(0, 7).map((d) => (
               <div
                 key={d.dateISO}
-                className="glass-inner flex min-w-[3.25rem] flex-col items-center rounded-xl px-1 py-2 text-center"
+                className="glass-inner flex min-w-[3.25rem] flex-col items-center px-1 py-2 text-center shadow-sm ring-1 ring-white/45"
               >
                 <span className="text-[10px] font-medium capitalize text-slate-500">{d.weekdayShort}</span>
                 <WeatherWmoIcon code={d.weatherCode} className="my-1 h-8 w-8" />

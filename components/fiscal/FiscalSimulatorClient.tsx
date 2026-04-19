@@ -189,7 +189,7 @@ export function FiscalSimulatorClient() {
           </p>
         </header>
 
-        <section className="glass-panel-strong grid gap-6 p-6 md:grid-cols-2 md:p-8">
+        <section className="glass-panel-strong glass-tint-blue grid gap-6 p-6 md:grid-cols-2 md:p-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">La hucha de efectivo</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">¿Qué parte del efectivo “blanqueas”?</h2>
@@ -217,7 +217,7 @@ export function FiscalSimulatorClient() {
           </div>
 
           {sim ? (
-            <div className="rounded-2xl border border-white/60 bg-white/75 p-5 shadow-inner">
+            <div className="glass-inner p-5 ring-1 ring-white/55 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Si declaras el {sim.declareCashPercent}% del efectivo…
               </p>
@@ -241,7 +241,7 @@ export function FiscalSimulatorClient() {
         {sim?.liquidityAlert ? (
           <div
             role="alert"
-            className="rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-900"
+            className="glass-inner rounded-lg border border-rose-300/60 bg-gradient-to-br from-rose-100/90 to-rose-50/70 px-5 py-4 text-sm text-rose-900 ring-1 ring-rose-200/50"
           >
             <p className="font-semibold">Atención: liquidez</p>
             <p className="mt-1">
@@ -253,7 +253,7 @@ export function FiscalSimulatorClient() {
         ) : null}
 
         {yearProgress && calendarYear != null && currentQuarter != null ? (
-          <section className="glass-panel p-6 md:p-8">
+          <section className="glass-panel glass-tint-violet p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">
@@ -271,7 +271,7 @@ export function FiscalSimulatorClient() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+              <div className="glass-inner border border-blue-200/45 bg-gradient-to-br from-blue-50/90 to-cyan-50/40 p-5 ring-1 ring-blue-200/40">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">
                   Acumulado año (hasta T{yearProgress.yearToDate.throughQuarter})
                 </p>
@@ -294,7 +294,7 @@ export function FiscalSimulatorClient() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-5">
+              <div className="glass-inner border border-slate-200/55 bg-gradient-to-br from-white/85 to-slate-50/50 p-5 ring-1 ring-white/50">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                   Estimación año completo (T1 + T2 + T3 + T4)
                 </p>
@@ -364,7 +364,7 @@ export function FiscalSimulatorClient() {
               </div>
             </div>
 
-            <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200/80 bg-white/60">
+            <div className="glass-inner mt-6 overflow-x-auto rounded-lg border border-slate-200/60 bg-white/45">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50/90 text-xs uppercase tracking-wide text-slate-600">
                   <tr>
@@ -394,7 +394,7 @@ export function FiscalSimulatorClient() {
           </section>
         ) : null}
 
-        <section className="glass-panel p-6 md:p-8">
+        <section className="glass-panel glass-tint-slate p-6 md:p-8">
           <h2 className="text-lg font-semibold text-slate-900">Ingresos mes a mes (últimos meses)</h2>
           <p className="mt-1 text-sm text-slate-600">
             Barras: total cobrado (real) frente a ingreso simulado como oficial.
@@ -433,7 +433,7 @@ export function FiscalSimulatorClient() {
           </div>
         </section>
 
-        <section className="glass-panel p-6 md:p-8">
+        <section className="glass-panel glass-tint-emerald p-6 md:p-8">
           <h2 className="text-lg font-semibold text-slate-900">Ajustes de simulación</h2>
           <p className="mt-1 text-sm text-slate-600">
             Saldo en cuenta “oficial” para alertas, alquiler (retención 19%) e IVA en ventas.

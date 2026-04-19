@@ -68,7 +68,7 @@ export function DashboardIncomeCards({ tickets }: { tickets: TicketRow[] }) {
   ];
 
   return (
-    <section className="glass-panel glass-tint-slate relative flex h-full min-h-0 flex-col rounded-2xl p-5 md:p-6">
+    <section className="glass-panel glass-tint-slate relative flex h-full min-h-0 flex-col p-5 md:p-6">
       <Link
         href="/dashboard/ingresos"
         title="Abrir ingresos detallados"
@@ -125,7 +125,7 @@ export function DashboardIncomeCards({ tickets }: { tickets: TicketRow[] }) {
         {items.map((it) => (
           <div
             key={it.label}
-            className={`relative overflow-hidden rounded-2xl border ${it.border} glass-inner`}
+            className={`relative overflow-hidden rounded-lg border ${it.border} glass-inner shadow-sm ring-1 ring-white/45`}
           >
             <div
               className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${it.accent} opacity-[0.65]`}

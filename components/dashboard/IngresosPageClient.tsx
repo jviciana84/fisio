@@ -267,7 +267,7 @@ export function IngresosPageClient({
   return (
     <main className="p-6 md:p-8">
       <div className="mx-auto max-w-7xl">
-        <section className="glass-panel glass-tint-violet relative rounded-2xl p-6 md:p-7">
+        <section className="glass-panel glass-tint-cyan relative p-6 md:p-7">
           <Link
             href="/dashboard"
             title="Volver al panel principal"
@@ -290,7 +290,7 @@ export function IngresosPageClient({
 
           <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] md:items-start">
             {/* Col izq fila 1: Resumen | Col der filas 1–2: Calendario (alto) */}
-            <div className="min-w-0 rounded-2xl border border-slate-200/70 glass-inner p-4 md:p-5 md:row-start-1 md:col-start-1">
+            <div className="min-w-0 glass-inner p-4 shadow-sm ring-1 ring-white/50 md:p-5 md:row-start-1 md:col-start-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Resumen</p>
               <div className="mt-3 flex min-w-0 flex-wrap gap-2 md:flex-nowrap md:gap-3">
                 <div className="relative min-w-[5.25rem] flex-1 overflow-hidden rounded-xl border border-blue-200/60 bg-gradient-to-br from-blue-600/12 to-cyan-500/8 px-3 py-2.5 text-center shadow-sm">
@@ -316,7 +316,7 @@ export function IngresosPageClient({
               </div>
             </div>
 
-            <div className="min-w-0 rounded-2xl border border-slate-200/70 glass-inner p-2.5 md:p-3 md:row-start-1 md:row-span-2 md:col-start-2 md:self-stretch">
+            <div className="min-w-0 glass-inner p-2.5 shadow-sm ring-1 ring-white/50 md:p-3 md:row-start-1 md:row-span-2 md:col-start-2 md:self-stretch">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Calendario</p>
               <div className="mt-2">
                 <IngresosDayCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
@@ -325,7 +325,7 @@ export function IngresosPageClient({
 
             {/* Fila 2 col izq: Periodo + card método (misma altura) */}
             <div className="flex min-w-0 flex-col gap-3 md:row-start-2 md:col-start-1 md:flex-row md:items-stretch">
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-slate-200/70 glass-inner p-3 md:p-4">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col glass-inner p-3 shadow-sm ring-1 ring-white/50 md:p-4">
                 <div className="flex min-w-0 items-center justify-between gap-x-3 gap-y-1">
                   <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Periodo
@@ -368,7 +368,7 @@ export function IngresosPageClient({
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-slate-200/70 glass-inner p-3 md:p-4">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col glass-inner p-3 shadow-sm ring-1 ring-white/50 md:p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Método</p>
                 <div
                   className="mt-2 flex min-w-0 flex-wrap gap-2"
