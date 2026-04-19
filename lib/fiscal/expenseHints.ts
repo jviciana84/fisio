@@ -47,9 +47,9 @@ const KEYWORDS: { test: (c: string) => boolean; hint: CategoryHint }[] = [
     hint: {
       defaultDeductibility: "full",
       defaultDeductiblePercent: 100,
-      title: "Cuota de autónomos",
+      title: "Cuota de autónomos (RETA / Seg. Social)",
       explanation:
-        "Las cotizaciones a la Seguridad Social como autónomo son deducibles en el IRPF (con límites que marca la ley).",
+        "Lo que pagas cada mes como autónomo a la Seguridad Social (cuota RETA) suele poder contarse como gasto deducible del negocio en el IRPF, dentro de lo que permita la norma. No es lo mismo que el IVA: conviene confirmar importes y límites con tu gestoría.",
     },
   },
   {

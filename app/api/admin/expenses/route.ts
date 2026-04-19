@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -25,6 +26,8 @@ type Body = {
   recurrence: Recurrence;
   deductibility?: "full" | "partial" | "none";
   deductiblePercent?: number;
+  /** Obligatorio si recurrence !== none: strict = predecible, variable = margen 10 % en estructura. */
+  structureMode?: "strict" | "variable" | null;
 };
 
 function isRecurrence(v: string): v is Recurrence {
@@ -79,6 +82,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: "Recurrencia no válida" }, { status: 400 });
     }
 
+    let structureMode: "strict" | "variable" | null =
+      body.structureMode === "strict" || body.structureMode === "variable" ? body.structureMode : null;
+    if (recurrence !== "none") {
+      if (structureMode !== "strict" && structureMode !== "variable") {
+        return NextResponse.json(
+          { ok: false, message: "Indique si el cargo recurrente es predecible o variable (estructura)" },
+          { status: 400 },
+        );
+      }
+    } else {
+      structureMode = null;
+    }
+
     const deductibility = body.deductibility ?? "full";
     if (deductibility !== "full" && deductibility !== "partial" && deductibility !== "none") {
       return NextResponse.json({ ok: false, message: "Deducibilidad no válida" }, { status: 400 });
@@ -105,6 +121,7 @@ export async function POST(request: Request) {
         recurrence,
         deductibility,
         deductible_percent: deductiblePercent,
+        structure_mode: structureMode,
       })
       .select("id")
       .single();
@@ -115,6 +132,9 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+
+    revalidatePath("/dashboard/gastos");
+    revalidatePath("/dashboard");
 
     return NextResponse.json({
       ok: true,

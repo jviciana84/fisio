@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { GastosPageClient, type ExpenseDetailRow } from "@/components/dashboard/GastosPageClient";
+import { GastosPageClient } from "@/components/dashboard/GastosPageClient";
+import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +8,9 @@ export default async function GastosPage() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("expenses")
-    .select("id, concept, notes, category, amount_cents, expense_date, recurrence, created_at")
+    .select(
+      "id, concept, notes, category, amount_cents, expense_date, recurrence, created_at, deductibility, deductible_percent, structure_mode",
+    )
     .order("expense_date", { ascending: false });
 
   if (error) {
@@ -20,16 +23,36 @@ export default async function GastosPage() {
     );
   }
 
-  const expenses: ExpenseDetailRow[] = (data ?? []).map((row) => ({
-    id: row.id as string,
-    concept: String(row.concept ?? ""),
-    notes: row.notes != null ? String(row.notes) : null,
-    category: String(row.category ?? "General"),
-    amount_cents: Number(row.amount_cents ?? 0),
-    expense_date: String(row.expense_date ?? ""),
-    recurrence: String(row.recurrence ?? "monthly"),
-    created_at: String((row as { created_at?: string }).created_at ?? ""),
-  }));
+  const expenses: ExpenseDetailRow[] = (data ?? []).map((row) => {
+    const r = row as {
+      id: string;
+      concept?: string;
+      notes?: string | null;
+      category?: string;
+      amount_cents?: number;
+      expense_date?: string;
+      recurrence?: string;
+      created_at?: string;
+      deductibility?: string;
+      deductible_percent?: number;
+      structure_mode?: string | null;
+    };
+    const ded = r.deductibility === "partial" || r.deductibility === "none" ? r.deductibility : "full";
+    const sm = r.structure_mode === "variable" ? "variable" : r.structure_mode === "strict" ? "strict" : null;
+    return {
+      id: r.id,
+      concept: String(r.concept ?? ""),
+      notes: r.notes != null ? String(r.notes) : null,
+      category: String(r.category ?? "General"),
+      amount_cents: Number(r.amount_cents ?? 0),
+      expense_date: String(r.expense_date ?? ""),
+      recurrence: String(r.recurrence ?? "monthly"),
+      created_at: String(r.created_at ?? ""),
+      deductibility: ded,
+      deductible_percent: Math.min(100, Math.max(0, Number(r.deductible_percent ?? (ded === "full" ? 100 : ded === "none" ? 0 : 50)))),
+      structure_mode: sm,
+    };
+  });
 
   return <GastosPageClient expenses={expenses} />;
 }

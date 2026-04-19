@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Pencil, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IngresosDayCalendar } from "@/components/dashboard/IngresosDayCalendar";
+import {
+  FixedExpenseModalTrigger,
+  FixedExpenseSuggestionModal,
+} from "@/components/dashboard/FixedExpenseSuggestionModal";
 import {
   type ChartRange,
   RANGE_LABELS,
@@ -14,18 +18,12 @@ import {
   formatIncomeRangeLabel,
   localDayKeyFromExpenseDate,
 } from "@/lib/dashboard/trendChartData";
+import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
+import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
+import { computeStructureFromRecurringRows } from "@/lib/dashboard/structureCost";
 
-export type ExpenseDetailRow = {
-  id: string;
-  concept: string;
-  notes: string | null;
-  category: string;
-  amount_cents: number;
-  expense_date: string;
-  recurrence: string;
-  /** ISO 8601; para deduplicar cargos recurrentes repetidos en el tiempo. */
-  created_at: string;
-};
+export type { ExpenseDetailRow };
+export { canonicalConceptForFixedKey };
 
 function fmtEuro(n: number): string {
   return new Intl.NumberFormat("es-ES", {
@@ -41,21 +39,6 @@ function expenseRowTimestampMs(r: ExpenseDetailRow): number {
   if (!Number.isNaN(c)) return c;
   const d = Date.parse(`${r.expense_date}T12:00:00`);
   return Number.isNaN(d) ? 0 : d;
-}
-
-/**
- * Quita sufijos de tipo seed/demo: "Concepto · Apr 26" → "Concepto".
- * El seed mensual usa `concept || ' · ' || to_char(mes, 'TMMon YY')` (ver migración 015).
- */
-export function canonicalConceptForFixedKey(concept: string): string {
-  const t = concept.trim();
-  const idx = t.lastIndexOf(" · ");
-  if (idx <= 0) return t;
-  const suffix = t.slice(idx + 3).trim();
-  if (/^[A-Za-zÀ-ÿ]{3,12}\.?\s+\d{2}$/.test(suffix)) {
-    return t.slice(0, idx).trim();
-  }
-  return t;
 }
 
 function formatUltimaAlta(r: ExpenseDetailRow): string {
@@ -141,6 +124,11 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   const [deletingMain, setDeletingMain] = useState(false);
   const [deleteMainModalError, setDeleteMainModalError] = useState<string | null>(null);
   const [deleteFixedModalError, setDeleteFixedModalError] = useState<string | null>(null);
+  const [fixedSuggestionsModalOpen, setFixedSuggestionsModalOpen] = useState(false);
+
+  /** Filtro rápido desde la tarjeta Estructura → tabla de gastos fijos + lista del periodo. */
+  const [fixedCategoryFilter, setFixedCategoryFilter] = useState<string | "all">("all");
+  const sectionGastosFijosRef = useRef<HTMLElement | null>(null);
 
   const rangeLabel = useMemo(() => {
     if (selectedDay) {
@@ -244,11 +232,33 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     );
   }, [expenseList]);
 
+  const structureCost = useMemo(
+    () => computeStructureFromRecurringRows(fixedConfiguredRows),
+    [fixedConfiguredRows],
+  );
+
+  const structureCategories = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const line of structureCost.lines) {
+      m.set(line.category, (m.get(line.category) ?? 0) + line.weightedMonthlyEur);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"));
+  }, [structureCost.lines]);
+
+  const fixedRowsForTable = useMemo(() => {
+    if (fixedCategoryFilter === "all") return fixedConfiguredRows;
+    return fixedConfiguredRows.filter((r) => (r.category?.trim() || "General") === fixedCategoryFilter);
+  }, [fixedConfiguredRows, fixedCategoryFilter]);
+
+  useEffect(() => {
+    setFixedPage(1);
+  }, [fixedCategoryFilter]);
+
   useEffect(() => {
     setSelectedFixedRowId((id) =>
-      id != null && fixedConfiguredRows.some((r) => r.id === id) ? id : null,
+      id != null && fixedRowsForTable.some((r) => r.id === id) ? id : null,
     );
-  }, [fixedConfiguredRows]);
+  }, [fixedRowsForTable]);
 
   useEffect(() => {
     setEditingMainId((id) =>
@@ -256,7 +266,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     );
   }, [expenseList]);
 
-  const fixedTotalRows = fixedConfiguredRows.length;
+  const fixedTotalRows = fixedRowsForTable.length;
   const fixedTotalPages = Math.max(1, Math.ceil(fixedTotalRows / fixedPageSize) || 1);
 
   useEffect(() => {
@@ -265,8 +275,25 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
 
   const fixedPaginatedRows = useMemo(() => {
     const start = (fixedPage - 1) * fixedPageSize;
-    return fixedConfiguredRows.slice(start, start + fixedPageSize);
-  }, [fixedConfiguredRows, fixedPage, fixedPageSize]);
+    return fixedRowsForTable.slice(start, start + fixedPageSize);
+  }, [fixedRowsForTable, fixedPage, fixedPageSize]);
+
+  const goToFixedCategory = useCallback(
+    (category: string) => {
+      setCategoryFilter(category);
+      setFixedCategoryFilter(category);
+      setFixedPage(1);
+      const match = fixedConfiguredRows.find((r) => (r.category?.trim() || "General") === category);
+      if (match) {
+        setSelectedFixedRowId(match.id);
+        setEditingFixedId(null);
+      }
+      window.setTimeout(() => {
+        sectionGastosFijosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    },
+    [fixedConfiguredRows],
+  );
 
   function startEditFixed(row: ExpenseDetailRow) {
     setEditingMainId(null);
@@ -347,16 +374,25 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setSavingMain(true);
     setMainListError(null);
     try {
+      const prev = expenseList.find((e) => e.id === id);
+      const payload: Record<string, unknown> = {
+        concept,
+        expenseDate: editMainDate,
+        category: editMainCategory.trim(),
+        recurrence: editMainRecurrence,
+        amountEuros,
+      };
+      if (prev) {
+        payload.deductibility = prev.deductibility;
+        payload.deductiblePercent = prev.deductibility === "partial" ? prev.deductible_percent : undefined;
+        if (editMainRecurrence !== "none") {
+          payload.structureMode = prev.structure_mode ?? "strict";
+        }
+      }
       const res = await fetch(`/api/admin/expenses/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          concept,
-          expenseDate: editMainDate,
-          category: editMainCategory.trim(),
-          recurrence: editMainRecurrence,
-          amountEuros,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !data.ok) {
@@ -429,6 +465,11 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   async function saveFixedEdit(id: string) {
     const raw = editAmountStr.replace(/\s/g, "").replace(",", ".");
     const amountEuros = parseFloat(raw);
+    const row = expenseList.find((e) => e.id === id);
+    if (!row) {
+      setFixedActionError("No se encontró el cargo.");
+      return;
+    }
     if (!editCategory.trim()) {
       setFixedActionError("Indica una categoría.");
       return;
@@ -440,14 +481,23 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setSavingFixed(true);
     setFixedActionError(null);
     try {
+      const eff = new Date();
+      const effectiveFrom = `${eff.getFullYear()}-${String(eff.getMonth() + 1).padStart(2, "0")}-01`;
+      const payload: Record<string, unknown> = {
+        category: editCategory.trim(),
+        recurrence: editRecurrence,
+        amountEuros,
+        deductibility: row.deductibility,
+        deductiblePercent: row.deductibility === "partial" ? row.deductible_percent : undefined,
+      };
+      if (editRecurrence !== "none") {
+        payload.structureMode = row.structure_mode ?? "strict";
+        payload.effectiveFrom = effectiveFrom;
+      }
       const res = await fetch(`/api/admin/expenses/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category: editCategory.trim(),
-          recurrence: editRecurrence,
-          amountEuros,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !data.ok) {
@@ -534,13 +584,144 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-600">Caja</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Gastos detallados</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Filtra por periodo, día o categoría; clic en una fila para resaltarla.
+              Coste de estructura recurrente, movimientos del periodo seleccionado y cargos fijos configurados.
             </p>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] md:items-start">
+          <section id="section-estructura" className="mt-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_19rem]">
+              {/* Columna izquierda: tarjeta grande */}
+              <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-indigo-200/65 bg-gradient-to-br from-indigo-500/[0.1] via-white/50 to-slate-500/[0.05] p-5 shadow-md md:p-7">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700">Estructura</p>
+                <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-900 md:text-xl">
+                  Coste fijo mensual estimado
+                </h2>
+                <p className="mt-2 max-w-prose text-xs text-slate-600 md:text-sm">
+                  Recurrentes en equivalente mensual: partidas estables al importe registrado; demás con margen del 10&nbsp;%
+                  sobre la base. Excluye puntuales del periodo.
+                </p>
+
+                <div className="mt-6 flex flex-wrap items-start gap-x-6 gap-y-4 border-b border-indigo-200/40 pb-6 md:gap-x-10">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">≈ Por día</p>
+                    <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-indigo-950 sm:text-4xl">
+                      {fmtEuro(structureCost.dailyEur)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">Equivalente mensual ÷ 30,44</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estructura / mes</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl">
+                      {fmtEuro(structureCost.totalMonthlyEur)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">Recurrentes ponderados</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Acumulado impuestos
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums text-slate-600 sm:text-3xl">—</p>
+                    <p className="mt-1 text-[11px] text-slate-500">Pendiente de cálculo</p>
+                  </div>
+                  <div className="flex w-full min-w-[11rem] max-w-[17rem] flex-col items-center sm:w-auto">
+                    <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      ¿Has registrado todos los gastos?
+                    </p>
+                    <div className="mt-1 flex min-h-[2.25rem] w-full items-center justify-center sm:min-h-[2.75rem]">
+                      <FixedExpenseModalTrigger onClick={() => setFixedSuggestionsModalOpen(true)} />
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500" aria-hidden="true">
+                      &nbsp;
+                    </p>
+                  </div>
+                </div>
+
+                {structureCategories.length > 0 ? (
+                  <div className="mt-5 min-h-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Ir a gasto fijo por categoría
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría de estructura">
+                      {structureCategories.map(([cat, weighted]) => {
+                        const active = fixedCategoryFilter === cat && categoryFilter === cat;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            title={`Ver y editar cargos en «${cat}»`}
+                            onClick={() => goToFixedCategory(cat)}
+                            className={`max-w-[14rem] shrink-0 truncate rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold transition sm:text-xs ${
+                              active
+                                ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/50"
+                                : "border border-slate-200/90 bg-white/80 text-slate-800 hover:border-indigo-300 hover:bg-white"
+                            }`}
+                          >
+                            <span className="block truncate">{cat}</span>
+                            <span className="block font-mono text-[10px] font-semibold tabular-nums opacity-90">
+                              {fmtEuro(weighted)}/mes ponderado
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-5 text-xs text-slate-500">
+                    Aún no hay cargos recurrentes. Configúralos abajo en «Gastos fijos» o en{" "}
+                    <Link href="/dashboard/configuracion/gastos" className="font-medium text-indigo-700 underline">
+                      Nueva alta
+                    </Link>
+                    .
+                  </p>
+                )}
+              </div>
+
+              {/* Columna derecha: mini cards */}
+              <aside
+                className="flex min-w-0 flex-col gap-2.5 lg:max-w-none"
+                aria-label="Desglose estructura"
+              >
+                <div className="rounded-xl border border-indigo-200/45 bg-white/70 px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">≈ Por día</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-indigo-950">{fmtEuro(structureCost.dailyEur)}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Estructura / mes</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{fmtEuro(structureCost.totalMonthlyEur)}</p>
+                </div>
+                <div className="rounded-xl border border-violet-200/50 bg-violet-500/[0.06] px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Acumulado impuestos</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-600">—</p>
+                  <p className="mt-0.5 text-[9px] text-slate-500">Pendiente</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200/50 bg-emerald-500/[0.07] px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Fijo predecible</p>
+                  <p className="mt-0.5 text-base font-bold tabular-nums text-emerald-950">{fmtEuro(structureCost.strictMonthlyEur)}</p>
+                  <p className="mt-0.5 text-[9px] text-slate-500">Sin margen</p>
+                </div>
+                <div className="rounded-xl border border-amber-200/50 bg-amber-500/[0.08] px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Resto (+10&nbsp;%)</p>
+                  <p className="mt-0.5 text-base font-bold tabular-nums text-amber-950">
+                    {fmtEuro(structureCost.variableWeightedMonthlyEur)}
+                  </p>
+                  <p className="mt-0.5 text-[9px] text-slate-500">Base {fmtEuro(structureCost.variableBaseMonthlyEur)}</p>
+                </div>
+                <div className="rounded-xl border border-sky-200/55 bg-sky-500/[0.06] px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-600">Horas / semana</p>
+                  <p className="mt-0.5 text-base font-bold tabular-nums text-sky-950">—</p>
+                  <p className="mt-0.5 text-[9px] leading-snug text-slate-600">
+                    Objetivo: beneficio neto +10&nbsp;%. Requiere coste/hora por empleado (pendiente).
+                  </p>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] md:items-start">
             <div className="min-w-0 rounded-2xl border border-slate-200/70 glass-inner p-4 md:p-5 md:row-start-1 md:col-start-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-600">Resumen</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-600">
+                Resumen del periodo
+              </p>
               <div className="mt-3 flex min-w-0 flex-wrap gap-2 md:flex-nowrap md:gap-3">
                 <div className="relative min-w-[5.25rem] flex-1 overflow-hidden rounded-xl border border-rose-200/60 bg-gradient-to-br from-rose-500/12 to-orange-500/8 px-3 py-2.5 text-center shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Total</p>
@@ -616,7 +797,10 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                   <button
                     type="button"
                     aria-pressed={categoryFilter === "all"}
-                    onClick={() => setCategoryFilter("all")}
+                    onClick={() => {
+                      setCategoryFilter("all");
+                      setFixedCategoryFilter("all");
+                    }}
                     className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold transition sm:text-[11px] ${
                       categoryFilter === "all"
                         ? "bg-rose-600 text-white shadow-sm shadow-rose-600/30 ring-1 ring-rose-400/40"
@@ -633,7 +817,10 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                         type="button"
                         aria-pressed={active}
                         title={cat}
-                        onClick={() => setCategoryFilter((prev) => (prev === cat ? "all" : cat))}
+                        onClick={() => {
+                          setCategoryFilter((prev) => (prev === cat ? "all" : cat));
+                          setFixedCategoryFilter("all");
+                        }}
                         className={`max-w-[10rem] shrink-0 truncate rounded-md px-2 py-1 text-[10px] font-semibold transition sm:text-[11px] ${
                           active
                             ? "bg-rose-600 text-white shadow-sm shadow-rose-600/30 ring-1 ring-rose-400/40"
@@ -648,11 +835,17 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
               </div>
             </div>
 
-            <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 md:col-span-2 md:row-start-3 md:col-start-1">
-              <p className="border-b border-slate-100/90 bg-slate-50/40 px-3 py-2 text-[11px] leading-snug text-slate-500 md:px-3">
-                Lista completa de apuntes; edita o elimina desde Acciones. Abajo se agrupan los gastos fijos
-                recurrentes.
-              </p>
+            <div
+              id="lista-gastos-periodo"
+              className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 md:col-span-2 md:row-start-3 md:col-start-1"
+            >
+              <div className="border-b border-slate-100/90 bg-slate-50/40 px-3 py-2.5 md:px-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-700">Gastos del periodo</p>
+                <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                  Apuntes según calendario y filtros; edita o elimina desde Acciones. Los cargos recurrentes vivos están
+                  en la tarjeta inferior «Gastos fijos».
+                </p>
+              </div>
               {mainListError ? (
                 <p className="border-b border-rose-100/80 bg-rose-50/50 px-3 py-2 text-sm text-rose-800" role="alert">
                   {mainListError}
@@ -993,23 +1186,39 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
             </div>
           </div>
 
-          <div className="mt-8 border-t border-slate-200/70 pt-8">
-            <div className="min-w-0 pr-[5.75rem] md:pr-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-600">
-                Configuración
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900 md:text-xl">Gastos fijos configurados</h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Un cargo por gasto fijo; edita o elimina desde{" "}
-                <span className="font-medium text-slate-700">Acciones</span>
-                {" · "}
-                <Link
-                  href="/dashboard/configuracion/gastos"
-                  className="font-medium text-rose-700 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-900"
+          <section
+            ref={sectionGastosFijosRef}
+            id="section-gastos-fijos"
+            className="mt-10 scroll-mt-6 rounded-2xl border border-rose-200/55 bg-gradient-to-br from-rose-500/[0.04] to-white/35 p-4 shadow-sm md:p-6"
+          >
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 pr-[5.75rem] md:pr-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-600">Gastos fijos</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900 md:text-xl">Cargos recurrentes configurados</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                  Un cargo por concepto recurrente; edita o elimina desde{" "}
+                  <span className="font-medium text-slate-700">Acciones</span>
+                  {" · "}
+                  <Link
+                    href="/dashboard/configuracion/gastos"
+                    className="font-medium text-rose-700 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-900"
+                  >
+                    Nueva alta
+                  </Link>
+                </p>
+              </div>
+              {fixedCategoryFilter !== "all" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFixedCategoryFilter("all");
+                    setCategoryFilter("all");
+                  }}
+                  className="shrink-0 rounded-lg border border-slate-200/90 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white"
                 >
-                  Nueva alta
-                </Link>
-              </p>
+                  Quitar filtro «{fixedCategoryFilter}»
+                </button>
+              ) : null}
             </div>
 
             {fixedActionError ? (
@@ -1046,6 +1255,22 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                         >
                           Dar de alta un cargo
                         </Link>
+                      </td>
+                    </tr>
+                  ) : fixedRowsForTable.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-600">
+                        Ningún gasto fijo en la categoría «{fixedCategoryFilter}».{" "}
+                        <button
+                          type="button"
+                          className="font-medium text-rose-700 underline"
+                          onClick={() => {
+                            setFixedCategoryFilter("all");
+                            setCategoryFilter("all");
+                          }}
+                        >
+                          Ver todas
+                        </button>
                       </td>
                     </tr>
                   ) : (
@@ -1213,7 +1438,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </tbody>
               </table>
 
-              {fixedConfiguredRows.length > 0 ? (
+              {fixedRowsForTable.length > 0 ? (
                 <div className="flex flex-col gap-3 border-t border-slate-200/70 bg-slate-50/50 px-2 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between md:px-3">
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
                     <label htmlFor="gastos-fixed-page-size" className="whitespace-nowrap font-medium">
@@ -1316,7 +1541,14 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </div>
               ) : null}
             </div>
-          </div>
+          </section>
+
+          <FixedExpenseSuggestionModal
+            open={fixedSuggestionsModalOpen}
+            onClose={() => setFixedSuggestionsModalOpen(false)}
+            onSuccess={() => router.refresh()}
+            expenses={expenseList}
+          />
 
           {deleteMainId && deleteMainTargetRow ? (
             <div

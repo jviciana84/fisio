@@ -49,6 +49,7 @@ export default function AltaGastosPage() {
   );
   const [deductibility, setDeductibility] = useState<"full" | "partial" | "none">("full");
   const [deductiblePercent, setDeductiblePercent] = useState(50);
+  const [structureMode, setStructureMode] = useState<"strict" | "variable">("strict");
 
   const categoryHint = useMemo(() => hintForCategory(category), [category]);
 
@@ -97,6 +98,7 @@ export default function AltaGastosPage() {
           recurrence,
           deductibility,
           deductiblePercent: deductibility === "partial" ? deductiblePercent : undefined,
+          structureMode: recurrence === "none" ? null : structureMode,
         }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
@@ -247,25 +249,6 @@ export default function AltaGastosPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="expense-notes"
-                    className="mb-1.5 block text-sm font-medium text-slate-700"
-                  >
-                    Notas{" "}
-                    <span className="font-normal text-slate-500">(opcional)</span>
-                  </label>
-                  <textarea
-                    id="expense-notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    className={`${inputClass} resize-y`}
-                    placeholder="Factura, trimestre…"
-                    autoComplete="off"
-                  />
-                </div>
-
                 {categoryHint ? (
                   <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-4 text-sm text-slate-700">
                     <p className="font-semibold text-blue-900">{categoryHint.title}</p>
@@ -289,7 +272,7 @@ export default function AltaGastosPage() {
                       htmlFor="expense-deduct"
                       className="mb-1.5 block text-sm font-medium text-slate-700"
                     >
-                      Deducibilidad (simulador)
+                      IVA deducible
                     </label>
                     <select
                       id="expense-deduct"
@@ -299,12 +282,31 @@ export default function AltaGastosPage() {
                       }
                       className={inputClass}
                     >
-                      <option value="full">Deducible (100%)</option>
+                      <option value="full">100&nbsp;%</option>
                       <option value="partial">Parcial</option>
                       <option value="none">No deducible</option>
                     </select>
                   </div>
-                  {deductibility === "partial" ? (
+                  {recurrence !== "none" ? (
+                    <div>
+                      <label
+                        htmlFor="expense-structure-mode"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
+                      >
+                        Tipo de coste (recurrente)
+                      </label>
+                      <select
+                        id="expense-structure-mode"
+                        value={structureMode}
+                        onChange={(e) => setStructureMode(e.target.value as "strict" | "variable")}
+                        className={inputClass}
+                        required
+                      >
+                        <option value="strict">Predecible</option>
+                        <option value="variable">Variable</option>
+                      </select>
+                    </div>
+                  ) : deductibility === "partial" ? (
                     <div>
                       <label
                         htmlFor="expense-deduct-pct"
@@ -323,6 +325,45 @@ export default function AltaGastosPage() {
                       />
                     </div>
                   ) : null}
+                </div>
+
+                {recurrence !== "none" && deductibility === "partial" ? (
+                  <div>
+                    <label
+                      htmlFor="expense-deduct-pct-2"
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                    >
+                      % deducible
+                    </label>
+                    <input
+                      id="expense-deduct-pct-2"
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={deductiblePercent}
+                      onChange={(e) => setDeductiblePercent(Number(e.target.value))}
+                      className={inputClass}
+                    />
+                  </div>
+                ) : null}
+
+                <div>
+                  <label
+                    htmlFor="expense-notes"
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                  >
+                    Notas{" "}
+                    <span className="font-normal text-slate-500">(opcional)</span>
+                  </label>
+                  <textarea
+                    id="expense-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    className={`${inputClass} resize-y`}
+                    placeholder="Factura, trimestre…"
+                    autoComplete="off"
+                  />
                 </div>
 
                 <button
