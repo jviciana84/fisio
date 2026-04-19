@@ -376,6 +376,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!data) {
+      return NextResponse.json(
+        { ok: false, message: "No se pudo crear el usuario" },
+        { status: 500 },
+      );
+    }
+
     let avatarWarning: string | undefined;
 
     if (avatarFile && publicProfile) {

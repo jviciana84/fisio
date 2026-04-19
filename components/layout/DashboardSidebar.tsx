@@ -193,6 +193,27 @@ function PackageIcon({ className }: { className?: string }) {
   );
 }
 
+/** Cliente de caja / persona (distinto de Staff o usuarios del panel). */
+function ClientPersonIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
 function CalendarIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -444,6 +465,25 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
               <PackageIcon />
             </span>
             <NavLabel expanded={expanded}>Productos</NavLabel>
+          </Link>
+        ) : null}
+
+        {isAdmin ? (
+          <Link
+            href="/dashboard/clientes"
+            className={cn(
+              itemBase,
+              pathname.startsWith("/dashboard/clientes")
+                ? "bg-white/40 text-slate-900 shadow-sm"
+                : "hover:bg-white/30",
+            )}
+            title={expanded ? undefined : "Clientes"}
+            aria-label={expanded ? undefined : "Clientes"}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/30 text-blue-800">
+              <ClientPersonIcon />
+            </span>
+            <NavLabel expanded={expanded}>Clientes</NavLabel>
           </Link>
         ) : null}
 

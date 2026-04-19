@@ -23,6 +23,13 @@ type TicketRow = {
   created_at: string;
 };
 
+const BUSINESS_TZ = "Europe/Madrid";
+
+/** Fecha calendario YYYY-MM-DD en la zona del negocio. */
+function calendarDateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: BUSINESS_TZ });
+}
+
 function monthlyEquivalent(cents: number, recurrence: ExpenseRow["recurrence"]) {
   const eurosValue = cents / 100;
   switch (recurrence) {
@@ -69,6 +76,12 @@ export default async function DashboardPage() {
     const expenses = (expensesRes.data ?? []) as ExpenseRow[];
     const tickets = (ticketsRes.data ?? []) as TicketRow[];
 
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: BUSINESS_TZ });
+    const ingresosHoyEuros = tickets.reduce((sum, t) => {
+      if (calendarDateKey(t.created_at) !== todayKey) return sum;
+      return sum + t.total_cents / 100;
+    }, 0);
+
     const gastosFijosMensuales = expenses.reduce(
       (acc, e) => acc + monthlyEquivalent(e.amount_cents, e.recurrence),
       0,
@@ -84,6 +97,7 @@ export default async function DashboardPage() {
                 isAdmin
                 activeStaffCount={activeUsers}
                 gastosFijosMensualesEuros={gastosFijosMensuales}
+                ingresosHoyEuros={ingresosHoyEuros}
               />
             </div>
             <div className="flex min-h-0 flex-col xl:col-span-5">

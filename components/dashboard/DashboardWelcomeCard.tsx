@@ -1,16 +1,19 @@
 import Link from "next/link";
-import { formatEuroEsWhole, formatIntegerEs } from "@/lib/format-es";
+import { formatEuroEsTwoDecimals, formatEuroEsWhole, formatIntegerEs } from "@/lib/format-es";
 
 export function DashboardWelcomeCard({
   userName,
   isAdmin,
   activeStaffCount,
   gastosFijosMensualesEuros,
+  ingresosHoyEuros = 0,
 }: {
   userName: string;
   isAdmin: boolean;
   activeStaffCount: number;
   gastosFijosMensualesEuros: number;
+  /** Suma de tickets del día. Solo admin. */
+  ingresosHoyEuros?: number;
 }) {
   return (
     <section className="glass-panel-strong glass-tint-blue flex h-full min-h-[320px] flex-1 flex-col justify-between p-6 md:p-8 xl:min-h-0">
@@ -35,12 +38,20 @@ export function DashboardWelcomeCard({
       </div>
 
       {isAdmin ? (
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/dashboard/ingresos"
+            title="Ver ingresos detallados"
+            className="glass-inner block px-4 py-3 shadow-sm ring-1 ring-white/50 transition hover:bg-white/30"
+          >
+            <p className="text-[11px] font-medium uppercase tracking-wide text-blue-600">Ingresos de hoy</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatEuroEsTwoDecimals(ingresosHoyEuros)}</p>
+          </Link>
           <div className="glass-inner px-4 py-3 shadow-sm ring-1 ring-white/50">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Equipo activo</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatIntegerEs(activeStaffCount)}</p>
           </div>
-          <div className="glass-inner px-4 py-3 shadow-sm ring-1 ring-white/50">
+          <div className="glass-inner px-4 py-3 shadow-sm ring-1 ring-white/50 sm:col-span-2 lg:col-span-1">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Gasto fijo mensual (est.)</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatEuroEsWhole(gastosFijosMensualesEuros)}</p>
           </div>
@@ -54,6 +65,18 @@ export function DashboardWelcomeCard({
             className="rounded-full border border-blue-200/80 bg-blue-50/80 px-3 py-1.5 text-xs font-medium text-blue-800 transition hover:bg-blue-100/90"
           >
             Usuarios
+          </Link>
+          <Link
+            href="/dashboard/productos"
+            className="rounded-full border border-indigo-200/80 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900 transition hover:bg-indigo-100/90"
+          >
+            Productos
+          </Link>
+          <Link
+            href="/dashboard/clientes"
+            className="rounded-full border border-violet-200/80 bg-violet-50/80 px-3 py-1.5 text-xs font-medium text-violet-900 transition hover:bg-violet-100/90"
+          >
+            Clientes
           </Link>
           <Link
             href="/dashboard/configuracion/gastos"

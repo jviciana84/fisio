@@ -10,6 +10,7 @@ type ClientRow = {
   full_name: string;
   email: string | null;
   phone: string | null;
+  notes: string | null;
 };
 
 function compact(s: string) {
@@ -27,16 +28,19 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
   let query = supabase
     .from("clients")
-    .select("id, client_code, full_name, email, phone")
+    .select("id, client_code, full_name, email, phone, notes")
     .eq("is_active", true)
-    .order("full_name", { ascending: true })
-    .limit(10);
+    .order("full_name", { ascending: true });
 
   if (q) {
     const escaped = q.replace(/,/g, "");
-    query = query.or(
-      `full_name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%,client_code.ilike.%${escaped}%`,
-    );
+    query = query
+      .or(
+        `full_name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%,client_code.ilike.%${escaped}%`,
+      )
+      .limit(10);
+  } else {
+    query = query.limit(2000);
   }
 
   const { data, error } = await query;
@@ -53,6 +57,7 @@ export async function GET(request: Request) {
     fullName: c.full_name,
     email: c.email,
     phone: c.phone,
+    notes: c.notes,
   }));
 
   return NextResponse.json({ ok: true, clients });
