@@ -99,3 +99,19 @@ export function parseSpanishDecimalInput(raw: string): number {
   const n = Number(t);
   return Number.isFinite(n) ? n : NaN;
 }
+
+/** percent_hundredths 2500 → "25,00" para campos de texto (sin símbolo %). */
+export function formatPercentFieldFromHundredths(hundredths: number): string {
+  return formatDecimalEs(hundredths / 100, 2, 2);
+}
+
+/**
+ * Entrada tipo "25" o "25,5" → centésimas (2550). Máximo 100,00 %.
+ */
+export function parsePercentStringToHundredths(raw: string): number | null {
+  const n = parseSpanishDecimalInput(raw.trim());
+  if (!Number.isFinite(n) || n < 0) return null;
+  const h = Math.round(n * 100);
+  if (h > 10_000) return null;
+  return h;
+}

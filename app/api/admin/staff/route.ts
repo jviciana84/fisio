@@ -61,25 +61,51 @@ function parseTruthy(v: unknown): boolean {
   return v === "1" || v === "true" || v === "on";
 }
 
-/** 1 obligatoria (nombre + importe &gt; 0), máx. 2. */
+function parseAltaTariffSlot(item: unknown, index: 0 | 1): HourlyTariffSlot | null {
+  if (!item || typeof item !== "object") return null;
+  const o = item as Record<string, unknown>;
+  const label = typeof o.label === "string" ? o.label.trim() : "";
+  if (index === 0) {
+    if (o.kind === "percentage") return null;
+    const cents = Math.round(Number(o.cents_per_hour));
+    const c = Number.isFinite(cents) && cents >= 0 ? cents : 0;
+    return { label, kind: "hourly", cents_per_hour: c, percent_hundredths: 0 };
+  }
+  const explicit = o.kind === "percentage" ? "percentage" : o.kind === "hourly" ? "hourly" : null;
+  if (explicit === "percentage") {
+    const ph = Math.round(Number(o.percent_hundredths));
+    const p = Number.isFinite(ph) ? Math.max(0, Math.min(10_000, ph)) : 0;
+    return { label, kind: "percentage", cents_per_hour: 0, percent_hundredths: p };
+  }
+  if (explicit === "hourly") {
+    const cents = Math.round(Number(o.cents_per_hour));
+    const c = Number.isFinite(cents) && cents >= 0 ? cents : 0;
+    return { label, kind: "hourly", cents_per_hour: c, percent_hundredths: 0 };
+  }
+  const phTry = Math.round(Number(o.percent_hundredths));
+  if (Number.isFinite(phTry) && phTry > 0) {
+    const p = Math.max(0, Math.min(10_000, phTry));
+    return { label, kind: "percentage", cents_per_hour: 0, percent_hundredths: p };
+  }
+  const cents = Math.round(Number(o.cents_per_hour));
+  const c = Number.isFinite(cents) && cents >= 0 ? cents : 0;
+  return { label, kind: "hourly", cents_per_hour: c, percent_hundredths: 0 };
+}
+
+/** 1ª obligatoria €/h; 2ª opcional €/h o %. */
 function validateAltaHourlyTariffsData(data: unknown): HourlyTariffSlot[] | null {
   if (!Array.isArray(data) || data.length < 1 || data.length > 2) return null;
-  const out: HourlyTariffSlot[] = [];
-  for (const item of data) {
-    if (!item || typeof item !== "object") return null;
-    const o = item as { label?: unknown; cents_per_hour?: unknown };
-    const label = typeof o.label === "string" ? o.label.trim() : "";
-    const cents = Math.round(Number(o.cents_per_hour));
-    if (!Number.isFinite(cents) || cents < 0) return null;
-    out.push({ label, cents_per_hour: cents });
+  const first = parseAltaTariffSlot(data[0], 0);
+  if (!first || first.kind !== "hourly" || first.cents_per_hour <= 0 || !first.label) return null;
+  if (data.length === 1) return [first];
+  const second = parseAltaTariffSlot(data[1], 1);
+  if (!second || !second.label) return null;
+  if (second.kind === "hourly") {
+    if (second.cents_per_hour <= 0) return null;
+  } else if (second.percent_hundredths <= 0) {
+    return null;
   }
-  const first = out[0];
-  if (!first?.label || first.cents_per_hour <= 0) return null;
-  if (out.length === 2) {
-    const second = out[1];
-    if (!second?.label || second.cents_per_hour <= 0) return null;
-  }
-  return out;
+  return [first, second];
 }
 
 function parseAltaHourlyTariffs(raw: string | null): HourlyTariffSlot[] | null {
@@ -255,7 +281,7 @@ export async function POST(request: Request) {
           {
             ok: false,
             message:
-              "Debes indicar entre 1 y 2 tarifas por hora: nombre e importe mayor que 0 (primera obligatoria).",
+              "Tarifas autónomo: primera obligatoria (nombre + €/h mayor que 0). Segunda opcional: €/h o porcentaje sobre venta (mayor que 0).",
           },
           { status: 400 },
         );

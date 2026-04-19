@@ -7,7 +7,12 @@ import {
   normalizeCompensationType,
   parseEuroStringToCents,
 } from "@/lib/staff-compensation";
-import { sanitizeHourlyTariffsForDb, type HourlyTariffSlot } from "@/lib/staff-hourly-tariffs";
+import {
+  padHourlyTariffs,
+  sanitizeHourlyTariffsForDb,
+  tariffSlotHasPositiveValue,
+  type HourlyTariffSlot,
+} from "@/lib/staff-hourly-tariffs";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -162,12 +167,15 @@ export async function PATCH(
       monthly_salary_cents = cents;
       tariffsJson = sanitizeHourlyTariffsForDb([]);
     } else {
-      tariffsJson = sanitizeHourlyTariffsForDb(hourlyTariffs);
-      if (tariffsJson.length === 0 || !tariffsJson.some((t) => t.cents_per_hour > 0)) {
+      tariffsJson = sanitizeHourlyTariffsForDb(
+        padHourlyTariffs(Array.isArray(hourlyTariffs) ? hourlyTariffs : []),
+      );
+      if (tariffsJson.length === 0 || !tariffsJson.some((t) => tariffSlotHasPositiveValue(t))) {
         return NextResponse.json(
           {
             ok: false,
-            message: "En modo autónomo debe existir al menos una tarifa €/h con importe mayor que 0.",
+            message:
+              "En modo autónomo indica al menos una tarifa: €/h o porcentaje sobre venta mayor que 0.",
           },
           { status: 400 },
         );

@@ -12,11 +12,11 @@ import {
 import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { parsePercentStringToHundredths } from "@/lib/format-es";
 import { type StaffCompensationType, parseEuroStringToCents } from "@/lib/staff-compensation";
+import type { HourlyTariffSlot } from "@/lib/staff-hourly-tariffs";
 
 type Role = "admin" | "staff";
-
-const ALTA_TARIFF_SLOTS = 2;
 
 function parseEuroToCents(s: string): number | null {
   const raw = s.replace(",", ".").trim();
@@ -59,6 +59,9 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
   const [tariff1Euro, setTariff1Euro] = useState("");
   const [tariff2Name, setTariff2Name] = useState("");
   const [tariff2Euro, setTariff2Euro] = useState("");
+  /** Segunda tarifa: €/h o % sobre venta. */
+  const [tariff2Kind, setTariff2Kind] = useState<"hourly" | "percentage">("percentage");
+  const [tariff2Percent, setTariff2Percent] = useState("");
   const [compensationType, setCompensationType] = useState<StaffCompensationType>("self_employed");
   const [monthlySalaryEuro, setMonthlySalaryEuro] = useState("");
   const [loading, setLoading] = useState(false);
@@ -118,10 +121,19 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       const c1 = parseEuroToCents(tariff1Euro);
       const t1Ok = tariff1Name.trim().length > 0 && c1 !== null && c1 > 0;
       if (!t1Ok) return false;
-      const t2HasSomething = tariff2Name.trim().length > 0 || tariff2Euro.trim().length > 0;
+      const t2HasSomething =
+        tariff2Name.trim().length > 0 ||
+        tariff2Euro.trim().length > 0 ||
+        tariff2Percent.trim().length > 0;
       if (t2HasSomething) {
-        const c2 = parseEuroToCents(tariff2Euro);
-        if (!tariff2Name.trim() || c2 === null || c2 <= 0) return false;
+        if (!tariff2Name.trim()) return false;
+        if (tariff2Kind === "hourly") {
+          const c2 = parseEuroToCents(tariff2Euro);
+          if (c2 === null || c2 <= 0) return false;
+        } else {
+          const h = parsePercentStringToHundredths(tariff2Percent);
+          if (h === null || h <= 0) return false;
+        }
       }
     }
     if (publicProfile && !publicBio.trim()) return false;
@@ -137,6 +149,8 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     tariff1Euro,
     tariff2Name,
     tariff2Euro,
+    tariff2Kind,
+    tariff2Percent,
     publicProfile,
     publicBio,
     compensationType,
@@ -192,12 +206,40 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
 
       if (compensationType === "self_employed") {
         const c1 = parseEuroToCents(tariff1Euro)!;
-        const slots: { label: string; cents_per_hour: number }[] = [
-          { label: tariff1Name.trim(), cents_per_hour: c1 },
+        const slots: HourlyTariffSlot[] = [
+          {
+            label: tariff1Name.trim(),
+            kind: "hourly",
+            cents_per_hour: c1,
+            percent_hundredths: 0,
+          },
         ];
-        const c2 = parseEuroToCents(tariff2Euro);
-        if (tariff2Name.trim() && c2 !== null && c2 > 0) {
-          slots.push({ label: tariff2Name.trim(), cents_per_hour: c2 });
+        const t2Fill =
+          tariff2Name.trim().length > 0 ||
+          tariff2Euro.trim().length > 0 ||
+          tariff2Percent.trim().length > 0;
+        if (t2Fill && tariff2Name.trim()) {
+          if (tariff2Kind === "hourly") {
+            const c2 = parseEuroToCents(tariff2Euro);
+            if (c2 !== null && c2 > 0) {
+              slots.push({
+                label: tariff2Name.trim(),
+                kind: "hourly",
+                cents_per_hour: c2,
+                percent_hundredths: 0,
+              });
+            }
+          } else {
+            const h = parsePercentStringToHundredths(tariff2Percent);
+            if (h !== null && h > 0) {
+              slots.push({
+                label: tariff2Name.trim(),
+                kind: "percentage",
+                cents_per_hour: 0,
+                percent_hundredths: h,
+              });
+            }
+          }
         }
         fd.append("hourlyTariffs", JSON.stringify(slots));
       } else {
@@ -245,6 +287,8 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       setTariff1Euro("");
       setTariff2Name("");
       setTariff2Euro("");
+      setTariff2Kind("percentage");
+      setTariff2Percent("");
       setCompensationType("self_employed");
       setMonthlySalaryEuro("");
       clearAvatar();
@@ -547,12 +591,12 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
 
       <div className="mb-3 border-b border-slate-100 pb-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {compensationType === "salaried" ? "Salario mensual" : "Tarifas €/h"}
+          {compensationType === "salaried" ? "Salario mensual" : "Tarifas autónomo"}
         </p>
         <p className="mt-0.5 text-[10px] text-slate-600">
           {compensationType === "salaried"
             ? "Bruto (referencia interna)"
-            : "Al menos una tarifa con importe mayor que 0."}
+            : "Primera tarifa €/h obligatoria. Segunda opcional: €/h o porcentaje sobre venta."}
         </p>
       </div>
 
@@ -576,52 +620,111 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       ) : (
         <div
           className={cn(
-            "flex flex-col gap-2",
-            wide && "sm:grid sm:grid-cols-2 sm:gap-3",
+            "flex flex-col gap-3",
+            wide && "sm:grid sm:grid-cols-2 sm:items-start sm:gap-3",
           )}
         >
-          {Array.from({ length: ALTA_TARIFF_SLOTS }, (_, idx) => {
-            const isFirst = idx === 0;
-            const name = isFirst ? tariff1Name : tariff2Name;
-            const setName = isFirst ? setTariff1Name : setTariff2Name;
-            const euro = isFirst ? tariff1Euro : tariff2Euro;
-            const setEuro = isFirst ? setTariff1Euro : setTariff2Euro;
-            return (
-              <div key={idx} className="flex min-w-0 items-center gap-2">
-                <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">
-                  {idx + 1}
-                </span>
-                <input
-                  id={fid(`tariff-name-${idx}`)}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">1</span>
+            <input
+              id={fid("tariff-name-0")}
+              value={tariff1Name}
+              onChange={(e) => setTariff1Name(e.target.value)}
+              className={cn(inputClass, "min-w-0 flex-1", errTariff1Name && errField)}
+              placeholder="Nombre"
+              autoComplete="off"
+              aria-label="Tarifa 1 nombre"
+            />
+            <input
+              id={fid("tariff-euro-0")}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={tariff1Euro}
+              onChange={(e) => setTariff1Euro(e.target.value)}
+              className={cn(
+                inputClass,
+                "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
+                errTariff1Euro && errField,
+              )}
+              placeholder="€/h"
+              aria-label="Tarifa 1 euros por hora"
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2 pl-6 sm:pl-0">
+              <span className="text-[10px] font-medium text-slate-600">Tarifa 2 (opcional)</span>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
+                <button
+                  type="button"
                   className={cn(
-                    inputClass,
-                    "min-w-0 flex-1",
-                    isFirst && errTariff1Name && errField,
+                    "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
+                    tariff2Kind === "hourly"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800",
                   )}
-                  placeholder="Nombre"
-                  autoComplete="off"
-                  aria-label={`Tarifa ${idx + 1} nombre`}
-                />
+                  onClick={() => setTariff2Kind("hourly")}
+                >
+                  €/h
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
+                    tariff2Kind === "percentage"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                  onClick={() => setTariff2Kind("percentage")}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">2</span>
+              <input
+                id={fid("tariff-name-1")}
+                value={tariff2Name}
+                onChange={(e) => setTariff2Name(e.target.value)}
+                className={cn(inputClass, "min-w-0 flex-1")}
+                placeholder="Nombre"
+                autoComplete="off"
+                aria-label="Tarifa 2 nombre"
+              />
+              {tariff2Kind === "hourly" ? (
                 <input
-                  id={fid(`tariff-euro-${idx}`)}
+                  id={fid("tariff-euro-1")}
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"
-                  value={euro}
-                  onChange={(e) => setEuro(e.target.value)}
+                  value={tariff2Euro}
+                  onChange={(e) => setTariff2Euro(e.target.value)}
                   className={cn(
                     inputClass,
                     "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
-                    isFirst && errTariff1Euro && errField,
                   )}
-                  placeholder="€"
-                  aria-label={`Tarifa ${idx + 1} euros por hora`}
+                  placeholder="€/h"
+                  aria-label="Tarifa 2 euros por hora"
                 />
-              </div>
-            );
-          })}
+              ) : (
+                <input
+                  id={fid("tariff-pct-1")}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={tariff2Percent}
+                  onChange={(e) => setTariff2Percent(e.target.value)}
+                  className={cn(
+                    inputClass,
+                    "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
+                  )}
+                  placeholder="%"
+                  aria-label="Tarifa 2 porcentaje sobre venta"
+                />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

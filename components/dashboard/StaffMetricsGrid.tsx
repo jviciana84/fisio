@@ -12,6 +12,7 @@ import {
 } from "@/lib/staff-compensation";
 import {
   padHourlyTariffs,
+  STAFF_HOURLY_EURO_SLOT_COUNT,
   STAFF_HOURLY_TARIFF_SLOTS,
   type HourlyTariffSlot,
 } from "@/lib/staff-hourly-tariffs";
@@ -22,6 +23,8 @@ import {
   formatEurosFieldFromNumber,
   formatHoursEs,
   formatIntegerEs,
+  formatPercentFieldFromHundredths,
+  parsePercentStringToHundredths,
   parseSpanishDecimalInput,
 } from "@/lib/format-es";
 
@@ -104,6 +107,8 @@ export function StaffMetricsGrid({
   const [avatarBlobUrl, setAvatarBlobUrl] = useState<string | null>(null);
   /** Texto libre €/h por fila mientras se escribe (evita que `number`+`toFixed` rompa "30", etc.). */
   const [tariffEuroDrafts, setTariffEuroDrafts] = useState<Record<number, string>>({});
+  /** Texto libre % (tarifas 4–6). */
+  const [tariffPercentDrafts, setTariffPercentDrafts] = useState<Record<number, string>>({});
   const expandedCardRef = useRef<HTMLDivElement | null>(null);
 
   const expandedRow = useMemo(
@@ -125,6 +130,7 @@ export function StaffMetricsGrid({
       setAvatarBlobUrl(null);
       setMsg(null);
       setTariffEuroDrafts({});
+      setTariffPercentDrafts({});
       return;
     }
     const row = rows.find((r) => r.id === expandedId);
@@ -137,6 +143,7 @@ export function StaffMetricsGrid({
     setAvatarBlobUrl(null);
     setMsg(null);
     setTariffEuroDrafts({});
+    setTariffPercentDrafts({});
   }, [expandedId, rows]);
 
   useEffect(() => {
@@ -199,7 +206,9 @@ export function StaffMetricsGrid({
         JSON.stringify(
           formDraft.tariffs.slice(0, STAFF_HOURLY_TARIFF_SLOTS).map((t) => ({
             label: t.label,
+            kind: t.kind,
             cents_per_hour: t.cents_per_hour,
+            percent_hundredths: t.percent_hundredths,
           })),
         ),
       );
@@ -618,11 +627,11 @@ export function StaffMetricsGrid({
                   </div>
                 </div>
 
-                {/* Bloque inferior: resumen | tarifas o salario */}
+                {/* Bloque inferior: resumen 25% | tarifas 75% */}
                 <div className="mt-4 border-t border-slate-200 pt-4">
-                  <div className="grid min-h-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-slate-200">
-                    {/* Columna resumen */}
-                    <div className="flex min-h-0 min-w-0 flex-col lg:pr-6">
+                  <div className="grid min-h-0 grid-cols-1 gap-6 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-slate-200">
+                    {/* Columna resumen (~25%) */}
+                    <div className="flex min-h-0 min-w-0 flex-col lg:col-span-1 lg:pr-4">
                       <div className="min-h-[2.75rem] border-b border-slate-200 pb-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                           Resumen de datos
@@ -659,18 +668,18 @@ export function StaffMetricsGrid({
                       </p>
                     </div>
 
-                    {/* Columna tarifas o salario */}
-                    <div className="flex min-h-0 min-w-0 flex-col lg:pl-6">
+                    {/* Columna tarifas o salario (~75%) */}
+                    <div className="flex min-h-0 min-w-0 flex-col lg:col-span-3 lg:pl-6">
                       <div className="min-h-[2.75rem] border-b border-slate-200 pb-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                           {formDraft.compensation_type === "salaried"
                             ? "Salario mensual"
-                            : "Tarifas por hora"}
+                            : "Tarifas autónomo"}
                         </p>
                         <p className="mt-0.5 text-[10px] leading-tight text-slate-600">
                           {formDraft.compensation_type === "salaried"
                             ? "Bruto (referencia interna)"
-                            : `Hasta ${STAFF_HOURLY_TARIFF_SLOTS} conceptos (€/h)`}
+                            : `Hasta ${STAFF_HOURLY_TARIFF_SLOTS} conceptos: columna izquierda % sobre venta, derecha €/h (3 filas cada una).`}
                         </p>
                       </div>
 
@@ -702,94 +711,217 @@ export function StaffMetricsGrid({
                           />
                         </div>
                       ) : (
-                        <>
-                          <div className="mt-3 grid grid-cols-[1fr_minmax(5rem,5.5rem)] gap-x-2 gap-y-1 text-[10px] text-slate-500">
-                            <span className="pl-0.5">Nombre de la tarifa</span>
-                            <span className="pr-0.5 text-right">Importe</span>
-                          </div>
-                          <div className="mt-1 space-y-2">
-                            {formDraft.tariffs.map((slot, idx) => (
-                              <div
-                                key={idx}
-                                className="grid grid-cols-[1fr_minmax(5rem,5.5rem)] items-stretch gap-x-2 gap-y-0"
-                              >
-                                <input
-                                  className={cn(inputCls, "min-w-0 text-[11px]")}
-                                  placeholder={`Nombre tarifa ${idx + 1} (ej. fisioterapia)`}
-                                  aria-label={`Nombre tarifa ${idx + 1}`}
-                                  value={slot.label}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    setDraft((d) => {
-                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                                      if (!base) return d;
-                                      const next = [...base.tariffs];
-                                      next[idx] = { ...next[idx], label: v };
-                                      return { ...base, tariffs: next };
-                                    });
-                                  }}
-                                />
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  autoComplete="off"
-                                  className={cn(
-                                    inputCls,
-                                    "min-w-0 shrink-0 px-2 py-1.5 text-right text-[11px] tabular-nums",
-                                  )}
-                                  placeholder="0,00"
-                                  aria-label={`Importe €/h tarifa ${idx + 1}`}
-                                  value={
-                                    tariffEuroDrafts[idx] !== undefined
-                                      ? tariffEuroDrafts[idx]!
-                                      : slot.cents_per_hour
-                                        ? formatEurosFieldFromNumber(slot.cents_per_hour / 100)
-                                        : ""
-                                  }
-                                  onChange={(e) => {
-                                    let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
-                                    const ci = raw.indexOf(",");
-                                    if (ci !== -1) {
-                                      raw = raw.slice(0, ci + 1) + raw.slice(ci + 1).replace(/,/g, "");
-                                    }
-                                    setTariffEuroDrafts((prev) => ({ ...prev, [idx]: raw }));
+                        <div className="mt-3 grid min-h-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-slate-100">
+                          {/* Izquierda: % sobre venta (índices 3–5) */}
+                          <div className="flex min-h-0 min-w-0 flex-col sm:pr-3">
+                            <p className="mb-1.5 text-[10px] font-medium text-slate-600">
+                              Porcentaje sobre venta
+                            </p>
+                            <div className="grid grid-cols-[1fr_minmax(4.5rem,5rem)] gap-x-2 gap-y-1 text-[10px] text-slate-500">
+                              <span className="pl-0.5">Nombre</span>
+                              <span className="pr-0.5 text-right">%</span>
+                            </div>
+                            <div className="mt-1 space-y-2">
+                              {formDraft.tariffs.slice(STAFF_HOURLY_EURO_SLOT_COUNT).map((slot, j) => {
+                                const idx = j + STAFF_HOURLY_EURO_SLOT_COUNT;
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="grid grid-cols-[1fr_minmax(4.5rem,5rem)] items-stretch gap-x-2 gap-y-0"
+                                  >
+                                    <input
+                                      className={cn(inputCls, "min-w-0 text-[11px]")}
+                                      placeholder={`Concepto ${j + 1}`}
+                                      aria-label={`Nombre tarifa porcentaje ${idx + 1}`}
+                                      value={slot.label}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        setDraft((d) => {
+                                          const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                          if (!base) return d;
+                                          const next = [...base.tariffs];
+                                          next[idx] = {
+                                            ...next[idx],
+                                            label: v,
+                                            kind: "percentage",
+                                            cents_per_hour: 0,
+                                          };
+                                          return { ...base, tariffs: next };
+                                        });
+                                      }}
+                                    />
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      autoComplete="off"
+                                      className={cn(
+                                        inputCls,
+                                        "min-w-0 shrink-0 px-2 py-1.5 text-right text-[11px] tabular-nums",
+                                      )}
+                                      placeholder="0,00"
+                                      aria-label={`Porcentaje tarifa ${idx + 1}`}
+                                      value={
+                                        tariffPercentDrafts[idx] !== undefined
+                                          ? tariffPercentDrafts[idx]!
+                                          : slot.percent_hundredths
+                                            ? formatPercentFieldFromHundredths(slot.percent_hundredths)
+                                            : ""
+                                      }
+                                      onChange={(e) => {
+                                        let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
+                                        const ci = raw.indexOf(",");
+                                        if (ci !== -1) {
+                                          raw = raw.slice(0, ci + 1) + raw.slice(ci + 1).replace(/,/g, "");
+                                        }
+                                        setTariffPercentDrafts((prev) => ({ ...prev, [idx]: raw }));
 
-                                    if (raw === "" || raw === "." || raw === ",") {
+                                        if (raw === "" || raw === "." || raw === ",") {
+                                          setDraft((d) => {
+                                            const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                            if (!base) return d;
+                                            const next = [...base.tariffs];
+                                            next[idx] = {
+                                              ...next[idx],
+                                              kind: "percentage",
+                                              cents_per_hour: 0,
+                                              percent_hundredths: 0,
+                                            };
+                                            return { ...base, tariffs: next };
+                                          });
+                                          return;
+                                        }
+                                        const h = parsePercentStringToHundredths(raw);
+                                        if (h === null) return;
+                                        setDraft((d) => {
+                                          const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                          if (!base) return d;
+                                          const next = [...base.tariffs];
+                                          next[idx] = {
+                                            ...next[idx],
+                                            kind: "percentage",
+                                            cents_per_hour: 0,
+                                            percent_hundredths: h,
+                                          };
+                                          return { ...base, tariffs: next };
+                                        });
+                                      }}
+                                      onBlur={() => {
+                                        setTariffPercentDrafts((prev) => {
+                                          const next = { ...prev };
+                                          delete next[idx];
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Derecha: €/h (índices 0–2) */}
+                          <div className="flex min-h-0 min-w-0 flex-col sm:pl-3">
+                            <p className="mb-1.5 text-[10px] font-medium text-slate-600">Euros por hora</p>
+                            <div className="grid grid-cols-[1fr_minmax(4.5rem,5rem)] gap-x-2 gap-y-1 text-[10px] text-slate-500">
+                              <span className="pl-0.5">Nombre</span>
+                              <span className="pr-0.5 text-right">€/h</span>
+                            </div>
+                            <div className="mt-1 space-y-2">
+                              {formDraft.tariffs.slice(0, STAFF_HOURLY_EURO_SLOT_COUNT).map((slot, idx) => (
+                                <div
+                                  key={idx}
+                                  className="grid grid-cols-[1fr_minmax(4.5rem,5rem)] items-stretch gap-x-2 gap-y-0"
+                                >
+                                  <input
+                                    className={cn(inputCls, "min-w-0 text-[11px]")}
+                                    placeholder={`Nombre tarifa ${idx + 1}`}
+                                    aria-label={`Nombre tarifa ${idx + 1}`}
+                                    value={slot.label}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
                                       setDraft((d) => {
                                         const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
                                         if (!base) return d;
                                         const next = [...base.tariffs];
-                                        next[idx] = { ...next[idx], cents_per_hour: 0 };
+                                        next[idx] = {
+                                          ...next[idx],
+                                          label: v,
+                                          kind: "hourly",
+                                          percent_hundredths: 0,
+                                        };
                                         return { ...base, tariffs: next };
                                       });
-                                      return;
+                                    }}
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    autoComplete="off"
+                                    className={cn(
+                                      inputCls,
+                                      "min-w-0 shrink-0 px-2 py-1.5 text-right text-[11px] tabular-nums",
+                                    )}
+                                    placeholder="0,00"
+                                    aria-label={`Importe €/h tarifa ${idx + 1}`}
+                                    value={
+                                      tariffEuroDrafts[idx] !== undefined
+                                        ? tariffEuroDrafts[idx]!
+                                        : slot.cents_per_hour
+                                          ? formatEurosFieldFromNumber(slot.cents_per_hour / 100)
+                                          : ""
                                     }
-                                    const n = parseSpanishDecimalInput(raw);
-                                    if (!Number.isFinite(n)) return;
-                                    const cents = Math.round(n * 100);
-                                    setDraft((d) => {
-                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                                      if (!base) return d;
-                                      const next = [...base.tariffs];
-                                      next[idx] = {
-                                        ...next[idx],
-                                        cents_per_hour: Math.max(0, Math.min(cents, 99_999_999)),
-                                      };
-                                      return { ...base, tariffs: next };
-                                    });
-                                  }}
-                                  onBlur={() => {
-                                    setTariffEuroDrafts((prev) => {
-                                      const next = { ...prev };
-                                      delete next[idx];
-                                      return next;
-                                    });
-                                  }}
-                                />
-                              </div>
-                            ))}
+                                    onChange={(e) => {
+                                      let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
+                                      const ci = raw.indexOf(",");
+                                      if (ci !== -1) {
+                                        raw = raw.slice(0, ci + 1) + raw.slice(ci + 1).replace(/,/g, "");
+                                      }
+                                      setTariffEuroDrafts((prev) => ({ ...prev, [idx]: raw }));
+
+                                      if (raw === "" || raw === "." || raw === ",") {
+                                        setDraft((d) => {
+                                          const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                          if (!base) return d;
+                                          const next = [...base.tariffs];
+                                          next[idx] = {
+                                            ...next[idx],
+                                            kind: "hourly",
+                                            cents_per_hour: 0,
+                                            percent_hundredths: 0,
+                                          };
+                                          return { ...base, tariffs: next };
+                                        });
+                                        return;
+                                      }
+                                      const n = parseSpanishDecimalInput(raw);
+                                      if (!Number.isFinite(n)) return;
+                                      const cents = Math.round(n * 100);
+                                      setDraft((d) => {
+                                        const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                        if (!base) return d;
+                                        const next = [...base.tariffs];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          kind: "hourly",
+                                          cents_per_hour: Math.max(0, Math.min(cents, 99_999_999)),
+                                          percent_hundredths: 0,
+                                        };
+                                        return { ...base, tariffs: next };
+                                      });
+                                    }}
+                                    onBlur={() => {
+                                      setTariffEuroDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[idx];
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
