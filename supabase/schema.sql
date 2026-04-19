@@ -84,6 +84,7 @@ create table if not exists public.clients (
   notes text,
   comprobante_pago_url text,
   estado_pago text not null default 'pendiente_validacion',
+  lead_contacted_at timestamptz,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );

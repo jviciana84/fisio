@@ -48,7 +48,8 @@ export const CLINIC_ADDRESS = {
   country: "ES",
 } as const;
 
-const OG_IMAGE_PATH = "/logo-roc-blanc.jpg";
+/** Imagen social (OG/Twitter/WhatsApp) generada desde `logo FRB3.svg` — ver `npm run generate:icons`. */
+const OG_IMAGE_PATH = "/og-social.jpg";
 
 export function absoluteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;

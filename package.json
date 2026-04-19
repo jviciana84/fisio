@@ -11,7 +11,8 @@
     "seed:admin": "node scripts/seed-admin.mjs",
     "db:apply": "node scripts/apply-schema.mjs",
     "totp:enable": "node scripts/enable-totp.mjs",
-    "totp:qr": "node scripts/show-totp-qr.mjs"
+    "totp:qr": "node scripts/show-totp-qr.mjs",
+    "generate:icons": "node scripts/generate-brand-icons.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slider": "^1.3.6",
@@ -44,6 +45,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

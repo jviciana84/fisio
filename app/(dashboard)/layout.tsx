@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStaffSession } from "@/lib/auth/get-session";
+import { PendingLeadsGlobalAlert } from "@/components/dashboard/PendingLeadsGlobalAlert";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { DashboardTopStatus } from "@/components/layout/DashboardTopStatus";
 import { SectionWatermark } from "@/components/section-watermark";
@@ -48,6 +49,7 @@ export default async function DashboardGroupLayout({
               sessionIssuedAtIso={session.issuedAt?.toISOString() ?? null}
               enablePinSwitch={!isAdmin}
             />
+            <PendingLeadsGlobalAlert />
             {children}
           </div>
         </div>

@@ -11,6 +11,9 @@ type ClientRow = {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  created_at: string;
+  estado_pago: string | null;
+  lead_contacted_at: string | null;
 };
 
 function compact(s: string) {
@@ -28,7 +31,9 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
   let query = supabase
     .from("clients")
-    .select("id, client_code, full_name, email, phone, notes")
+    .select(
+      "id, client_code, full_name, email, phone, notes, created_at, estado_pago, lead_contacted_at",
+    )
     .eq("is_active", true)
     .order("full_name", { ascending: true });
 
@@ -58,6 +63,9 @@ export async function GET(request: Request) {
     email: c.email,
     phone: c.phone,
     notes: c.notes,
+    createdAt: c.created_at,
+    estadoPago: c.estado_pago,
+    leadContactedAt: c.lead_contacted_at,
   }));
 
   return NextResponse.json({ ok: true, clients });

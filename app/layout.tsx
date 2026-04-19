@@ -29,6 +29,13 @@ export const metadata: Metadata = {
   authors: [{ name: PUBLIC_BRAND, url: SITE_URL }],
   creator: PUBLIC_BRAND,
   category: "health",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-icon.png",
+  },
   ...homeMetadata,
 };
 
@@ -64,8 +71,6 @@ export default async function RootLayout({
   return (
     <html lang="es" className="bg-background scroll-smooth" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <script
           type="application/ld+json"

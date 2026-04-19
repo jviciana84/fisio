@@ -362,3 +362,86 @@ export function formatIncomeRangeLabel(range: ChartRange, nowInput?: Date): stri
   }
   return "";
 }
+
+/** Conteos por franja (no acumulados) para el gráfico de altas de clientes. */
+export type NewClientBucket = { label: string; count: number };
+
+export function buildNewClientsBuckets(
+  range: ChartRange,
+  clients: { created_at: string }[],
+  nowInput?: Date,
+): NewClientBucket[] {
+  const now = nowInput ? new Date(nowInput) : new Date();
+  const scoped = clients.filter((c) => ticketInRange(c.created_at, range, now));
+
+  const countIn = (start: Date, end: Date) => {
+    let n = 0;
+    for (const c of scoped) {
+      const t = new Date(c.created_at);
+      if (!Number.isNaN(t.getTime()) && t >= start && t < end) n++;
+    }
+    return n;
+  };
+
+  if (range === "day") {
+    const out: NewClientBucket[] = [];
+    for (let h = 23; h >= 0; h--) {
+      const slot = new Date(now);
+      slot.setMinutes(0, 0, 0);
+      slot.setHours(slot.getHours() - h);
+      const start = new Date(slot);
+      const end = new Date(slot);
+      end.setHours(end.getHours() + 1);
+      out.push({
+        label: `${pad2(start.getHours())}:00`,
+        count: countIn(start, end),
+      });
+    }
+    return out;
+  }
+
+  if (range === "week") {
+    const monday = startOfWeekMonday(now);
+    const out: NewClientBucket[] = [];
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(monday, i);
+      const next = addDays(day, 1);
+      out.push({
+        label: day.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }),
+        count: countIn(day, next),
+      });
+    }
+    return out;
+  }
+
+  if (range === "month" || range === "quarter" || range === "semester" || range === "years") {
+    const rangeStart =
+      range === "month"
+        ? new Date(now.getFullYear(), now.getMonth(), 1)
+        : range === "quarter"
+          ? startOfQuarterCal(now)
+          : range === "semester"
+            ? startOfSemesterCal(now)
+            : new Date(now.getFullYear(), 0, 1);
+
+    const out: NewClientBucket[] = [];
+    const endDay = startOfDay(now);
+    for (let day = startOfDay(rangeStart); day.getTime() <= endDay.getTime(); day = addDays(day, 1)) {
+      const next = addDays(day, 1);
+      out.push({
+        label: day.toLocaleDateString("es-ES", { day: "numeric", month: "short" }),
+        count: countIn(day, next),
+      });
+    }
+    return out;
+  }
+
+  const _exhaustive: never = range;
+  return _exhaustive;
+}
+
+export function maxNewClientBucketCount(buckets: NewClientBucket[]): number {
+  let m = 0;
+  for (const b of buckets) m = Math.max(m, b.count);
+  return niceCeiling(Math.max(m, 1));
+}
