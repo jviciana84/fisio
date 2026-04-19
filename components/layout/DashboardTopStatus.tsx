@@ -67,43 +67,48 @@ export function DashboardTopStatus({
     connectedMs == null ? "—" : formatConnectedDuration(connectedMs);
 
   return (
-    <div className="pointer-events-none fixed left-1/2 top-3 z-40 flex w-[min(100vw-1rem,32rem)] -translate-x-1/2 justify-center sm:top-4">
-      <div className="pointer-events-auto flex w-full max-w-md items-stretch justify-center gap-0 rounded-xl border border-white/55 bg-white/70 px-2 py-2 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:px-3">
-        <div className="flex min-w-0 flex-1 flex-col justify-center px-1.5 text-center sm:px-2">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">Sesión</p>
-          <p className="truncate text-xs font-semibold text-slate-800" title={userName}>
+    <div className="pointer-events-none fixed left-1/2 top-3 z-40 flex w-[min(100vw-1rem,38rem)] -translate-x-1/2 justify-center sm:top-4">
+      <div className="pointer-events-auto flex w-full max-w-[38rem] items-stretch rounded-xl border border-white/55 bg-white/70 px-1.5 py-1.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:px-2 sm:py-2">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-r border-slate-200/90 px-1.5 text-center sm:px-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sesión</p>
+          <p className="w-full truncate text-xs font-semibold leading-tight text-slate-800" title={userName}>
             {userName}
           </p>
         </div>
-        <div className="my-1 w-px shrink-0 self-stretch bg-slate-200/90" aria-hidden />
-        <div className="flex min-w-0 flex-1 flex-col justify-center px-1.5 text-center sm:px-2">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">Tiempo conectado</p>
+        <div
+          className="flex min-w-[11.5rem] flex-1 flex-col items-center justify-center gap-0.5 border-r border-slate-200/90 px-1.5 text-center sm:min-w-[12rem] sm:px-2"
+          title={
+            sessionIssuedAtIso
+              ? `Desde ${new Date(sessionIssuedAtIso).toLocaleString("es-ES")}`
+              : undefined
+          }
+        >
+          <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Tiempo conectado
+          </p>
           <p
-            className="font-mono text-xs font-semibold tabular-nums text-slate-900 sm:text-sm"
+            className="font-mono text-sm font-semibold tabular-nums leading-tight text-slate-900"
             suppressHydrationWarning
-            title={sessionIssuedAtIso ? `Desde ${new Date(sessionIssuedAtIso).toLocaleString("es-ES")}` : undefined}
           >
             {connectedLabel}
           </p>
         </div>
-        <div className="my-1 w-px shrink-0 self-stretch bg-slate-200/90" aria-hidden />
-        <div className="flex min-w-0 flex-1 flex-col justify-center px-1.5 text-center sm:px-2">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">Hora</p>
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-r border-slate-200/90 px-1.5 text-center sm:px-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Hora</p>
           <p
-            className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-slate-900"
+            className="font-mono text-sm font-semibold tabular-nums leading-tight text-slate-900"
             suppressHydrationWarning
           >
             {clock}
           </p>
         </div>
-        <div className="my-1 w-px shrink-0 self-stretch bg-slate-200/90" aria-hidden />
-        <div className="flex shrink-0 items-center justify-center px-2 sm:px-4">
+        <div className="flex shrink-0 items-center justify-center self-stretch px-1.5 sm:px-2.5">
           <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
             className={cn(
-              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white/80 text-slate-600 shadow-sm transition",
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white/80 text-slate-600 shadow-sm transition sm:h-9 sm:w-9",
               "hover:border-red-200 hover:bg-red-50 hover:text-red-700",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50",
               "disabled:pointer-events-none disabled:opacity-50",
