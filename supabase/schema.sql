@@ -15,6 +15,7 @@ create table if not exists public.staff_access (
   public_specialty text,
   public_bio text,
   public_avatar_path text,
+  hourly_tariffs jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
 
