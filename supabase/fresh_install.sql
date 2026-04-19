@@ -28,6 +28,10 @@ create table if not exists public.staff_access (
   totp_secret text,
   totp_onboarding_complete boolean not null default true,
   is_active boolean not null default true,
+  public_profile boolean not null default true,
+  public_specialty text,
+  public_bio text,
+  public_avatar_path text,
   created_at timestamptz not null default now()
 );
 
@@ -39,6 +43,10 @@ alter table public.staff_access add column if not exists requires_2fa boolean no
 alter table public.staff_access add column if not exists totp_secret text;
 alter table public.staff_access add column if not exists totp_onboarding_complete boolean not null default true;
 alter table public.staff_access add column if not exists is_active boolean not null default true;
+alter table public.staff_access add column if not exists public_profile boolean not null default true;
+alter table public.staff_access add column if not exists public_specialty text;
+alter table public.staff_access add column if not exists public_bio text;
+alter table public.staff_access add column if not exists public_avatar_path text;
 
 create unique index if not exists staff_access_employee_code_uidx
   on public.staff_access (employee_code)

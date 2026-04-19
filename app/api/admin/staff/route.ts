@@ -13,15 +13,19 @@ type Body = {
   fullName: string;
   email: string;
   phone: string;
-  /** 4 cifras mostradas al abrir el formulario (debe seguir libre en BD). */
   userCode?: string;
-  /** @deprecated usar userCode */
   employeeCode?: string;
   pin: string;
   role: Role;
-  /** Solo aplica si role es admin: genera TOTP y obliga onboarding en primer acceso. */
   requireAuthenticatorOnFirstLogin?: boolean;
+  publicProfile?: boolean;
+  publicSpecialty?: string;
+  publicBio?: string;
 };
+
+const STAFF_PUBLIC_BUCKET = "staff-public";
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function hashPin(pin: string, salt: string) {
   return createHash("sha256").update(`${salt}:${pin}`).digest("hex");
@@ -33,9 +37,41 @@ function normalizePhone(raw: string | undefined): string | null {
   return t;
 }
 
-/** Código usuario: exactamente 4 dígitos (0000–9999). */
 function isClientUserCodeFormat(code: string): boolean {
   return /^\d{4}$/.test(code);
+}
+
+function parseTruthy(v: unknown): boolean {
+  if (typeof v !== "string") return false;
+  return v === "1" || v === "true" || v === "on";
+}
+
+function extFromMime(mime: string): string {
+  switch (mime) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+    default:
+      return "jpg";
+  }
+}
+
+async function ensureStaffPublicBucket(supabase: SupabaseClient) {
+  const { data: buckets } = await supabase.storage.listBuckets();
+  if (buckets?.some((b) => b.name === STAFF_PUBLIC_BUCKET)) return;
+  const { error } = await supabase.storage.createBucket(STAFF_PUBLIC_BUCKET, {
+    public: true,
+    fileSizeLimit: MAX_AVATAR_BYTES,
+    allowedMimeTypes: [...AVATAR_TYPES],
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function GET() {
@@ -54,7 +90,6 @@ export async function GET() {
   }
 }
 
-/** Genera un número de 4 cifras único (columna `employee_code` en BD). */
 async function generateUniqueUserCode(supabase: SupabaseClient): Promise<string> {
   for (let attempt = 0; attempt < 60; attempt++) {
     const n = Math.floor(Math.random() * 10000);
@@ -83,7 +118,32 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const body = (await request.json()) as Body;
+    const contentType = request.headers.get("content-type") ?? "";
+    let body: Body;
+    let avatarFile: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const fd = await request.formData();
+      const av = fd.get("avatar");
+      avatarFile = av instanceof File && av.size > 0 ? av : null;
+      const roleRaw = String(fd.get("role") ?? "staff");
+      const roleParsed: Role = roleRaw === "admin" ? "admin" : "staff";
+      body = {
+        fullName: String(fd.get("fullName") ?? "").trim(),
+        email: String(fd.get("email") ?? "").trim().toLowerCase(),
+        phone: String(fd.get("phone") ?? "").trim(),
+        userCode: String(fd.get("userCode") ?? "").trim() || undefined,
+        pin: String(fd.get("pin") ?? ""),
+        role: roleParsed,
+        requireAuthenticatorOnFirstLogin: parseTruthy(fd.get("requireAuthenticatorOnFirstLogin")),
+        publicProfile: !["0", "false"].includes(String(fd.get("publicProfile") ?? "1")),
+        publicSpecialty: String(fd.get("publicSpecialty") ?? "").trim() || undefined,
+        publicBio: String(fd.get("publicBio") ?? "").trim() || undefined,
+      };
+    } else {
+      body = (await request.json()) as Body;
+    }
+
     const fullName = body.fullName?.trim();
     const email = body.email?.trim().toLowerCase();
     const phone = normalizePhone(body.phone);
@@ -91,6 +151,9 @@ export async function POST(request: Request) {
     const pin = body.pin;
     const role = body.role;
     const requireAuth = Boolean(body.requireAuthenticatorOnFirstLogin);
+    const publicProfile = body.publicProfile !== false;
+    const publicSpecialty = publicProfile ? body.publicSpecialty?.trim() || null : null;
+    const publicBio = publicProfile ? body.publicBio?.trim() || null : null;
 
     if (!fullName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
@@ -181,6 +244,9 @@ export async function POST(request: Request) {
         totp_secret: totpSecret,
         totp_onboarding_complete: totpOnboardingComplete,
         is_active: true,
+        public_profile: publicProfile,
+        public_specialty: publicSpecialty,
+        public_bio: publicBio,
       })
       .select("id")
       .single();
@@ -198,11 +264,46 @@ export async function POST(request: Request) {
       );
     }
 
+    let avatarWarning: string | undefined;
+
+    if (avatarFile && publicProfile) {
+      if (avatarFile.size > MAX_AVATAR_BYTES) {
+        avatarWarning = "La imagen supera 2 MB; se creó el usuario sin foto de perfil.";
+      } else if (!AVATAR_TYPES.has(avatarFile.type)) {
+        avatarWarning = "Formato de imagen no permitido (usa JPG, PNG, WebP o GIF).";
+      } else {
+        try {
+          await ensureStaffPublicBucket(supabase);
+          const objectPath = `${data.id}.${extFromMime(avatarFile.type)}`;
+          const { error: uploadError } = await supabase.storage
+            .from(STAFF_PUBLIC_BUCKET)
+            .upload(objectPath, avatarFile, {
+              contentType: avatarFile.type,
+              upsert: true,
+            });
+          if (uploadError) {
+            avatarWarning = "No se pudo guardar la imagen en el almacenamiento.";
+          } else {
+            const { error: updErr } = await supabase
+              .from("staff_access")
+              .update({ public_avatar_path: objectPath })
+              .eq("id", data.id);
+            if (updErr) {
+              avatarWarning = "Imagen subida pero no se pudo guardar la referencia en el usuario.";
+            }
+          }
+        } catch {
+          avatarWarning = "No se pudo preparar el almacenamiento para la foto.";
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       id: data.id,
       userCode: storedUserCode,
       requiresFirstLoginTotp: role === "admin" && requireAuth,
+      ...(avatarWarning ? { avatarWarning } : {}),
     });
   } catch {
     return NextResponse.json({ ok: false, message: "Solicitud inválida" }, { status: 400 });

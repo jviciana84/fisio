@@ -11,6 +11,10 @@ create table if not exists public.staff_access (
   totp_secret text,
   totp_onboarding_complete boolean not null default true,
   is_active boolean not null default true,
+  public_profile boolean not null default true,
+  public_specialty text,
+  public_bio text,
+  public_avatar_path text,
   created_at timestamptz not null default now()
 );
 

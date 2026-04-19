@@ -10,20 +10,24 @@ import { Contact } from "@/components/contact"
 import { Footer } from "@/components/footer"
 import { HomeStaffProvider } from "@/components/home-staff-context"
 import { getGoogleBusinessRating } from "@/lib/google-business-rating"
+import { fetchPublicHeroStaff } from "@/lib/public-hero-staff"
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
 }
 
 export default async function Home() {
-  const googleRating = await getGoogleBusinessRating()
+  const [googleRating, publicStaff] = await Promise.all([
+    getGoogleBusinessRating(),
+    fetchPublicHeroStaff(),
+  ])
 
   return (
     <BookingCtaProvider>
       <HomeStaffProvider>
       <main className="relative">
         <Header />
-        <Hero googleRating={googleRating} />
+        <Hero googleRating={googleRating} publicStaff={publicStaff} />
         <Services />
         <Pricing />
         <About />

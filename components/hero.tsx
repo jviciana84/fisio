@@ -7,7 +7,7 @@ import { BookingCtaLink } from "@/components/booking-cta-modal"
 import { Button } from "@/components/ui/button"
 import { SmartCallButton } from "@/components/smart-call-button"
 import type { GoogleBusinessRating } from "@/lib/google-business-rating"
-import { HERO_STAFF, staffAvatarSrc } from "@/lib/hero-staff-data"
+import { heroStaffAvatarSrc, type HeroStaffMember } from "@/lib/hero-staff-data"
 import { HeroCardCarousel } from "@/components/hero-card-carousel"
 import { cn } from "@/lib/cn"
 import { useHomeStaff } from "@/components/home-staff-context"
@@ -33,9 +33,11 @@ function StarMeter({ rating }: { rating: number }) {
 
 type HeroProps = {
   googleRating: GoogleBusinessRating
+  /** Miembros con perfil público (desde `staff_access`). Vacío = sin bloque de equipo en el card. */
+  publicStaff: HeroStaffMember[]
 }
 
-export function Hero({ googleRating }: HeroProps) {
+export function Hero({ googleRating, publicStaff }: HeroProps) {
   const { staffOpen, staffDetailIndex, setStaffDetailIndex, closeStaff, openStaff } = useHomeStaff()
 
   const { rating, userRatingsTotal: totalReviews, source } = googleRating
@@ -252,16 +254,22 @@ export function Hero({ googleRating }: HeroProps) {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex shrink-0 flex-row items-center gap-2 pt-0 sm:mt-4">
-                      <Button
-                        type="button"
-                        onClick={openStaff}
-                        className="h-8 min-w-0 flex-1 gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-[11px] font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:px-2.5 sm:text-xs"
-                      >
-                        <span className="min-w-0 truncate">Conoce nuestro Staff</span>
-                        <Users className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
-                      </Button>
-                      <SmartCallButton className="h-8 shrink-0 rounded-full border-white/50 bg-white/60 px-2 text-[11px] text-slate-700 hover:bg-white/80 sm:px-2.5 sm:text-xs" />
+                    <div
+                      className={`mt-3 flex shrink-0 flex-row items-center gap-2 pt-0 sm:mt-4 ${publicStaff.length === 0 ? "justify-end" : ""}`}
+                    >
+                      {publicStaff.length > 0 ? (
+                        <Button
+                          type="button"
+                          onClick={openStaff}
+                          className="h-8 min-w-0 flex-1 gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-[11px] font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:px-2.5 sm:text-xs"
+                        >
+                          <span className="min-w-0 truncate">Conoce nuestro Staff</span>
+                          <Users className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                        </Button>
+                      ) : null}
+                      <SmartCallButton
+                        className={`h-8 shrink-0 rounded-full border-white/50 bg-white/60 px-2 text-[11px] text-slate-700 hover:bg-white/80 sm:px-2.5 sm:text-xs ${publicStaff.length === 0 ? "flex-1 sm:flex-none" : ""}`}
+                      />
                     </div>
                     </div>
                   </motion.div>
@@ -303,9 +311,9 @@ export function Hero({ googleRating }: HeroProps) {
                           className="flex h-full min-h-0 flex-col gap-2"
                         >
                           <div className="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-1.5 sm:grid-cols-7 sm:grid-rows-2 sm:gap-2">
-                            {HERO_STAFF.map((person, index) => (
+                            {publicStaff.map((person, index) => (
                               <motion.button
-                                key={person.name}
+                                key={person.id}
                                 type="button"
                                 initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -318,7 +326,7 @@ export function Hero({ googleRating }: HeroProps) {
                                 <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-white/40 bg-white/20">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={staffAvatarSrc(person.name)}
+                                    src={heroStaffAvatarSrc(person)}
                                     alt=""
                                     className="h-full w-full object-cover object-center"
                                   />
@@ -336,9 +344,10 @@ export function Hero({ googleRating }: HeroProps) {
                             Pulsa un perfil · cursor fuera del panel para cerrar
                           </p>
                         </motion.div>
-                      ) : (
+                      ) : staffDetailIndex !== null &&
+                        publicStaff[staffDetailIndex] ? (
                         <motion.div
-                          key={`staff-detail-${staffDetailIndex}`}
+                          key={`staff-detail-${publicStaff[staffDetailIndex].id}`}
                           initial={{ opacity: 0, x: 12 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -12 }}
@@ -350,19 +359,19 @@ export function Hero({ googleRating }: HeroProps) {
                             <div className="relative min-h-[100px] w-full flex-1 overflow-hidden rounded-2xl border border-white/50 bg-white/25 shadow-inner">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={staffAvatarSrc(HERO_STAFF[staffDetailIndex].name)}
+                                src={heroStaffAvatarSrc(publicStaff[staffDetailIndex])}
                                 alt=""
                                 className="h-full w-full min-h-[120px] object-cover object-center"
                               />
                             </div>
                             <p className="text-lg font-bold leading-tight tracking-tight text-slate-900 sm:text-xl">
-                              {HERO_STAFF[staffDetailIndex].name}
+                              {publicStaff[staffDetailIndex].name}
                             </p>
                             <p className="text-[11px] font-medium leading-snug text-cyan-700 sm:text-xs">
-                              {HERO_STAFF[staffDetailIndex].specialty}
+                              {publicStaff[staffDetailIndex].specialty}
                             </p>
                             <p className="min-h-0 flex-1 overflow-y-auto text-pretty text-xs leading-relaxed text-slate-600 sm:text-sm">
-                              {HERO_STAFF[staffDetailIndex].bio}
+                              {publicStaff[staffDetailIndex].bio}
                             </p>
                             <Button
                               className="h-9 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-xs text-white shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-cyan-600 sm:h-10 sm:text-sm"
@@ -391,11 +400,11 @@ export function Hero({ googleRating }: HeroProps) {
                           {/* En smartphone/tablet mostramos solo la bio del perfil seleccionado. */}
                           <div className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden xl:flex xl:pl-3">
                             <div className="grid min-h-0 flex-1 grid-cols-4 grid-rows-4 gap-1 sm:grid-cols-4 sm:grid-rows-4 sm:gap-1.5">
-                              {HERO_STAFF.map((person, index) => {
+                              {publicStaff.map((person, index) => {
                                 if (index === staffDetailIndex) return null
                                 return (
                                   <motion.button
-                                    key={person.name}
+                                    key={person.id}
                                     type="button"
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.98 }}
@@ -407,7 +416,7 @@ export function Hero({ googleRating }: HeroProps) {
                                     <div className="relative min-h-0 w-full flex-[2.2] overflow-hidden rounded-md border border-white/35 bg-white/40">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
-                                        src={staffAvatarSrc(person.name)}
+                                        src={heroStaffAvatarSrc(person)}
                                         alt=""
                                         className="h-full w-full object-cover object-[50%_22%]"
                                       />
@@ -427,7 +436,7 @@ export function Hero({ googleRating }: HeroProps) {
                           </div>
 
                         </motion.div>
-                      )}
+                      ) : null}
                     </AnimatePresence>
                     </div>
                   </motion.div>
