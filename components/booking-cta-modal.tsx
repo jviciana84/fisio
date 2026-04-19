@@ -197,6 +197,30 @@ export const BookingCtaLink = forwardRef<HTMLAnchorElement | HTMLButtonElement, 
       );
     }
 
+    /** Anclas en la misma página: scroll suave (Next.js Link no siempre desplaza al fragmento). */
+    if (typeof href === "string" && href.startsWith("#")) {
+      return (
+        <a
+          ref={ref as React.Ref<HTMLAnchorElement>}
+          href={href}
+          className={className}
+          onClick={(e) => {
+            onClick?.(e);
+            e.preventDefault();
+            const id = href.slice(1);
+            const el = document.getElementById(id);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "start" });
+              window.history.replaceState(null, "", href);
+            }
+          }}
+          {...rest}
+        >
+          {children}
+        </a>
+      );
+    }
+
     return (
       <Link ref={ref as React.Ref<HTMLAnchorElement>} href={href} className={className} onClick={onClick} {...rest}>
         {children}

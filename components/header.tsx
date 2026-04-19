@@ -26,7 +26,7 @@ const navLinks = [
   { href: "#servicios", label: "Servicios" },
   { href: "#bonos", label: "Bonos" },
   { href: "#nosotros", label: "Nosotros" },
-  { href: "#horario", label: "Horario" },
+  { href: "#horarios", label: "Horario" },
   { href: "/reservar", label: "Reservar cita" },
   { href: "#contacto", label: "Contacto" },
 ]

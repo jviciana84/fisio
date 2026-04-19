@@ -159,7 +159,8 @@
   .animate-shimmer,
   .animate-breathe,
   .animate-float,
-  .animate-pulse-glow {
+  .animate-pulse-glow,
+  .animate-clinic-discount-shimmer {
     animation: none !important;
   }
 }
@@ -201,6 +202,21 @@
   100% {
     background-position: 200% 0;
   }
+}
+
+/** Reflejo diagonal en bucle (modal bonos: descuento en clínica) */
+@keyframes clinic-discount-shimmer {
+  0%,
+  100% {
+    transform: translateX(125%) skewX(-22deg);
+  }
+  50% {
+    transform: translateX(-125%) skewX(-22deg);
+  }
+}
+
+.animate-clinic-discount-shimmer {
+  animation: clinic-discount-shimmer 2.75s ease-in-out infinite;
 }
 
 @keyframes gradient-shift {

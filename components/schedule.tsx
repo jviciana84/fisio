@@ -25,7 +25,7 @@ export function Schedule() {
   const currentDay = getCurrentDay()
 
   return (
-    <section id="horario" className="py-14 relative overflow-hidden sm:py-16">
+    <section id="horarios" className="scroll-mt-24 py-14 relative overflow-hidden sm:py-16">
       {/* Animated Background */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-br from-blue-500/5 to-cyan-400/5 blur-3xl pointer-events-none" aria-hidden />
 

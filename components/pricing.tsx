@@ -6,6 +6,23 @@ import { AnimatePresence } from "framer-motion"
 import { Check, Sparkles, Clock, Gift, Zap, Crown, Star, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/cn"
+
+function ClinicDiscountHighlight({ className }: { className?: string }) {
+  return (
+    <p
+      className={cn(
+        "relative mt-3 overflow-hidden rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white",
+        className,
+      )}
+    >
+      <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+        <span className="absolute -inset-y-4 -left-[20%] w-[55%] min-w-[10rem] -skew-x-[22deg] bg-gradient-to-r from-transparent via-white/55 to-transparent opacity-95 animate-clinic-discount-shimmer" />
+      </span>
+      <span className="relative z-10 block">Si contratas los bonos en la clínica, tendrás descuentos especiales.</span>
+    </p>
+  )
+}
 
 const bonos = [
   {
@@ -584,9 +601,7 @@ export function Pricing() {
                             <p className="mt-3 max-w-md text-pretty text-white/95">
                               Disculpa las molestias. Estamos trabajando para tener PayPal habilitado lo antes posible.
                             </p>
-                            <p className="mt-3 max-w-md rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
-                              Si contratas los bonos en la clínica, tendrás descuentos especiales.
-                            </p>
+                            <ClinicDiscountHighlight className="max-w-md" />
                             <p className="mt-3 max-w-md text-pretty text-sm text-white/90">
                               Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
                             </p>
@@ -609,9 +624,7 @@ export function Pricing() {
                             <p className="mt-3 text-pretty text-white/95">
                               Disculpa las molestias. Estamos trabajando para tener Bizum habilitado lo antes posible.
                             </p>
-                            <p className="mt-3 rounded-xl bg-white/15 px-4 py-2 text-sm font-medium text-white">
-                              Si contratas los bonos en la clínica, tendrás descuentos especiales.
-                            </p>
+                            <ClinicDiscountHighlight />
                             <p className="mt-3 text-pretty text-sm text-white/90">
                               Hemos guardado tus datos y te llamaremos desde la clínica para ayudarte con la contratación.
                             </p>

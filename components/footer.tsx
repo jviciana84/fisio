@@ -50,7 +50,7 @@ const quickLinks = [
   { label: "Inicio", href: "#inicio" },
   { label: "Servicios", href: "#servicios" },
   { label: "Nosotros", href: "#nosotros" },
-  { label: "Horario", href: "#horario" },
+  { label: "Horario", href: "#horarios" },
   { label: "Reservar cita online", href: "/reservar" },
   { label: "Contacto", href: "#contacto" },
 ]
