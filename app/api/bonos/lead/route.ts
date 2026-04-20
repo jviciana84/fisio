@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { mergeClientNotesBlock } from "@/lib/bonos/merge-client-notes";
 import { findSignatureReuse } from "@/lib/bonos/signature-reuse";
 import { bonosWebRequireSignature } from "@/lib/bonos/web-signature-flag";
@@ -98,6 +98,24 @@ function chainVariants(pack: RowPack, opts: { requireSig: boolean; sigRaw: strin
   return [...withOrig, ...noOrig];
 }
 
+/**
+ * Garantiza pendiente de llamada en listados: a veces el primer UPDATE encaja en una variante
+ * sin `lead_contacted_at` (p. ej. migración parcial) y el lead seguía “contactado”.
+ */
+async function ensurePendienteContactoLead(supabase: SupabaseClient, clientId: string) {
+  const rows: Record<string, unknown>[] = [
+    { estado_pago: "pendiente_contacto", lead_contacted_at: null },
+    { estado_pago: "pendiente_contacto" },
+  ];
+  for (const row of rows) {
+    const { error } = await supabase.from("clients").update(row).eq("id", clientId);
+    if (!error) return;
+    if (error.code !== "42703" && !String(error.message ?? "").toLowerCase().includes("does not exist")) {
+      return;
+    }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -181,7 +199,10 @@ export async function POST(request: Request) {
         let last: PostgrestError | null = null;
         for (const rowUp of variants) {
           const { error } = await supabase.from("clients").update(rowUp).eq("id", clientId);
-          if (!error) return NextResponse.json({ ok: true });
+          if (!error) {
+            await ensurePendienteContactoLead(supabase, clientId);
+            return NextResponse.json({ ok: true });
+          }
           last = error;
         }
         console.error("[bonos/lead] update reuse", last);
@@ -240,10 +261,10 @@ export async function POST(request: Request) {
 
     async function insertClient() {
       const rows = updateVariants;
-      let last = await supabase.from("clients").insert(rows[0] as never);
+      let last = await supabase.from("clients").insert(rows[0] as never).select("id").maybeSingle();
       if (!last.error) return last;
       for (let i = 1; i < rows.length; i++) {
-        last = await supabase.from("clients").insert(rows[i] as never);
+        last = await supabase.from("clients").insert(rows[i] as never).select("id").maybeSingle();
         if (!last.error) return last;
       }
       return last;
@@ -258,12 +279,15 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
+      await ensurePendienteContactoLead(supabase, byEmail.id);
       return NextResponse.json({ ok: true });
     }
 
     let ins = await insertClient();
 
     if (!ins.error) {
+      const newId = (ins.data as { id?: string } | null)?.id;
+      if (newId) await ensurePendienteContactoLead(supabase, newId);
       return NextResponse.json({ ok: true });
     }
 
@@ -280,7 +304,10 @@ export async function POST(request: Request) {
         let lastE: PostgrestError | null = null;
         for (const row of varsDup) {
           const { error } = await supabase.from("clients").update(row).eq("id", byEmailDup.id);
-          if (!error) return NextResponse.json({ ok: true });
+          if (!error) {
+            await ensurePendienteContactoLead(supabase, byEmailDup.id);
+            return NextResponse.json({ ok: true });
+          }
           lastE = error;
         }
         console.error("[bonos/lead] update after duplicate email", lastE);
@@ -295,7 +322,10 @@ export async function POST(request: Request) {
           let lastP: PostgrestError | null = null;
           for (const row of varsPh) {
             const { error } = await supabase.from("clients").update(row).eq("id", byPhone.id);
-            if (!error) return NextResponse.json({ ok: true });
+            if (!error) {
+              await ensurePendienteContactoLead(supabase, byPhone.id);
+              return NextResponse.json({ ok: true });
+            }
             lastP = error;
           }
           console.error("[bonos/lead] update by phone", lastP);

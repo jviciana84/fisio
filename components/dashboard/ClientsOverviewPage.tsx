@@ -11,6 +11,7 @@ import {
   formatIncomeRangeLabel,
   maxNewClientBucketCount,
 } from "@/lib/dashboard/trendChartData";
+import { ClientDetailModal } from "@/components/dashboard/ClientDetailModal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
@@ -118,7 +119,7 @@ export function ClientsOverviewPage() {
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [pageSize, setPageSize] = useState<number>(25);
   const [page, setPage] = useState(1);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [detailClientId, setDetailClientId] = useState<string | null>(null);
   const [chartRange, setChartRange] = useState<ChartRange>("month");
 
   const [pendingLeads, setPendingLeads] = useState<PendingLead[]>([]);
@@ -216,7 +217,7 @@ export function ClientsOverviewPage() {
   }, [search]);
 
   useEffect(() => {
-    setSelectedRowId(null);
+    setDetailClientId(null);
   }, [page, search]);
 
   useEffect(() => {
@@ -520,8 +521,8 @@ export function ClientsOverviewPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600">Clientes</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Listado</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Personas registradas para caja y reservas. Clic en una fila para resaltarla. La columna RGPD muestra si consta
-              registrado el consentimiento informado (fecha de registro en clínica).
+              Personas registradas para caja y reservas. Clic en una fila para abrir la ficha (datos, bono y tickets). La
+              columna RGPD indica si consta el consentimiento informado registrado en clínica.
             </p>
           </div>
 
@@ -579,24 +580,16 @@ export function ClientsOverviewPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedRows.map((c) => {
-                      const rowSelected = selectedRowId === c.id;
-                      return (
+                    paginatedRows.map((c) => (
                       <tr
                         key={c.id}
-                        aria-selected={rowSelected}
                         aria-label={`Cliente ${c.fullName}`}
                         onClick={(e) => {
                           const t = e.target as HTMLElement;
                           if (t.closest("button, input, select, textarea, label, a")) return;
-                          setSelectedRowId((prev) => (prev === c.id ? null : c.id));
+                          setDetailClientId(c.id);
                         }}
-                        className={cn(
-                          "cursor-pointer align-top border-b border-slate-100/90 transition-colors last:border-0",
-                          rowSelected
-                            ? "bg-blue-600/12 ring-1 ring-inset ring-blue-500/35 hover:bg-blue-600/15"
-                            : "hover:bg-white/50",
-                        )}
+                        className="cursor-pointer align-top border-b border-slate-100/90 transition-colors last:border-0 hover:bg-white/50"
                       >
                         <td className="px-3 py-3 font-medium text-slate-900">{c.fullName}</td>
                         <td className="px-3 py-3 tabular-nums text-slate-700">{c.clientCode ?? "—"}</td>
@@ -642,8 +635,7 @@ export function ClientsOverviewPage() {
                           </span>
                         </td>
                       </tr>
-                      );
-                    })
+                    ))
                   )}
                 </tbody>
               </table>
@@ -1013,6 +1005,14 @@ export function ClientsOverviewPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {detailClientId ? (
+        <ClientDetailModal
+          clientId={detailClientId}
+          onClose={() => setDetailClientId(null)}
+          onSaved={() => void loadClients()}
+        />
       ) : null}
     </main>
   );

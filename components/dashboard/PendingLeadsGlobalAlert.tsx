@@ -5,7 +5,15 @@ import { Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
-const DISMISS_KEY = "fisio_pending_leads_alert_dismissed";
+/** Huella de la lista actual: si cambia (nuevo intento de bono, notas, etc.), el aviso puede volver a mostrarse. */
+const DISMISS_SNAPSHOT_KEY = "fisio_pending_leads_dismissed_snapshot";
+
+function leadsFingerprint(leads: Lead[]): string {
+  return [...leads]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((l) => `${l.id}:${(l.notes ?? "").length}:${l.createdAt}`)
+    .join("|");
+}
 
 type Lead = {
   id: string;
@@ -36,15 +44,24 @@ export function PendingLeadsGlobalAlert() {
   }, []);
 
   useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (leads === null) return;
     try {
-      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(DISMISS_KEY) === "1") {
-        setDismissed(true);
+      if (typeof sessionStorage === "undefined") return;
+      if (leads.length === 0) {
+        setDismissed(false);
+        return;
       }
+      const fp = leadsFingerprint(leads);
+      const saved = sessionStorage.getItem(DISMISS_SNAPSHOT_KEY);
+      setDismissed(Boolean(saved && saved === fp));
     } catch {
       /* ignore */
     }
-    void load();
-  }, [load]);
+  }, [leads]);
 
   useEffect(() => {
     const t = setInterval(() => void load(), 120_000);
@@ -86,7 +103,9 @@ export function PendingLeadsGlobalAlert() {
             type="button"
             onClick={() => {
               try {
-                sessionStorage.setItem(DISMISS_KEY, "1");
+                if (typeof sessionStorage !== "undefined" && leads?.length) {
+                  sessionStorage.setItem(DISMISS_SNAPSHOT_KEY, leadsFingerprint(leads));
+                }
               } catch {
                 /* ignore */
               }
