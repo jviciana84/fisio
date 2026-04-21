@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { playPendingLeadChime } from "@/lib/sound/playPendingLeadChime";
 
 /** Huella de la lista actual: si cambia (nuevo intento de bono, notas, etc.), el aviso puede volver a mostrarse. */
 const DISMISS_SNAPSHOT_KEY = "fisio_pending_leads_dismissed_snapshot";
@@ -29,6 +30,7 @@ export function PendingLeadsGlobalAlert() {
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const prevAlertVisibleRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -71,26 +73,48 @@ export function PendingLeadsGlobalAlert() {
   const pendingCount = leads?.length ?? 0;
   const visible = !loading && pendingCount > 0 && !dismissed;
 
+  useEffect(() => {
+    if (visible && !prevAlertVisibleRef.current) {
+      void playPendingLeadChime();
+    }
+    prevAlertVisibleRef.current = visible;
+  }, [visible]);
+
+  const dismissSnapshot = useCallback(() => {
+    try {
+      if (typeof sessionStorage !== "undefined" && leads && leads.length > 0) {
+        sessionStorage.setItem(DISMISS_SNAPSHOT_KEY, leadsFingerprint(leads));
+      }
+    } catch {
+      /* ignore */
+    }
+    setDismissed(true);
+  }, [leads]);
+
   if (!visible) return null;
 
   const first = leads![0]!;
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex justify-center p-3 sm:p-4"
-      role="alert"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/45 p-4 sm:p-6"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="pending-leads-alert-title"
+      onClick={dismissSnapshot}
     >
       <div
         className={cn(
-          "pointer-events-auto w-full max-w-lg overflow-hidden rounded-xl border-2 border-rose-400/90 bg-gradient-to-br from-rose-600 via-rose-700 to-rose-900 p-4 text-white shadow-2xl shadow-rose-900/50",
+          "w-full max-w-lg overflow-hidden rounded-2xl border-2 border-rose-400/90 bg-gradient-to-br from-rose-600 via-rose-700 to-rose-900 p-4 text-white shadow-2xl shadow-rose-900/55 sm:p-5",
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-100">
               Atención
             </p>
-            <p className="mt-1 text-lg font-bold leading-tight">
+            <p id="pending-leads-alert-title" className="mt-1 text-lg font-bold leading-tight">
               {pendingCount === 1
                 ? "Hay 1 lead pendiente de llamar"
                 : `Hay ${pendingCount} leads pendientes de llamar`}
@@ -101,16 +125,7 @@ export function PendingLeadsGlobalAlert() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              try {
-                if (typeof sessionStorage !== "undefined" && leads?.length) {
-                  sessionStorage.setItem(DISMISS_SNAPSHOT_KEY, leadsFingerprint(leads));
-                }
-              } catch {
-                /* ignore */
-              }
-              setDismissed(true);
-            }}
+            onClick={dismissSnapshot}
             className="shrink-0 rounded-lg p-1.5 text-rose-100 transition hover:bg-white/10"
             aria-label="Cerrar aviso"
           >

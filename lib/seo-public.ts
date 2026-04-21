@@ -48,8 +48,15 @@ export const CLINIC_ADDRESS = {
   country: "ES",
 } as const;
 
-/** Imagen social (OG/Twitter/WhatsApp). Subir `v=` tras regenerar `og-social.jpg` para invalidar caché de redes. */
-const OG_IMAGE_PATH = "/og-social.jpg?v=2";
+/** Foto representativa de las instalaciones (OG/Twitter/Google). Subir `v=` si cambias el archivo. */
+const OG_IMAGE_PATH = "/images/og-clinica-instalaciones.png?v=1";
+const OG_IMAGE_WIDTH = 900;
+const OG_IMAGE_HEIGHT = 675;
+const OG_IMAGE_ALT =
+  "Sala de fisioterapia y entrenamiento funcional en Fisioterapia Roc Blanc, Terrassa";
+
+/** Logo de marca (JSON-LD secundario y coherencia con redes si hiciera falta). */
+const SCHEMA_LOGO_IMAGE = "/og-social.jpg?v=2";
 
 export function absoluteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -65,7 +72,14 @@ export const homeMetadata: Metadata = {
     siteName: PUBLIC_BRAND,
     title: `${PUBLIC_BRAND} | Fisioterapia en Terrassa y Vallès Occidental`,
     description: HOME_DESCRIPTION,
-    images: [{ url: absoluteUrl(OG_IMAGE_PATH), width: 1200, height: 630, alt: PUBLIC_BRAND }],
+    images: [
+      {
+        url: absoluteUrl(OG_IMAGE_PATH),
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
+        alt: OG_IMAGE_ALT,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -95,7 +109,14 @@ export const reservarMetadata: Metadata = {
     title: `Reservar cita | ${PUBLIC_BRAND}`,
     description:
       "Elige día y hora para tu cita en Terrassa. Fisioterapia deportiva, recuperación, acupuntura y más.",
-    images: [{ url: absoluteUrl(OG_IMAGE_PATH), width: 1200, height: 630, alt: `${PUBLIC_BRAND} — reservar` }],
+    images: [
+      {
+        url: absoluteUrl(OG_IMAGE_PATH),
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
+        alt: `${OG_IMAGE_ALT} — reservar cita`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -122,7 +143,7 @@ export function buildPublicJsonLdGraph(opts: { aggregateRating?: AggregateRating
     name: PUBLIC_BRAND,
     url: SITE_URL,
     telephone: "+34938085056",
-    image: absoluteUrl(OG_IMAGE_PATH),
+    image: [absoluteUrl(OG_IMAGE_PATH), absoluteUrl(SCHEMA_LOGO_IMAGE)],
     description: HOME_DESCRIPTION,
     address: {
       "@type": "PostalAddress",

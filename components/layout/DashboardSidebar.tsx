@@ -236,6 +236,26 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  );
+}
+
 /**
  * Duración + easing compartidos (clases literales para que Tailwind las incluya).
  * Cubic-bezier suave al final — menos sensación de “salto” que ease-out lineal.
@@ -608,6 +628,20 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
                     <CalendarIcon />
                   </span>
                   <span>Calendario Google</span>
+                </Link>
+                <Link
+                  href="/dashboard/configuracion/alarma"
+                  className={cn(
+                    "flex items-center gap-2 py-2 text-sm font-medium transition",
+                    pathname.startsWith("/dashboard/configuracion/alarma")
+                      ? "text-slate-900"
+                      : "text-slate-600 hover:text-slate-900",
+                  )}
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/35 text-blue-800 shadow-sm">
+                    <BellIcon />
+                  </span>
+                  <span>Alarma leads</span>
                 </Link>
               </div>
             ) : null}

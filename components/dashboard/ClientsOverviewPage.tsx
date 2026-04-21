@@ -247,6 +247,8 @@ export function ClientsOverviewPage() {
 
   const pendingCount = pendingLeads.length;
   const leadsOk = !pendingLoading && pendingCount === 0;
+  /** Hay llamadas pendientes: tarjeta en tono de alerta (rojo), no verde. */
+  const leadsUrgent = !pendingLoading && pendingCount > 0;
   const pendingRgpdCount = pendingRgpd.length;
   const rgpdOk = !pendingRgpdLoading && pendingRgpdCount === 0;
 
@@ -318,24 +320,56 @@ export function ClientsOverviewPage() {
               type="button"
               onClick={() => setPendingModalOpen(true)}
               className={cn(
-                "group relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl text-left",
-                "border border-emerald-200/55 bg-white/35 shadow-[0_12px_40px_-8px_rgba(5,150,105,0.14)] backdrop-blur-xl ring-1 ring-emerald-100/50",
-                "transition hover:border-emerald-300/70 hover:shadow-[0_18px_44px_-8px_rgba(5,150,105,0.18)]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                "group relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl text-left backdrop-blur-xl transition",
+                leadsUrgent
+                  ? cn(
+                      "border border-rose-300/70 bg-white/40 shadow-[0_12px_40px_-8px_rgba(190,18,60,0.22)] ring-1 ring-rose-200/60",
+                      "hover:border-rose-400/85 hover:shadow-[0_18px_44px_-8px_rgba(190,18,60,0.28)]",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/45",
+                    )
+                  : cn(
+                      "border border-emerald-200/55 bg-white/35 shadow-[0_12px_40px_-8px_rgba(5,150,105,0.14)] ring-1 ring-emerald-100/50",
+                      "hover:border-emerald-300/70 hover:shadow-[0_18px_44px_-8px_rgba(5,150,105,0.18)]",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                    ),
               )}
             >
               <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/18 via-teal-500/6 to-transparent opacity-90"
+                className={cn(
+                  "pointer-events-none absolute inset-0 opacity-90",
+                  leadsUrgent
+                    ? "bg-gradient-to-br from-rose-500/22 via-rose-400/8 to-transparent"
+                    : "bg-gradient-to-br from-emerald-500/18 via-teal-500/6 to-transparent",
+                )}
                 aria-hidden
               />
               <div className="relative flex min-h-0 flex-1 flex-col">
-                <div className="border-b border-emerald-100/50 px-5 py-3">
+                <div
+                  className={cn(
+                    "border-b px-5 py-3",
+                    leadsUrgent ? "border-rose-200/60" : "border-emerald-100/50",
+                  )}
+                >
                   <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-800 shadow-sm ring-1 ring-emerald-200/45">
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1",
+                        leadsUrgent
+                          ? "bg-rose-500/15 text-rose-800 ring-rose-300/50"
+                          : "bg-emerald-500/12 text-emerald-800 ring-emerald-200/45",
+                      )}
+                    >
                       <SidebarStylePhoneIcon />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Seguimiento</p>
+                      <p
+                        className={cn(
+                          "text-[11px] font-semibold uppercase tracking-[0.16em]",
+                          leadsUrgent ? "text-rose-700" : "text-emerald-700",
+                        )}
+                      >
+                        Seguimiento
+                      </p>
                       <h2 className="mt-0.5 text-base font-semibold tracking-tight text-slate-900">Leads pendientes</h2>
                       <p className="mt-0.5 text-[11px] leading-snug text-slate-600">Bonos web, pago no habilitado.</p>
                     </div>
@@ -354,15 +388,32 @@ export function ClientsOverviewPage() {
 
                 <div className="flex min-h-0 flex-1 flex-col px-5 py-3">
                   <div className="flex flex-wrap items-end gap-2">
-                    <span className="text-3xl font-bold tabular-nums tracking-tight text-emerald-950">
+                    <span
+                      className={cn(
+                        "text-3xl font-bold tabular-nums tracking-tight",
+                        leadsUrgent ? "text-rose-950" : "text-emerald-950",
+                      )}
+                    >
                       {pendingLoading ? "—" : pendingCount}
                     </span>
-                    <span className="pb-0.5 text-[11px] font-medium text-emerald-800/80">llamadas</span>
+                    <span
+                      className={cn(
+                        "pb-0.5 text-[11px] font-medium",
+                        leadsUrgent ? "text-rose-800/90" : "text-emerald-800/80",
+                      )}
+                    >
+                      llamadas
+                    </span>
                   </div>
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-600">
                     {leadsOk ? "Nadie esperando llamada." : "Prioriza el teléfono."}
                   </p>
-                  <p className="mt-auto border-t border-emerald-100/60 pt-2 text-xs font-medium text-emerald-800 underline-offset-2 group-hover:underline">
+                  <p
+                    className={cn(
+                      "mt-auto border-t pt-2 text-xs font-medium underline-offset-2 group-hover:underline",
+                      leadsUrgent ? "border-rose-200/65 text-rose-800" : "border-emerald-100/60 text-emerald-800",
+                    )}
+                  >
                     Abrir listado
                   </p>
                 </div>
