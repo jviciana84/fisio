@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DASHBOARD_INPUT_CLASS, DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -105,6 +105,14 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
     rgpdConsentVersion: string | null;
   } | null>(null);
 
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (err || okMsg) {
+      bodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [err, okMsg]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -199,9 +207,16 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
         credentials: "same-origin",
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { ok?: boolean; message?: string };
+      const raw = await res.text();
+      let data: { ok?: boolean; message?: string } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as { ok?: boolean; message?: string }) : {};
+      } catch {
+        setErr(`Respuesta no válida del servidor (${res.status})`);
+        return;
+      }
       if (!res.ok || !data.ok) {
-        setErr(data.message ?? "No se pudo guardar");
+        setErr(data.message ?? `No se pudo guardar (${res.status})`);
         return;
       }
       setOkMsg("Cambios guardados.");
@@ -249,20 +264,16 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-3 py-2 sm:px-4">
+          <div
+            ref={bodyScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-3 py-2 sm:px-4"
+          >
             {loading ? (
               <p className="py-6 text-center text-xs text-slate-500">Cargando datos…</p>
             ) : err && !fullName ? (
               <p className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">{err}</p>
             ) : (
               <div className="space-y-3">
-                {err ? (
-                  <p className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">{err}</p>
-                ) : null}
-                {okMsg ? (
-                  <p className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-800">{okMsg}</p>
-                ) : null}
-
                 <div className="grid gap-4 lg:grid-cols-2 lg:gap-5 lg:items-start">
                   {/* Columna izquierda: contacto y RGPD */}
                   <div className="min-w-0 space-y-3">
@@ -323,7 +334,8 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                               onChange={(e) => setClearLeadContact(e.target.checked)}
                               className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300"
                             />
-                            Limpiar fecha de contacto (lead pendiente de llamada si aplica)
+                            Volver a pendiente de llamada: limpia la fecha de contacto y pone el estado en
+                            pendiente_contacto (listado global)
                           </label>
                         </div>
                         <div className="sm:col-span-2">
@@ -467,6 +479,16 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
           </div>
 
           <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 py-2 sm:px-4">
+            {!loading && err && fullName.trim() ? (
+              <p className="mb-2 rounded-lg border border-rose-300 bg-rose-100 px-2.5 py-1.5 text-xs font-medium text-rose-900">
+                {err}
+              </p>
+            ) : null}
+            {!loading && okMsg && fullName.trim() ? (
+              <p className="mb-2 rounded-lg border border-blue-300 bg-blue-100 px-2.5 py-1.5 text-xs font-medium text-blue-900">
+                {okMsg}
+              </p>
+            ) : null}
             <div className="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
                 Cerrar

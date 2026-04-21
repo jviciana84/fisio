@@ -29,6 +29,12 @@ async function main() {
     .png()
     .toFile(path.join(root, "public", "favicon-32x32.png"));
 
+  // 48×48: Google recomienda múltiplos de 48 px para el icono en resultados de búsqueda.
+  await rasterize()
+    .resize(48, 48, { fit: "contain", background: bg })
+    .png()
+    .toFile(path.join(root, "public", "favicon-48x48.png"));
+
   await rasterize()
     .resize(192, 192, { fit: "contain", background: bg })
     .png()
@@ -48,7 +54,9 @@ async function main() {
 
   fs.copyFileSync(svgPath, path.join(root, "public", "icon.svg"));
 
-  console.log("OK: apple-icon.png, favicon-32x32.png, icon-192.png, icon-512.png, og-social.jpg, icon.svg");
+  console.log(
+    "OK: apple-icon.png, favicon-32x32.png, favicon-48x48.png, icon-192.png, icon-512.png, og-social.jpg, icon.svg",
+  );
 }
 
 main().catch((err) => {

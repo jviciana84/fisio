@@ -7,8 +7,15 @@ export const runtime = "nodejs";
 
 function missingColumn(err: PostgrestError | null, name: string): boolean {
   if (!err) return false;
-  if (err.code === "42703") return true;
+  if (err.code === "42703" || err.code === "PGRST204") return true;
   return (err.message ?? "").toLowerCase().includes(name.toLowerCase());
+}
+
+/** Columna referenciada pero ausente en la caché de esquema de PostgREST (p. ej. migración no aplicada). */
+function isUnknownColumnError(err: PostgrestError): boolean {
+  if (err.code === "42703" || err.code === "PGRST204") return true;
+  const m = (err.message ?? "").toLowerCase();
+  return m.includes("does not exist") || m.includes("could not find") || m.includes("schema cache");
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -259,6 +266,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   let lead_contacted_at: string | null | undefined;
   if (body.clearLeadContacted === true) {
     lead_contacted_at = null;
+    // El listado de llamadas pendientes exige `pendiente_contacto` + `lead_contacted_at` null.
+    estado_pago = "pendiente_contacto";
   } else if (body.leadContactedAt !== undefined) {
     const raw = String(body.leadContactedAt ?? "").trim();
     if (raw === "" || raw === "null") lead_contacted_at = null;
@@ -315,16 +324,59 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = createSupabaseAdminClient();
 
   let payload: Record<string, unknown> = { ...patch };
-  let error: PostgrestError | null = null;
+  let lastError: PostgrestError | null = null;
+
   for (let attempt = 0; attempt < 8; attempt++) {
-    const res = await supabase.from("clients").update(payload).eq("id", id).eq("is_active", true);
-    error = res.error;
-    if (!error) break;
-    if (error.code !== "42703" && !String(error.message ?? "").toLowerCase().includes("does not exist")) {
-      break;
+    if (Object.keys(payload).length === 0) {
+      return NextResponse.json(
+        { ok: false, message: "No quedan campos compatibles con la base de datos; revisa migraciones." },
+        { status: 500 },
+      );
     }
-    const msg = (error.message ?? "").toLowerCase();
+
+    const res = await supabase
+      .from("clients")
+      .update(payload)
+      .eq("id", id)
+      .eq("is_active", true)
+      .select("id");
+
+    lastError = res.error;
+
+    if (!lastError && res.data && res.data.length > 0) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // PostgREST no marca error si 0 filas coinciden: sin .select() parecía guardado OK.
+    if (!lastError && (!res.data || res.data.length === 0)) {
+      return NextResponse.json(
+        { ok: false, message: "Cliente no encontrado o inactivo; no se ha actualizado nada." },
+        { status: 404 },
+      );
+    }
+
+    if (lastError?.code === "23505") {
+      return NextResponse.json(
+        { ok: false, message: "Ya existe otro cliente con ese email o teléfono" },
+        { status: 409 },
+      );
+    }
+
+    if (!lastError) {
+      return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
+    }
+
+    if (!isUnknownColumnError(lastError)) {
+      console.error("[admin/clients/[id]] PATCH", lastError);
+      return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
+    }
+
+    const msg = (lastError.message ?? "").toLowerCase();
     let stripped = false;
+    if (msg.includes("estado_pago")) {
+      delete payload.estado_pago;
+      stripped = true;
+    }
     if (msg.includes("bono_remaining") || msg.includes("bono_expires")) {
       delete payload.bono_remaining_sessions;
       delete payload.bono_expires_at;
@@ -338,20 +390,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       delete payload.lead_contacted_at;
       stripped = true;
     }
-    if (!stripped) break;
-    if (Object.keys(payload).length === 0) break;
+    if (!stripped) {
+      console.error("[admin/clients/[id]] PATCH", lastError);
+      return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
+    }
   }
 
-  if (error?.code === "23505") {
-    return NextResponse.json(
-      { ok: false, message: "Ya existe otro cliente con ese email o teléfono" },
-      { status: 409 },
-    );
+  if (lastError) {
+    console.error("[admin/clients/[id]] PATCH", lastError);
   }
-  if (error) {
-    console.error("[admin/clients/[id]] PATCH", error);
-    return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: false, message: "No se pudo guardar" }, { status: 500 });
 }
