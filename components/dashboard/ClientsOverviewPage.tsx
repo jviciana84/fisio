@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { UserPlus } from "lucide-react";
 import {
   type ChartRange,
   RANGE_LABELS,
@@ -12,6 +13,8 @@ import {
   maxNewClientBucketCount,
 } from "@/lib/dashboard/trendChartData";
 import { ClientDetailModal } from "@/components/dashboard/ClientDetailModal";
+import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
+import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
@@ -134,6 +137,22 @@ export function ClientsOverviewPage() {
   const [detailRgpd, setDetailRgpd] = useState<PendingRgpd | null>(null);
   const [rgpdVersionDraft, setRgpdVersionDraft] = useState("");
   const [markingRgpdId, setMarkingRgpdId] = useState<string | null>(null);
+
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [ccName, setCcName] = useState("");
+  const [ccEmail, setCcEmail] = useState("");
+  const [ccPhone, setCcPhone] = useState("");
+  const [ccNotes, setCcNotes] = useState("");
+  const [ccSaving, setCcSaving] = useState(false);
+
+  const openCreateClientModal = () => {
+    setMessage(null);
+    setCcName("");
+    setCcEmail("");
+    setCcPhone("");
+    setCcNotes("");
+    setCreateClientOpen(true);
+  };
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -298,6 +317,40 @@ export function ClientsOverviewPage() {
       setMessage({ type: "err", text: "Error de red." });
     } finally {
       setMarkingRgpdId(null);
+    }
+  }
+
+  async function submitCreateClient(e: FormEvent) {
+    e.preventDefault();
+    const name = ccName.trim();
+    if (name.length < 2) return;
+    setCcSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          fullName: name,
+          email: ccEmail.trim() || undefined,
+          phone: ccPhone.trim() || undefined,
+          notes: ccNotes.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; id?: string; message?: string };
+      if (!res.ok || !data.ok || !data.id) {
+        setMessage({ type: "err", text: data.message ?? "No se pudo crear el cliente." });
+        return;
+      }
+      setCreateClientOpen(false);
+      setMessage({ type: "ok", text: "Cliente creado. Abriendo la ficha…" });
+      await loadClients();
+      setDetailClientId(data.id);
+    } catch {
+      setMessage({ type: "err", text: "Error de red al crear el cliente." });
+    } finally {
+      setCcSaving(false);
     }
   }
 
@@ -577,12 +630,13 @@ export function ClientsOverviewPage() {
             </p>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-end gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <DashboardAddFabButton icon={UserPlus} label="Añadir cliente" onClick={openCreateClientModal} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar en la tabla…"
-              className="w-full min-w-[12rem] max-w-md rounded-xl border border-slate-200/80 bg-white/75 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-[12rem] max-w-md flex-1 rounded-xl border border-slate-200/80 bg-white/75 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
@@ -1054,6 +1108,87 @@ export function ClientsOverviewPage() {
                 Cerrar
               </Button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {createClientOpen ? (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-client-title"
+        >
+          <div className="max-h-[min(90vh,36rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <h3 id="create-client-title" className="text-lg font-semibold text-slate-900">
+              Nuevo cliente
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">Datos básicos; luego podrás completar la ficha (bono, RGPD, etc.).</p>
+            <form onSubmit={(e) => void submitCreateClient(e)} className="mt-5 space-y-4">
+              <div>
+                <label htmlFor="cc-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Nombre completo
+                </label>
+                <input
+                  id="cc-name"
+                  value={ccName}
+                  onChange={(e) => setCcName(e.target.value)}
+                  className={DASHBOARD_INPUT_CLASS_FORM}
+                  required
+                  minLength={2}
+                  autoComplete="name"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="cc-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Email <span className="font-normal text-slate-500">(opcional)</span>
+                  </label>
+                  <input
+                    id="cc-email"
+                    type="email"
+                    value={ccEmail}
+                    onChange={(e) => setCcEmail(e.target.value)}
+                    className={DASHBOARD_INPUT_CLASS_FORM}
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="cc-phone" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Teléfono <span className="font-normal text-slate-500">(opcional)</span>
+                  </label>
+                  <input
+                    id="cc-phone"
+                    type="tel"
+                    value={ccPhone}
+                    onChange={(e) => setCcPhone(e.target.value)}
+                    className={DASHBOARD_INPUT_CLASS_FORM}
+                    autoComplete="tel"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="cc-notes" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Notas <span className="font-normal text-slate-500">(opcional)</span>
+                </label>
+                <textarea
+                  id="cc-notes"
+                  value={ccNotes}
+                  onChange={(e) => setCcNotes(e.target.value)}
+                  rows={3}
+                  className={`${DASHBOARD_INPUT_CLASS_FORM} resize-y`}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setCreateClientOpen(false)} disabled={ccSaving}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="gradient" size="sm" disabled={ccSaving || ccName.trim().length < 2}>
+                  {ccSaving ? "Guardando…" : "Crear cliente"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

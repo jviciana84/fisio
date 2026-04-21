@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type ProductRow = {
   id: string;
   name: string;
+  description: string | null;
   product_code: string;
   price_cents: number;
   is_active: boolean;
@@ -32,7 +33,7 @@ export async function GET() {
   const [productsRes, itemsRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, product_code, price_cents, is_active, created_at")
+      .select("id, name, description, product_code, price_cents, is_active, created_at")
       .order("name", { ascending: true }),
     supabase.from("cash_ticket_items").select(
       "product_id, line_total_cents, cash_tickets(created_at, staff_access(full_name))",
@@ -83,6 +84,7 @@ export async function GET() {
     return {
       id: p.id,
       name: p.name,
+      description: p.description,
       productCode: p.product_code,
       priceEuros: p.price_cents / 100,
       isActive: p.is_active,

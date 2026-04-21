@@ -110,3 +110,87 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ ok: true, clients });
 }
+
+type PostBody = {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+};
+
+export async function POST(request: Request) {
+  const auth = await requireStaffOrAdminApi();
+  if (auth instanceof NextResponse) return auth;
+
+  let body: PostBody;
+  try {
+    body = (await request.json()) as PostBody;
+  } catch {
+    return NextResponse.json({ ok: false, message: "JSON inválido" }, { status: 400 });
+  }
+
+  const fullName =
+    typeof body.fullName === "string" ? body.fullName.replace(/\s+/g, " ").trim() : "";
+  if (!fullName || fullName.length < 2) {
+    return NextResponse.json(
+      { ok: false, message: "El nombre es obligatorio (mínimo 2 caracteres)" },
+      { status: 400 },
+    );
+  }
+
+  const emailRaw = typeof body.email === "string" ? body.email.trim() : "";
+  const email = emailRaw ? emailRaw.toLowerCase() : null;
+  const phoneRaw = typeof body.phone === "string" ? body.phone.trim().replace(/\s+/g, " ") : "";
+  const phone = phoneRaw || null;
+  const notesRaw = typeof body.notes === "string" ? body.notes.trim() : "";
+  const notes = notesRaw || null;
+
+  const supabase = createSupabaseAdminClient();
+
+  if (email) {
+    const { data: dup } = await supabase.from("clients").select("id").eq("email", email).maybeSingle();
+    if (dup) {
+      return NextResponse.json({ ok: false, message: "Ya existe un cliente con ese email" }, { status: 409 });
+    }
+  }
+  if (phone) {
+    const { data: dupP } = await supabase.from("clients").select("id").eq("phone", phone).maybeSingle();
+    if (dupP) {
+      return NextResponse.json({ ok: false, message: "Ya existe un cliente con ese teléfono" }, { status: 409 });
+    }
+  }
+
+  const base = { full_name: fullName, email, phone, notes, is_active: true };
+  const variants: Record<string, unknown>[] = [
+    { ...base, origen_cliente: "fisico", estado_pago: "validado" },
+    { ...base, estado_pago: "validado" },
+    { ...base, origen_cliente: "fisico" },
+    { ...base },
+  ];
+
+  let lastError: PostgrestError | null = null;
+  for (const row of variants) {
+    const ins = await supabase.from("clients").insert(row as never).select("id").maybeSingle();
+    if (!ins.error && ins.data?.id) {
+      return NextResponse.json({ ok: true, id: ins.data.id as string });
+    }
+    lastError = ins.error;
+    if (!ins.error) continue;
+    if (
+      !missingColumn(ins.error, "origen_cliente") &&
+      !missingColumn(ins.error, "estado_pago") &&
+      !missingColumn(ins.error, "is_active")
+    ) {
+      break;
+    }
+  }
+
+  if (lastError?.code === "23505") {
+    return NextResponse.json(
+      { ok: false, message: "Email o teléfono ya registrado en otro cliente" },
+      { status: 409 },
+    );
+  }
+  console.error("[admin/clients] POST", lastError);
+  return NextResponse.json({ ok: false, message: "No se pudo crear el cliente" }, { status: 500 });
+}

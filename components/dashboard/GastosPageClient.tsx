@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Banknote, Check, Pencil, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IngresosDayCalendar } from "@/components/dashboard/IngresosDayCalendar";
 import {
@@ -22,6 +22,7 @@ import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
 import { computeStructureFromRecurringRows } from "@/lib/dashboard/structureCost";
 import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
+import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
@@ -576,12 +577,20 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
             Panel
           </Link>
 
-          <div className="min-w-0 pr-[5.75rem]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-600">Caja</p>
-            <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Gastos detallados</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Coste de estructura recurrente, movimientos del periodo seleccionado y cargos fijos configurados.
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-[5.75rem] md:pr-[6.25rem]">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-600">Caja</p>
+              <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Gastos detallados</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                Coste de estructura recurrente, movimientos del periodo seleccionado y cargos fijos configurados.
+              </p>
+            </div>
+            <DashboardAddFabButton
+              icon={Banknote}
+              label="Añadir gasto"
+              onClick={() => router.push("/dashboard/configuracion/gastos")}
+              className="shrink-0"
+            />
           </div>
 
           <section id="section-estructura" className="mt-6">

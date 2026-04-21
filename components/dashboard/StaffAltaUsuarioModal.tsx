@@ -4,8 +4,9 @@ import { UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
+import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
 import { AltaUsuarioForm } from "@/components/dashboard/AltaUsuarioForm";
+import { Button } from "@/components/ui/button";
 
 export function StaffAltaUsuarioModal() {
   const router = useRouter();
@@ -37,17 +38,12 @@ export function StaffAltaUsuarioModal() {
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="shrink-0 rounded-xl border-slate-200 bg-white/80 text-slate-700 shadow-sm hover:bg-slate-50"
+      <DashboardAddFabButton
+        icon={UserPlus}
+        label="Nuevo usuario"
         onClick={() => setOpen(true)}
-        title="Nuevo usuario"
-        aria-label="Abrir formulario de alta de usuario"
-      >
-        <UserPlus className="h-5 w-5" strokeWidth={2} />
-      </Button>
+        className="shrink-0"
+      />
 
       {mounted && open
         ? createPortal(
