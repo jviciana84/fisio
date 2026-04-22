@@ -30,7 +30,7 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createSupabaseAdminClient();
-  const [productsRes, itemsRes] = await Promise.all([
+  const [productsRes, itemsRes, favoritesRes] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, description, product_code, price_cents, is_active, created_at")
@@ -38,6 +38,7 @@ export async function GET() {
     supabase.from("cash_ticket_items").select(
       "product_id, line_total_cents, cash_tickets(created_at, staff_access(full_name))",
     ),
+    supabase.from("cash_product_favorites").select("product_id").eq("staff_id", auth.userId),
   ]);
 
   if (productsRes.error) {
@@ -53,6 +54,14 @@ export async function GET() {
       { status: 500 },
     );
   }
+  if (favoritesRes.error) {
+    return NextResponse.json(
+      { ok: false, message: "No se pudieron cargar favoritos de productos" },
+      { status: 500 },
+    );
+  }
+
+  const favoriteIds = new Set((favoritesRes.data ?? []).map((f) => f.product_id as string));
 
   const byProduct = new Map<
     string,
@@ -87,6 +96,7 @@ export async function GET() {
       description: p.description,
       productCode: p.product_code,
       priceEuros: p.price_cents / 100,
+      isFavorite: favoriteIds.has(p.id),
       isActive: p.is_active,
       createdAt: p.created_at,
       salesCount: metric?.salesCount ?? 0,

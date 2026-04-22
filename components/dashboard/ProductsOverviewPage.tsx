@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { PackagePlus, Pencil, Trash2 } from "lucide-react";
+import { PackagePlus, Pencil, Star, Trash2 } from "lucide-react";
 import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -18,6 +18,7 @@ type ProductMetric = {
   description: string | null;
   productCode: string;
   priceEuros: number;
+  isFavorite: boolean;
   isActive: boolean;
   createdAt: string;
   salesCount: number;
@@ -32,6 +33,7 @@ const modalInputClass =
 export function ProductsOverviewPage() {
   const [products, setProducts] = useState<ProductMetric[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoriteSavingIds, setFavoriteSavingIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductMetric | null>(null);
@@ -51,6 +53,8 @@ export function ProductsOverviewPage() {
   const [editPrice, setEditPrice] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState(1);
 
   async function loadProducts() {
     setLoading(true);
@@ -125,6 +129,21 @@ export function ProductsOverviewPage() {
       [p.name, p.productCode, p.description ?? "", ...p.sellers].join(" ").toLowerCase().includes(q),
     );
   }, [products, search]);
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize) || 1);
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
 
   const createPriceNum = useMemo(() => parseSpanishDecimalInput(createPrice), [createPrice]);
 
@@ -241,6 +260,35 @@ export function ProductsOverviewPage() {
     }
   }
 
+  async function toggleFavorite(productId: string, nextFavorite: boolean) {
+    if (favoriteSavingIds.includes(productId)) return;
+    setFavoriteSavingIds((prev) => [...prev, productId]);
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, isFavorite: nextFavorite } : p)),
+    );
+    try {
+      const res = await fetch(`/api/admin/cash/products/${encodeURIComponent(productId)}/favorite`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorite: nextFavorite }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === productId ? { ...p, isFavorite: !nextFavorite } : p)),
+        );
+        setMessage({ type: "err", text: data.message ?? "No se pudo actualizar favorito." });
+      }
+    } catch {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, isFavorite: !nextFavorite } : p)),
+      );
+      setMessage({ type: "err", text: "Error de red al actualizar favorito." });
+    } finally {
+      setFavoriteSavingIds((prev) => prev.filter((id) => id !== productId));
+    }
+  }
+
   return (
     <main className="p-6 md:p-8">
       <div className="glass-panel mx-auto max-w-7xl p-6 md:p-8">
@@ -283,9 +331,10 @@ export function ProductsOverviewPage() {
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-white/70 bg-white/70 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-[980px] w-full text-left text-sm">
+            <table className="min-w-[1040px] w-full text-left text-sm">
               <thead className="bg-slate-100/85 text-xs uppercase tracking-wide text-slate-600">
                 <tr>
+                  <th className="px-4 py-3 text-center">Fav</th>
                   <th className="px-4 py-3">Producto</th>
                   <th className="px-4 py-3">Precio</th>
                   <th className="px-4 py-3">Ventas</th>
@@ -298,19 +347,35 @@ export function ProductsOverviewPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-500" colSpan={7}>
+                    <td className="px-4 py-8 text-slate-500" colSpan={8}>
                       Cargando productos...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-500" colSpan={7}>
+                    <td className="px-4 py-8 text-slate-500" colSpan={8}>
                       No hay productos para mostrar.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((p) => (
+                  paginated.map((p) => (
                     <tr key={p.id} className="align-top">
+                      <td className="px-4 py-4 text-center">
+                        <button
+                          type="button"
+                          title={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
+                          aria-label={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
+                          disabled={favoriteSavingIds.includes(p.id)}
+                          onClick={() => void toggleFavorite(p.id, !p.isFavorite)}
+                          className={`inline-flex rounded-md p-1.5 transition ${
+                            p.isFavorite
+                              ? "text-amber-500 hover:bg-amber-50"
+                              : "text-slate-400 hover:bg-slate-100 hover:text-amber-500"
+                          } disabled:opacity-40`}
+                        >
+                          <Star className={`h-4 w-4 ${p.isFavorite ? "fill-current" : ""}`} aria-hidden />
+                        </button>
+                      </td>
                       <td className="px-4 py-4">
                         <p className="font-semibold text-slate-900">{p.name}</p>
                         <p className="text-xs text-slate-500">Código {p.productCode}</p>
@@ -376,6 +441,96 @@ export function ProductsOverviewPage() {
               </tbody>
             </table>
           </div>
+          {!loading && totalRows > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-slate-200/70 bg-slate-50/50 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                <label htmlFor="products-page-size" className="whitespace-nowrap font-medium">
+                  Filas por página
+                </label>
+                <select
+                  id="products-page-size"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[12px] font-medium text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                >
+                  {[10, 25, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span className="tabular-nums text-slate-500">
+                  {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalRows)} de {totalRows}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={page <= 1}
+                  className="rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ««
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="rounded-md bg-white/80 px-2 py-1 text-[11px] font-medium tabular-nums text-slate-700">
+                  Página {page} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page >= totalPages}
+                  className="rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  »»
+                </button>
+                <form
+                  className="flex items-center gap-1.5"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    const raw = String(fd.get("goto") ?? "").trim();
+                    const n = parseInt(raw, 10);
+                    if (!Number.isFinite(n)) return;
+                    setPage(Math.min(Math.max(1, n), totalPages));
+                  }}
+                >
+                  <label htmlFor="products-goto-page" className="whitespace-nowrap text-[11px] font-medium text-slate-600">
+                    Ir a
+                  </label>
+                  <input
+                    id="products-goto-page"
+                    name="goto"
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    placeholder={String(page)}
+                    className="w-14 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-center text-[12px] tabular-nums text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    aria-label="Número de página"
+                  />
+                  <Button type="submit" variant="gradient" size="sm" className="h-7 px-2.5 text-[11px]">
+                    Ir
+                  </Button>
+                </form>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -9,7 +9,10 @@ type ProductRow = {
   name: string;
   product_code: string;
   price_cents: number;
-  is_favorite: boolean;
+};
+
+type FavoriteRow = {
+  product_id: string;
 };
 
 export async function GET(request: Request) {
@@ -21,34 +24,64 @@ export async function GET(request: Request) {
   const favoritesOnly = searchParams.get("favorites") === "1";
 
   const supabase = createSupabaseAdminClient();
-  let query = supabase
-    .from("products")
-    .select("id, name, product_code, price_cents, is_favorite")
-    .eq("is_active", true)
-    .order("is_favorite", { ascending: false })
-    .order("name", { ascending: true })
-    .limit(favoritesOnly ? 6 : 12);
+  const { data: favoriteData, error: favoriteError } = await supabase
+    .from("cash_product_favorites")
+    .select("product_id")
+    .eq("staff_id", auth.userId);
 
-  if (favoritesOnly) query = query.eq("is_favorite", true);
-  if (q) query = query.or(`name.ilike.%${q}%,product_code.ilike.%${q}%`);
-
-  const { data, error } = await query;
-  if (error) {
+  if (favoriteError) {
     return NextResponse.json(
-      { ok: false, message: "No se pudieron cargar productos" },
+      { ok: false, message: "No se pudieron cargar favoritos" },
       { status: 500 },
     );
   }
+  const favoriteIds = new Set((favoriteData ?? []).map((row) => (row as FavoriteRow).product_id));
 
-  let rows = (data ?? []) as ProductRow[];
-  if (favoritesOnly && rows.length < 6) {
-    const { data: fallback } = await supabase
+  let rows: ProductRow[] = [];
+
+  if (favoritesOnly) {
+    if (favoriteIds.size > 0) {
+      let favoritesQuery = supabase
+        .from("products")
+        .select("id, name, product_code, price_cents")
+        .eq("is_active", true)
+        .in("id", [...favoriteIds])
+        .order("name", { ascending: true })
+        .limit(6);
+      if (q) favoritesQuery = favoritesQuery.or(`name.ilike.%${q}%,product_code.ilike.%${q}%`);
+
+      const { data: favoriteProducts, error: favoritesError } = await favoritesQuery;
+      if (favoritesError) {
+        return NextResponse.json(
+          { ok: false, message: "No se pudieron cargar productos favoritos" },
+          { status: 500 },
+        );
+      }
+      rows = (favoriteProducts ?? []) as ProductRow[];
+    }
+  } else {
+    let listQuery = supabase
       .from("products")
-      .select("id, name, product_code, price_cents, is_favorite")
+      .select("id, name, product_code, price_cents")
       .eq("is_active", true)
       .order("name", { ascending: true })
-      .limit(6);
-    rows = (fallback ?? []) as ProductRow[];
+      .limit(12);
+    if (q) listQuery = listQuery.or(`name.ilike.%${q}%,product_code.ilike.%${q}%`);
+
+    const { data: listData, error: listError } = await listQuery;
+    if (listError) {
+      return NextResponse.json(
+        { ok: false, message: "No se pudieron cargar productos" },
+        { status: 500 },
+      );
+    }
+    rows = (listData ?? []) as ProductRow[];
+    rows.sort((a, b) => {
+      const aFav = favoriteIds.has(a.id) ? 1 : 0;
+      const bFav = favoriteIds.has(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return a.name.localeCompare(b.name, "es");
+    });
   }
 
   const products = rows.map((p) => ({
@@ -56,7 +89,7 @@ export async function GET(request: Request) {
     name: p.name,
     productCode: p.product_code,
     priceEuros: p.price_cents / 100,
-    isFavorite: p.is_favorite,
+    isFavorite: favoriteIds.has(p.id),
   }));
 
   return NextResponse.json({ ok: true, products });
