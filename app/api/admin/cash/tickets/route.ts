@@ -80,6 +80,19 @@ export async function POST(request: Request) {
     }
 
     const rows = (products ?? []) as ProductDb[];
+    if (rows.length !== productIds.length) {
+      const foundIds = new Set(rows.map((p) => p.id));
+      const missingIds = productIds.filter((id) => !foundIds.has(id));
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Hay productos seleccionados que ya no están activos o no existen. Refresca la caja y vuelve a seleccionar.",
+          missingProductIds: missingIds,
+        },
+        { status: 400 },
+      );
+    }
     const subtotalCents = rows.reduce((sum, p) => sum + p.price_cents, 0);
     const totalCents = subtotalCents + manualAmountCents;
 
@@ -104,6 +117,17 @@ export async function POST(request: Request) {
       .single();
 
     if (ticketError || !ticket) {
+      const msg = (ticketError?.message ?? "").toLowerCase();
+      if (msg.includes("cash_tickets_payment_method_check") || msg.includes("payment_method")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "La base de datos no acepta esa forma de pago. Aplica la migración que habilita tarjeta en caja.",
+          },
+          { status: 400 },
+        );
+      }
       return NextResponse.json({ ok: false, message: "No se pudo crear el ticket" }, { status: 500 });
     }
 
