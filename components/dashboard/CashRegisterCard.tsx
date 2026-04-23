@@ -187,13 +187,24 @@ export function CashRegisterCard() {
         setClientModalError(data.message ?? "No se pudo crear el cliente.");
         return;
       }
+      const createdClientId = data.id;
 
       setClientModalOpen(false);
       setClientQuery(fullName);
       setMessage({ type: "ok", text: "Cliente creado correctamente." });
       resetCreateClientForm();
-      await loadClientDetail(data.id);
-      setSelectedClient((prev) => (prev ? prev : { id: data.id, fullName, clientCode: null, email: null, phone: null }));
+      await loadClientDetail(createdClientId);
+      setSelectedClient((prev) =>
+        prev
+          ? prev
+          : {
+              id: createdClientId,
+              fullName,
+              clientCode: null,
+              email: null,
+              phone: null,
+            },
+      );
     } catch {
       setClientModalError("Error de red al crear cliente.");
     } finally {
