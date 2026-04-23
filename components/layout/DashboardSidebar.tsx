@@ -13,6 +13,7 @@ import {
   Landmark,
   LogOut,
   Package,
+  ScrollText,
   ReceiptEuro,
   Settings,
   UserCircle,
@@ -199,6 +200,25 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
             <NavLabel expanded={expanded}>Caja</NavLabel>
           </Link>
         )}
+
+        {isAdmin ? (
+          <Link
+            href="/dashboard/facturas"
+            className={cn(
+              itemBase,
+              pathname.startsWith("/dashboard/facturas")
+                ? "bg-white/70 text-slate-950 shadow-sm"
+                : "hover:bg-white/60",
+            )}
+            title={expanded ? undefined : "Facturas"}
+            aria-label={expanded ? undefined : "Facturas"}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300/80 bg-white text-blue-900">
+              <ScrollText className={navIconClass} strokeWidth={2.25} aria-hidden />
+            </span>
+            <NavLabel expanded={expanded}>Facturas</NavLabel>
+          </Link>
+        ) : null}
 
         {isAdmin ? (
           <Link
