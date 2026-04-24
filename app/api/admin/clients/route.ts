@@ -13,6 +13,8 @@ type ClientRow = {
   phone: string | null;
   notes: string | null;
   created_at: string;
+  tax_id?: string | null;
+  address?: string | null;
   estado_pago: string | null;
   lead_contacted_at: string | null;
   origen_cliente?: string | null;
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
 
   const selectVariants = [
+    "id, client_code, full_name, email, phone, notes, created_at, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago, lead_contacted_at, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago",
@@ -72,6 +75,8 @@ export async function GET(request: Request) {
     }
     lastError = res.error;
     if (
+      !missingColumn(res.error, "tax_id") &&
+      !missingColumn(res.error, "address") &&
       !missingColumn(res.error, "origen_cliente") &&
       !missingColumn(res.error, "rgpd_consent_at") &&
       !missingColumn(res.error, "lead_contacted_at") &&
@@ -101,6 +106,8 @@ export async function GET(request: Request) {
     phone: c.phone,
     notes: c.notes,
     ...(c.created_at ? { createdAt: c.created_at } : {}),
+    taxId: c.tax_id ?? null,
+    address: c.address ?? null,
     estadoPago: c.estado_pago ?? null,
     leadContactedAt: c.lead_contacted_at ?? null,
     origenCliente: c.origen_cliente ?? null,
@@ -116,6 +123,8 @@ type PostBody = {
   email?: string;
   phone?: string;
   notes?: string;
+  taxId?: string;
+  address?: string;
 };
 
 export async function POST(request: Request) {
@@ -144,6 +153,10 @@ export async function POST(request: Request) {
   const phone = phoneRaw || null;
   const notesRaw = typeof body.notes === "string" ? body.notes.trim() : "";
   const notes = notesRaw || null;
+  const taxIdRaw = typeof body.taxId === "string" ? body.taxId.trim().slice(0, 32) : "";
+  const tax_id = taxIdRaw || null;
+  const addressRaw = typeof body.address === "string" ? body.address.trim().slice(0, 500) : "";
+  const address = addressRaw || null;
 
   const supabase = createSupabaseAdminClient();
 
@@ -160,12 +173,20 @@ export async function POST(request: Request) {
     }
   }
 
-  const base = { full_name: fullName, email, phone, notes, is_active: true };
+  const core = { full_name: fullName, email, phone, notes, is_active: true as const };
+  const withFiscal =
+    tax_id || address
+      ? { ...core, tax_id: tax_id ?? null, address: address ?? null }
+      : core;
+  const suffixes: Record<string, unknown>[] = [
+    { origen_cliente: "fisico", estado_pago: "validado" },
+    { estado_pago: "validado" },
+    { origen_cliente: "fisico" },
+    {},
+  ];
   const variants: Record<string, unknown>[] = [
-    { ...base, origen_cliente: "fisico", estado_pago: "validado" },
-    { ...base, estado_pago: "validado" },
-    { ...base, origen_cliente: "fisico" },
-    { ...base },
+    ...suffixes.map((s) => ({ ...withFiscal, ...s })),
+    ...(tax_id || address ? suffixes.map((s) => ({ ...core, ...s })) : []),
   ];
 
   let lastError: PostgrestError | null = null;
@@ -177,6 +198,8 @@ export async function POST(request: Request) {
     lastError = ins.error;
     if (!ins.error) continue;
     if (
+      !missingColumn(ins.error, "tax_id") &&
+      !missingColumn(ins.error, "address") &&
       !missingColumn(ins.error, "origen_cliente") &&
       !missingColumn(ins.error, "estado_pago") &&
       !missingColumn(ins.error, "is_active")

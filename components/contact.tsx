@@ -169,7 +169,7 @@ export function Contact() {
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
           {/* Contact Info */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -177,6 +177,7 @@ export function Contact() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="space-y-4"
           >
+            <div className="space-y-4">
             {contactInfo.map((info, index) => (
               <motion.a
                 key={info.label}
@@ -208,6 +209,7 @@ export function Contact() {
                 </div>
               </motion.a>
             ))}
+            </div>
 
             {/* Map Button */}
             <motion.a
@@ -232,28 +234,28 @@ export function Contact() {
             initial={{ opacity: 0, x: 50 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="h-full self-stretch"
+            className="h-full self-stretch w-full"
           >
-            <div className="h-full [perspective:1400px]">
+            <div className="h-full min-h-0 [perspective:1400px]">
               <motion.div
                 animate={{ rotateY: submitStatus === "idle" ? 0 : 180 }}
                 transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
                 style={{ transformStyle: "preserve-3d" }}
-                className="relative min-h-[560px] sm:min-h-[580px] lg:h-full lg:min-h-0"
+                className="relative h-full w-full min-h-[440px] sm:min-h-[460px]"
               >
                 <form
                   onSubmit={handleSubmit}
-                  className="glass-extreme absolute inset-0 rounded-3xl px-8 pt-5 pb-12 overflow-hidden [backface-visibility:hidden]"
+                  className="glass-extreme absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden rounded-3xl [backface-visibility:hidden]"
                 >
                   {/* Shimmer */}
                   <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-20" />
 
-                  <div className="relative z-10">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-6">Envíanos un mensaje</h3>
+                  <div className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-7 sm:py-3.5">
+                    <h3 className="mb-2.5 text-lg font-bold leading-tight text-slate-900 sm:text-2xl">Envíanos un mensaje</h3>
 
-                    <div className="space-y-4">
+                    <div className="space-y-2.5 sm:space-y-3">
                       <div>
-                        <label htmlFor="contact-name" className="block text-sm font-medium text-slate-700 mb-2">Nombre</label>
+                        <label htmlFor="contact-name" className="mb-1 block text-sm font-medium text-slate-700">Nombre</label>
                         <Input
                           id="contact-name"
                           type="text"
@@ -261,7 +263,7 @@ export function Contact() {
                           value={formState.name}
                           onChange={(e) => handleFieldChange("name", e.target.value)}
                           onBlur={() => handleFieldBlur("name")}
-                          className={`glass rounded-xl bg-white/50 focus:border-blue-500/50 ${
+                          className={`h-9 glass rounded-lg bg-white/50 text-sm focus:border-blue-500/50 sm:rounded-xl ${
                             errors.name ? "border-red-300/80 focus:border-red-400" : "border-white/30"
                           }`}
                           required
@@ -270,15 +272,15 @@ export function Contact() {
                           aria-describedby={errors.name ? "contact-name-error" : undefined}
                         />
                         {errors.name ? (
-                          <p id="contact-name-error" className="mt-1.5 rounded-lg bg-red-50/80 px-3 py-1.5 text-xs text-red-600">
+                          <p id="contact-name-error" className="mt-1 rounded-lg bg-red-50/80 px-2.5 py-1 text-xs text-red-600">
                             {errors.name}
                           </p>
                         ) : null}
                       </div>
 
-                      <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
                         <div>
-                          <label htmlFor="contact-email" className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                          <label htmlFor="contact-email" className="mb-1 block text-sm font-medium text-slate-700">Email</label>
                           <Input
                             id="contact-email"
                             type="email"
@@ -286,7 +288,7 @@ export function Contact() {
                             value={formState.email}
                             onChange={(e) => handleFieldChange("email", e.target.value)}
                             onBlur={() => handleFieldBlur("email")}
-                            className={`glass rounded-xl bg-white/50 focus:border-blue-500/50 ${
+                            className={`h-9 glass rounded-lg bg-white/50 text-sm focus:border-blue-500/50 sm:rounded-xl ${
                               errors.email ? "border-red-300/80 focus:border-red-400" : "border-white/30"
                             }`}
                             required
@@ -295,13 +297,13 @@ export function Contact() {
                             aria-describedby={errors.email ? "contact-email-error" : undefined}
                           />
                           {errors.email ? (
-                            <p id="contact-email-error" className="mt-1.5 rounded-lg bg-red-50/80 px-3 py-1.5 text-xs text-red-600">
+                            <p id="contact-email-error" className="mt-1 rounded-lg bg-red-50/80 px-2.5 py-1 text-xs text-red-600">
                               {errors.email}
                             </p>
                           ) : null}
                         </div>
                         <div>
-                          <label htmlFor="contact-phone" className="block text-sm font-medium text-slate-700 mb-2">Teléfono</label>
+                          <label htmlFor="contact-phone" className="mb-1 block text-sm font-medium text-slate-700">Teléfono</label>
                           <Input
                             id="contact-phone"
                             type="tel"
@@ -309,7 +311,7 @@ export function Contact() {
                             value={formState.phone}
                             onChange={(e) => handleFieldChange("phone", e.target.value)}
                             onBlur={() => handleFieldBlur("phone")}
-                            className={`glass rounded-xl bg-white/50 focus:border-blue-500/50 ${
+                            className={`h-9 glass rounded-lg bg-white/50 text-sm focus:border-blue-500/50 sm:rounded-xl ${
                               errors.phone ? "border-red-300/80 focus:border-red-400" : "border-white/30"
                             }`}
                             required
@@ -318,7 +320,7 @@ export function Contact() {
                             aria-describedby={errors.phone ? "contact-phone-error" : undefined}
                           />
                           {errors.phone ? (
-                            <p id="contact-phone-error" className="mt-1.5 rounded-lg bg-red-50/80 px-3 py-1.5 text-xs text-red-600">
+                            <p id="contact-phone-error" className="mt-1 rounded-lg bg-red-50/80 px-2.5 py-1 text-xs text-red-600">
                               {errors.phone}
                             </p>
                           ) : null}
@@ -326,15 +328,15 @@ export function Contact() {
                       </div>
 
                       <div>
-                        <label htmlFor="contact-message" className="block text-sm font-medium text-slate-700 mb-2">Mensaje</label>
+                        <label htmlFor="contact-message" className="mb-1 block text-sm font-medium text-slate-700">Mensaje</label>
                         <textarea
                           id="contact-message"
-                          rows={4}
+                          rows={2}
                           placeholder="¿En qué podemos ayudarte?"
                           value={formState.message}
                           onChange={(e) => handleFieldChange("message", e.target.value)}
                           onBlur={() => handleFieldBlur("message")}
-                          className={`w-full resize-none rounded-xl bg-white/50 px-4 py-3 glass transition-all focus:outline-none focus:ring-2 ${
+                          className={`min-h-[4.5rem] w-full resize-none rounded-lg bg-white/50 px-3 py-2 text-sm leading-snug glass transition-all focus:outline-none focus:ring-2 sm:min-h-[4.75rem] sm:rounded-xl ${
                             errors.message
                               ? "border border-red-300/80 focus:border-red-400 focus:ring-red-200/60"
                               : "border border-white/30 focus:border-blue-500/50 focus:ring-blue-500/20"
@@ -344,13 +346,13 @@ export function Contact() {
                           aria-describedby={errors.message ? "contact-message-error" : undefined}
                         />
                         {errors.message ? (
-                          <p id="contact-message-error" className="mt-1.5 rounded-lg bg-red-50/80 px-3 py-1.5 text-xs text-red-600">
+                          <p id="contact-message-error" className="mt-1 rounded-lg bg-red-50/80 px-2.5 py-1 text-xs text-red-600">
                             {errors.message}
                           </p>
                         ) : null}
                       </div>
 
-                      <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/90 px-3 py-2 text-left text-slate-700 transition hover:border-blue-200 hover:bg-white">
+                      <label className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md border border-slate-200/90 bg-slate-50/90 px-2 py-1.5 text-left text-sm text-slate-700 transition hover:border-blue-200 hover:bg-white sm:gap-2 sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-base">
                         <input
                           type="checkbox"
                           checked={consentLegal}
@@ -365,7 +367,7 @@ export function Contact() {
                         <Button
                           type="submit"
                           disabled={isSubmitting}
-                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl py-6 shadow-lg shadow-blue-500/25 group"
+                          className="h-11 w-full rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-sm text-white shadow-lg shadow-blue-500/25 group hover:from-blue-700 hover:to-cyan-600 sm:h-12 sm:rounded-xl sm:text-base"
                         >
                           {isSubmitting ? "Enviando..." : "Enviar Mensaje"}
                           <Send className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -376,7 +378,7 @@ export function Contact() {
                 </form>
 
                 <div
-                  className={`absolute inset-0 rounded-3xl p-8 text-white [backface-visibility:hidden] [transform:rotateY(180deg)] ${
+                  className={`absolute inset-0 rounded-3xl px-5 py-3 text-white [backface-visibility:hidden] [transform:rotateY(180deg)] sm:px-7 sm:py-3.5 ${
                     submitStatus === "success"
                       ? "bg-gradient-to-br from-emerald-600 to-green-500"
                       : "bg-gradient-to-br from-red-500 to-rose-500"
@@ -384,25 +386,25 @@ export function Contact() {
                   role="status"
                   aria-live="polite"
                 >
-                  <div className="flex h-full flex-col items-center justify-center text-center">
-                    <div className="mb-6 rounded-full bg-white/20 p-5 shadow-xl ring-4 ring-white/25">
+                  <div className="flex h-full min-h-0 flex-col items-center justify-center text-center">
+                    <div className="mb-3 rounded-full bg-white/20 p-3.5 shadow-xl ring-4 ring-white/25 sm:mb-4 sm:p-5">
                       {submitStatus === "success" ? (
-                        <CircleCheckBig className="h-14 w-14" />
+                        <CircleCheckBig className="h-12 w-12 sm:h-14 sm:w-14" />
                       ) : (
-                        <CircleX className="h-14 w-14" />
+                        <CircleX className="h-12 w-12 sm:h-14 sm:w-14" />
                       )}
                     </div>
 
-                    <h3 className="text-3xl font-extrabold tracking-tight">
+                    <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
                       {submitStatus === "success" ? "¡Mensaje preparado!" : "Faltan campos obligatorios"}
                     </h3>
-                    <p className="mt-4 max-w-md text-white/95">
+                    <p className="mt-2.5 max-w-md text-sm text-white/95 sm:mt-3.5 sm:text-base">
                       {submitStatus === "success"
                         ? "Gracias por contactar. Tu mensaje se ha enviado correctamente."
                         : submitErrorMessage || "No se pudo enviar el mensaje. Revisa el formulario e inténtalo de nuevo."}
                     </p>
 
-                    <div className="mt-6 flex items-center gap-3 text-white/90">
+                    <div className="mt-3 flex items-center gap-2 text-sm text-white/90 sm:mt-4 sm:gap-3 sm:text-base">
                       {submitStatus === "success" ? (
                         <>
                           <ThumbsUp className="h-7 w-7" />
@@ -419,7 +421,7 @@ export function Contact() {
                     <Button
                       type="button"
                       onClick={resetCard}
-                      className="mt-8 rounded-xl border border-white/30 bg-white/20 px-6 py-5 text-white hover:bg-white/30"
+                      className="mt-4 rounded-lg border border-white/30 bg-white/20 px-4 py-3 text-sm text-white hover:bg-white/30 sm:mt-5 sm:rounded-xl sm:px-6 sm:py-3.5 sm:text-base"
                     >
                       {submitStatus === "success" ? "Enviar otro mensaje" : "Volver y completar campos"}
                     </Button>
@@ -433,3 +435,4 @@ export function Contact() {
     </section>
   )
 }
+

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth/require-admin";
+import { requireAdminApi, requireStaffOrAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -65,7 +65,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdminApi();
+  const auth = await requireStaffOrAdminApi();
   if (auth instanceof NextResponse) return auth;
 
   try {
@@ -113,6 +113,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: "El ticket no tiene líneas" }, { status: 400 });
     }
 
+    if (!ticket.client_id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Para facturar el ticket debe tener un cliente asignado, con NIF/CIF y dirección completados en la ficha.",
+        },
+        { status: 400 },
+      );
+    }
+
+    type BillClientRow = { tax_id: string | null; address: string | null };
+    const { data: billClient, error: clientErr } = await supabase
+      .from("clients")
+      .select("tax_id, address")
+      .eq("id", ticket.client_id)
+      .maybeSingle();
+
+    if (clientErr || !billClient) {
+      return NextResponse.json(
+        { ok: false, message: "No se pudieron leer los datos fiscales del cliente para la factura." },
+        { status: 500 },
+      );
+    }
+
+    const row = billClient as BillClientRow;
+    const taxId = String(row.tax_id ?? "").trim();
+    const address = String(row.address ?? "").trim();
+    if (!taxId || !address) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "El cliente debe tener NIF/CIF y dirección en la ficha antes de generar la factura.",
+        },
+        { status: 400 },
+      );
+    }
+
     const invoiceNumber = await generateInvoiceNumber(supabase);
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
@@ -148,7 +185,11 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, message: "Factura generada correctamente" });
+    return NextResponse.json({
+      ok: true,
+      message: "Factura generada correctamente",
+      invoice: { id: invoice.id, invoiceNumber: invoiceNumber },
+    });
   } catch {
     return NextResponse.json({ ok: false, message: "Solicitud inválida" }, { status: 400 });
   }

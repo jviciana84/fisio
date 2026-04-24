@@ -39,6 +39,8 @@ type ClientDetail = {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  taxId: string | null;
+  address: string | null;
   createdAt: string;
   isActive: boolean;
   estadoPago: string | null;
@@ -89,10 +91,11 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
   const [tickets, setTickets] = useState<TicketRow[]>([]);
 
   const [fullName, setFullName] = useState("");
+  const [taxId, setTaxId] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
-  const [estadoPago, setEstadoPago] = useState("");
   const [origenCliente, setOrigenCliente] = useState<string>("");
   const [clearLeadContact, setClearLeadContact] = useState(false);
   const [bonoRemaining, setBonoRemaining] = useState<string>("");
@@ -137,10 +140,11 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
         rgpdConsentVersion: c.rgpdConsentVersion,
       });
       setFullName(c.fullName);
+      setTaxId(c.taxId ?? "");
       setEmail(c.email ?? "");
       setPhone(c.phone ?? "");
+      setAddress(c.address ?? "");
       setNotes(c.notes ?? "");
-      setEstadoPago(c.estadoPago ?? "");
       setOrigenCliente(c.origenCliente ?? "");
       setClearLeadContact(false);
       setBonoRemaining(
@@ -179,10 +183,11 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
     try {
       const body: Record<string, unknown> = {
         fullName: fullName.trim(),
+        taxId: taxId.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        address: address.trim() || null,
         notes: notes.trim() || null,
-        estadoPago: estadoPago.trim() || null,
         origenCliente: origenCliente === "" ? null : origenCliente,
       };
       if (clearLeadContact) {
@@ -280,9 +285,19 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                     <section className={MODAL_CARD_CLASS}>
                       <h3 className={MODAL_CARD_HEADING}>Contacto</h3>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
+                        <div>
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Nombre completo</label>
                           <input className={inputClass} value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">NIF / CIF</label>
+                          <input
+                            className={cn(inputClass, "tabular-nums")}
+                            value={taxId}
+                            onChange={(e) => setTaxId(e.target.value)}
+                            placeholder="DNI, NIE o CIF"
+                            autoComplete="off"
+                          />
                         </div>
                         <div>
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Email</label>
@@ -298,21 +313,15 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Teléfono</label>
                           <input type="tel" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
                         </div>
-                        <div>
-                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Estado pago / CRM</label>
-                          <input
-                            className={inputClass}
-                            value={estadoPago}
-                            onChange={(e) => setEstadoPago(e.target.value)}
-                            placeholder="pendiente_contacto…"
-                            list="estado-pago-hints"
+                        <div className="sm:col-span-2">
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Dirección</label>
+                          <textarea
+                            className={cn(inputClassComfort, "min-h-[3.25rem] resize-y py-1.5 text-xs")}
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            rows={2}
+                            placeholder="Calle, número, CP, ciudad…"
                           />
-                          <datalist id="estado-pago-hints">
-                            <option value="pendiente_validacion" />
-                            <option value="pendiente_contacto" />
-                            <option value="validado" />
-                            <option value="pagado" />
-                          </datalist>
                         </div>
                         <div>
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Origen</label>

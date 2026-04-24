@@ -172,6 +172,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       receipt: {
+        ticketId: ticket.id,
         ticketNumber: ticket.ticket_number,
         createdAt: ticket.created_at,
         paymentMethod,

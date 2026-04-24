@@ -1,14 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Star, X } from "lucide-react";
 import { formatEuroEsTwoDecimals } from "@/lib/format-es";
 import { Button } from "@/components/ui/button";
+import { ClientDetailModal } from "@/components/dashboard/ClientDetailModal";
 
 type Client = {
   id: string;
   clientCode: string | null;
   fullName: string;
+  taxId?: string | null;
+  address?: string | null;
   email: string | null;
   phone: string | null;
   notes?: string | null;
@@ -32,12 +36,15 @@ type Product = {
 };
 
 type Receipt = {
+  ticketId: string;
   ticketNumber: string;
   createdAt: string;
   paymentMethod: "cash" | "bizum" | "card";
   clientName: string | null;
   lines: { concept: string; amountEuros: number }[];
   totalEuros: number;
+  invoiceId?: string;
+  invoiceNumber?: string;
 };
 
 export function CashRegisterCard() {
@@ -64,6 +71,8 @@ export function CashRegisterCard() {
   const [loadingClientDetail, setLoadingClientDetail] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [wantsInvoice, setWantsInvoice] = useState(false);
+  const [fichaClienteId, setFichaClienteId] = useState<string | null>(null);
 
   const allVisibleProducts = useMemo(() => {
     const map = new Map<string, Product>();
@@ -201,6 +210,8 @@ export function CashRegisterCard() {
               id: createdClientId,
               fullName,
               clientCode: null,
+              taxId: null,
+              address: null,
               email: null,
               phone: null,
             },
@@ -271,8 +282,27 @@ export function CashRegisterCard() {
 
   async function handleSave() {
     if (!canSave) return;
-    setSaving(true);
     setMessage(null);
+    const shouldCreateInvoice = wantsInvoice;
+    if (shouldCreateInvoice) {
+      if (!selectedClient?.id) {
+        setMessage({
+          type: "err",
+          text: "Para facturar debes seleccionar un cliente en la lista.",
+        });
+        return;
+      }
+      const taxOk = (selectedClient.taxId ?? "").trim().length > 0;
+      const addrOk = (selectedClient.address ?? "").trim().length > 0;
+      if (!taxOk || !addrOk) {
+        window.alert(
+          "Para generar la factura el cliente debe tener NIF/CIF y dirección. Complétalos en la ficha del cliente.",
+        );
+        setFichaClienteId(selectedClient.id);
+        return;
+      }
+    }
+    setSaving(true);
     try {
       const res = await fetch("/api/admin/cash/tickets", {
         method: "POST",
@@ -289,8 +319,50 @@ export function CashRegisterCard() {
         setMessage({ type: "err", text: data.message ?? "No se pudo generar el ticket." });
         return;
       }
-      setReceipt(data.receipt);
-      setMessage({ type: "ok", text: "Ticket grabado correctamente." });
+      if (!data.receipt.ticketId) {
+        setMessage({
+          type: "err",
+          text: "Ticket grabado, pero falta el identificador interno. Recarga e inténtalo de nuevo.",
+        });
+        return;
+      }
+
+      let nextReceipt: Receipt = data.receipt;
+
+      if (shouldCreateInvoice) {
+        const invRes = await fetch("/api/admin/invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticketId: data.receipt.ticketId }),
+        });
+        const invData = (await invRes.json()) as {
+          ok?: boolean;
+          message?: string;
+          invoice?: { id: string; invoiceNumber: string };
+        };
+        if (!invRes.ok || !invData.ok) {
+          setMessage({
+            type: "err",
+            text:
+              `Ticket grabado, pero no se pudo generar la factura: ${invData.message ?? "Error desconocido"}. ` +
+              "Puedes crearla luego en Facturas.",
+          });
+        } else if (invData.invoice) {
+          nextReceipt = {
+            ...nextReceipt,
+            invoiceId: invData.invoice.id,
+            invoiceNumber: invData.invoice.invoiceNumber,
+          };
+          setMessage({ type: "ok", text: "Ticket y factura generados correctamente." });
+        } else {
+          setMessage({ type: "ok", text: "Ticket grabado. Factura generada; revisa el detalle en Facturas." });
+        }
+      } else {
+        setMessage({ type: "ok", text: "Ticket grabado correctamente." });
+      }
+
+      setReceipt(nextReceipt);
+      setWantsInvoice(false);
       setProductQuery("");
       setSelectedProductIds([]);
       setManualAmount("");
@@ -396,7 +468,10 @@ export function CashRegisterCard() {
                       : "—"}
                 </p>
                 <p>
-                  <span className="font-semibold">Estado pago:</span> {selectedClient.estadoPago ?? "—"}
+                  <span className="font-semibold">NIF / CIF:</span> {selectedClient.taxId?.trim() || "—"}
+                </p>
+                <p className="col-span-2">
+                  <span className="font-semibold">Dirección:</span> {selectedClient.address?.trim() || "—"}
                 </p>
                 <p>
                   <span className="font-semibold">RGPD:</span>{" "}
@@ -544,6 +619,15 @@ export function CashRegisterCard() {
               Tarjeta
             </label>
           </div>
+          <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-[12px] leading-snug text-slate-600">
+            <input
+              type="checkbox"
+              checked={wantsInvoice}
+              onChange={(e) => setWantsInvoice(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300"
+            />
+            El cliente quiere factura (se genera al grabar, además del ticket)
+          </label>
           <Button
             type="button"
             variant="gradient"
@@ -551,7 +635,11 @@ export function CashRegisterCard() {
             disabled={!canSave}
             className="mt-3 w-full rounded-xl border border-white/40 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_26px_-14px_rgba(37,99,235,0.9)] transition hover:brightness-105 disabled:opacity-45"
           >
-            {saving ? "Grabando ticket..." : "Grabar y generar recibo"}
+            {saving
+              ? "Grabando…"
+              : wantsInvoice
+                ? "Grabar recibo y factura"
+                : "Grabar y generar recibo"}
           </Button>
         </div>
       </div>
@@ -611,7 +699,29 @@ export function CashRegisterCard() {
           <div className="mt-3 border-t border-slate-200 pt-3 text-right text-lg font-bold text-slate-900">
             Total {formatEuroEsTwoDecimals(receipt.totalEuros)}
           </div>
+          {receipt.invoiceId && receipt.invoiceNumber ? (
+            <p className="mt-3 text-sm text-slate-700">
+              Factura {receipt.invoiceNumber}{" "}
+              <Link
+                href={`/dashboard/facturas/${receipt.invoiceId}/imprimir`}
+                className="font-semibold text-blue-700 underline decoration-blue-500/30 underline-offset-2 hover:text-blue-800"
+              >
+                Ver factura
+              </Link>
+            </p>
+          ) : null}
         </div>
+      ) : null}
+
+      {fichaClienteId ? (
+        <ClientDetailModal
+          clientId={fichaClienteId}
+          onClose={() => setFichaClienteId(null)}
+          onSaved={() => {
+            const id = fichaClienteId;
+            if (id) void loadClientDetail(id).finally(() => setFichaClienteId(null));
+          }}
+        />
       ) : null}
 
       {clientModalOpen ? (

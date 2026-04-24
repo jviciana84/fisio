@@ -21,6 +21,7 @@ function isUnknownColumnError(err: PostgrestError): boolean {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const CLIENT_SELECT_VARIANTS = [
+  "id, client_code, full_name, email, phone, notes, created_at, is_active, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
   "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
   "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
   "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at",
@@ -36,6 +37,8 @@ type ClientDb = {
   notes: string | null;
   created_at: string;
   is_active: boolean | null;
+  tax_id?: string | null;
+  address?: string | null;
   estado_pago?: string | null;
   lead_contacted_at?: string | null;
   origen_cliente?: string | null;
@@ -55,6 +58,8 @@ function mapClient(c: ClientDb) {
     notes: c.notes,
     createdAt: c.created_at,
     isActive: c.is_active ?? true,
+    taxId: c.tax_id ?? null,
+    address: c.address ?? null,
     estadoPago: c.estado_pago ?? null,
     leadContactedAt: c.lead_contacted_at ?? null,
     origenCliente: c.origen_cliente ?? null,
@@ -87,6 +92,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     lastErr = res.error;
     if (
       res.error &&
+      !missingColumn(res.error, "tax_id") &&
+      !missingColumn(res.error, "address") &&
       !missingColumn(res.error, "bono_remaining_sessions") &&
       !missingColumn(res.error, "origen_cliente") &&
       !missingColumn(res.error, "rgpd_consent_at") &&
@@ -192,6 +199,8 @@ type PatchBody = {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  taxId?: string | null;
+  address?: string | null;
   estadoPago?: string | null;
   origenCliente?: string | null;
   leadContactedAt?: string | null;
@@ -240,6 +249,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       : body.notes === null
         ? null
         : String(body.notes);
+
+  let tax_id: string | null | undefined;
+  if (body.taxId !== undefined) {
+    const t = String(body.taxId ?? "").trim();
+    tax_id = t.length ? t.slice(0, 32) : null;
+  }
+
+  let address: string | null | undefined;
+  if (body.address !== undefined) {
+    const a = String(body.address ?? "").trim();
+    address = a.length ? a.slice(0, 500) : null;
+  }
 
   let estado_pago: string | undefined;
   if (body.estadoPago !== undefined) {
@@ -311,6 +332,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (email !== undefined) patch.email = email;
   if (phone !== undefined) patch.phone = phone;
   if (notes !== undefined) patch.notes = notes;
+  if (tax_id !== undefined) patch.tax_id = tax_id;
+  if (address !== undefined) patch.address = address;
   if (estado_pago !== undefined) patch.estado_pago = estado_pago;
   if (origen_cliente !== undefined) patch.origen_cliente = origen_cliente;
   if (lead_contacted_at !== undefined) patch.lead_contacted_at = lead_contacted_at;
@@ -373,6 +396,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const msg = (lastError.message ?? "").toLowerCase();
     let stripped = false;
+    if (msg.includes("tax_id")) {
+      delete payload.tax_id;
+      stripped = true;
+    }
+    if (msg.includes("address")) {
+      delete payload.address;
+      stripped = true;
+    }
     if (msg.includes("estado_pago")) {
       delete payload.estado_pago;
       stripped = true;

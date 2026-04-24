@@ -533,3 +533,25 @@
   border-radius: var(--radius-lg);
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.35);
 }
+
+/* Factura: vista previa = una hoja A4 fija; al generar PDF se quita el límite de altura. */
+#invoice-pdf-root.invoice-pdf-capture-expand {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+#invoice-pdf-root.invoice-pdf-capture-expand .invoice-mid-column {
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+#invoice-pdf-root.invoice-pdf-capture-expand .invoice-inner-scroll {
+  flex: 0 1 auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}

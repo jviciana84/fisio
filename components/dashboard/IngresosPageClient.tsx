@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, Pencil, ScrollText, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { IngresosDayCalendar, localDayKeyFromIso } from "@/components/dashboard/IngresosDayCalendar";
@@ -29,6 +29,9 @@ export type IncomeTicketRow = {
   payment_method: "cash" | "bizum" | "card";
   created_at: string;
   client_name: string | null;
+  /** Si ya existe factura vinculada a este ticket. */
+  invoice_id: string | null;
+  invoice_number: string | null;
 };
 
 function paymentLabel(m: IncomeTicketRow["payment_method"]): string {
@@ -76,6 +79,7 @@ export function IngresosPageClient({
   const [deleteTicketId, setDeleteTicketId] = useState<string | null>(null);
   const [deletingTicket, setDeletingTicket] = useState(false);
   const [deleteTicketModalError, setDeleteTicketModalError] = useState<string | null>(null);
+  const [convertingToInvoiceId, setConvertingToInvoiceId] = useState<string | null>(null);
 
   const modalBreakdown = useMemo(() => {
     if (!modalTicket) return null;
@@ -195,6 +199,53 @@ export function IngresosPageClient({
       setIngresosActionError("Error de red");
     } finally {
       setSavingTicket(false);
+    }
+  }
+
+  async function convertTicketToInvoice(ticketId: string) {
+    setConvertingToInvoiceId(ticketId);
+    setIngresosActionError(null);
+    try {
+      const res = await fetch("/api/admin/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        invoice?: { id: string; invoiceNumber: string };
+      };
+      if (!res.ok || !data.ok) {
+        setIngresosActionError(data.message ?? "No se pudo crear la factura");
+        return;
+      }
+      if (!data.invoice) {
+        setIngresosActionError("Factura creada, pero no se recibió el detalle. Revisa Facturas.");
+        void router.refresh();
+        return;
+      }
+      setTicketList((list) =>
+        list.map((t) =>
+          t.id === ticketId
+            ? { ...t, invoice_id: data.invoice!.id, invoice_number: data.invoice!.invoiceNumber }
+            : t,
+        ),
+      );
+      setModalTicket((prev) =>
+        prev?.id === ticketId
+          ? {
+              ...prev,
+              invoice_id: data.invoice!.id,
+              invoice_number: data.invoice!.invoiceNumber,
+            }
+          : prev,
+      );
+      router.refresh();
+    } catch {
+      setIngresosActionError("Error de red al generar la factura");
+    } finally {
+      setConvertingToInvoiceId(null);
     }
   }
 
@@ -409,8 +460,8 @@ export function IngresosPageClient({
             {/* Fila 3: tabla 100% justo debajo del calendario */}
             <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 md:col-span-2 md:row-start-3 md:col-start-1">
               <p className="border-b border-slate-100/90 bg-slate-50/40 px-3 py-2 text-[11px] leading-snug text-slate-500 md:px-3">
-                Clic en fila para desglose fiscal; edita método o importe (reescala líneas) o elimina el ticket desde
-                Acciones.
+                Clic en fila para desglose fiscal; en Acciones puedes editar, pasar a factura, eliminar el ticket o abrir
+                la factura si ya existe.
               </p>
               {ingresosActionError ? (
                 <p className="border-b border-rose-100/80 bg-rose-50/50 px-3 py-2 text-sm text-rose-800" role="alert">
@@ -427,7 +478,7 @@ export function IngresosPageClient({
                   <th className="whitespace-nowrap px-2 py-2 text-right md:px-3">Importe</th>
                   <th
                     className="whitespace-nowrap px-2 py-2 text-right md:px-3"
-                    title="Editar método o importe; eliminar ticket; o ver desglose al editar con el lápiz y guardar."
+                    title="Editar, pasar a factura, abrir factura, eliminar; ver desglose al abrir el modal de fila."
                   >
                     Acciones
                   </th>
@@ -572,6 +623,35 @@ export function IngresosPageClient({
                             >
                               <Pencil className="h-4 w-4" aria-hidden />
                               <span className="sr-only">Editar</span>
+                            </button>
+                          )}
+                          {row.invoice_id && row.invoice_number ? (
+                            <Link
+                              href={`/dashboard/facturas/${row.invoice_id}/imprimir`}
+                              onClick={(e) => e.stopPropagation()}
+                              title={`Factura ${row.invoice_number} — imprimir`}
+                              className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-violet-50 hover:text-violet-900"
+                            >
+                              <ScrollText className="h-4 w-4" aria-hidden />
+                              <span className="sr-only">Imprimir factura</span>
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Pasar ticket a factura"
+                              disabled={savingTicket || deletingTicket || convertingToInvoiceId === row.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIngresosActionError(null);
+                                void convertTicketToInvoice(row.id);
+                              }}
+                              className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-violet-50 hover:text-violet-900 disabled:opacity-40"
+                            >
+                              <ScrollText
+                                className={`h-4 w-4 ${convertingToInvoiceId === row.id ? "opacity-50" : ""}`}
+                                aria-hidden
+                              />
+                              <span className="sr-only">Pasar a factura</span>
                             </button>
                           )}
                           <button

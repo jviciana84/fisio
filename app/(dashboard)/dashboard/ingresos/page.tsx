@@ -54,6 +54,20 @@ export default async function IngresosPage() {
 
   const raw = (data ?? []) as unknown as Row[];
 
+  const ticketIds = raw.map((r) => r.id);
+  const invByTicketId = new Map<string, { id: string; invoice_number: string }>();
+  if (ticketIds.length > 0) {
+    const { data: invRows } = await supabase
+      .from("invoices")
+      .select("id, ticket_id, invoice_number")
+      .in("ticket_id", ticketIds);
+    for (const inv of (invRows ?? []) as { id: string; ticket_id: string | null; invoice_number: string }[]) {
+      if (inv.ticket_id) {
+        invByTicketId.set(inv.ticket_id, { id: inv.id, invoice_number: inv.invoice_number });
+      }
+    }
+  }
+
   function clientNameFromRow(row: Row): string | null {
     const c = row.clients;
     if (!c) return null;
@@ -61,14 +75,19 @@ export default async function IngresosPage() {
     return c.full_name ?? null;
   }
 
-  const tickets: IncomeTicketRow[] = raw.map((row) => ({
-    id: row.id,
-    ticket_number: row.ticket_number,
-    total_cents: row.total_cents,
-    payment_method: row.payment_method,
-    created_at: row.created_at,
-    client_name: clientNameFromRow(row),
-  }));
+  const tickets: IncomeTicketRow[] = raw.map((row) => {
+    const inv = invByTicketId.get(row.id);
+    return {
+      id: row.id,
+      ticket_number: row.ticket_number,
+      total_cents: row.total_cents,
+      payment_method: row.payment_method,
+      created_at: row.created_at,
+      client_name: clientNameFromRow(row),
+      invoice_id: inv?.id ?? null,
+      invoice_number: inv?.invoice_number ?? null,
+    };
+  });
 
   return <IngresosPageClient tickets={tickets} fiscalPrefs={fiscalPrefs} />;
 }
