@@ -207,9 +207,19 @@ export function Footer() {
         >
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
             <p>© {new Date().getFullYear()} Fisioterapia Roc Blanc. Todos los derechos reservados.</p>
-            <div className="flex gap-6">
-              <Link href="#" className="hover:text-blue-600 transition-colors">Política de Privacidad</Link>
-              <Link href="#" className="hover:text-blue-600 transition-colors">Aviso Legal</Link>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 sm:justify-end">
+              <Link href="/politica-privacidad" className="hover:text-blue-600 transition-colors">
+                Política de Privacidad
+              </Link>
+              <Link href="/condiciones-reserva-pago-cancelacion" className="hover:text-blue-600 transition-colors">
+                Condiciones de pago
+              </Link>
+              <Link href="/aviso-legal" className="hover:text-blue-600 transition-colors">
+                Aviso Legal
+              </Link>
+              <Link href="/politica-cookies" className="hover:text-blue-600 transition-colors">
+                Cookies
+              </Link>
             </div>
           </div>
         </motion.div>

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
   if (body.consentAccepted !== true) {
     return NextResponse.json(
-      { ok: false, message: "Debes aceptar la política de privacidad para continuar" },
+      { ok: false, message: "Debes aceptar la Política de Privacidad." },
       { status: 400 },
     );
   }

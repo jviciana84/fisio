@@ -6,6 +6,7 @@ import { MapPin, Phone, Mail, Send, Navigation, ThumbsUp, ThumbsDown, CircleChec
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SectionWatermark } from "@/components/section-watermark"
+import { LegalConsentCheckboxText } from "@/components/legal-consent-checkbox-text"
 
 const contactInfo = [
   {
@@ -52,6 +53,7 @@ export function Contact() {
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle")
   const [submitErrorMessage, setSubmitErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [consentLegal, setConsentLegal] = useState(false)
 
   const validateField = (field: keyof typeof formState, value: string) => {
     if (!value.trim()) return "Este campo es obligatorio."
@@ -89,12 +91,18 @@ export function Contact() {
       return
     }
 
+    if (!consentLegal) {
+      setSubmitErrorMessage("Debes aceptar la Política de Privacidad.")
+      setSubmitStatus("error")
+      return
+    }
+
     try {
       setIsSubmitting(true)
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({ ...formState, consentAccepted: true }),
       })
 
       const data = (await res.json()) as { ok?: boolean; message?: string }
@@ -107,6 +115,7 @@ export function Contact() {
       setSubmitStatus("success")
       setFormState({ name: "", email: "", phone: "", message: "" })
       setErrors({ name: "", email: "", phone: "", message: "" })
+      setConsentLegal(false)
     } catch {
       setSubmitErrorMessage("Error de conexión. Inténtalo de nuevo en unos segundos.")
       setSubmitStatus("error")
@@ -340,6 +349,17 @@ export function Contact() {
                           </p>
                         ) : null}
                       </div>
+
+                      <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/90 px-3 py-2 text-left text-slate-700 transition hover:border-blue-200 hover:bg-white">
+                        <input
+                          type="checkbox"
+                          checked={consentLegal}
+                          onChange={(e) => setConsentLegal(e.target.checked)}
+                          className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          required
+                        />
+                        <LegalConsentCheckboxText />
+                      </label>
 
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button

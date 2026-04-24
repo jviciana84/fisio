@@ -8,6 +8,7 @@ type Body = {
   email?: string;
   phone?: string;
   message?: string;
+  consentAccepted?: boolean;
 };
 
 function required(value: string | undefined): string | null {
@@ -18,6 +19,12 @@ function required(value: string | undefined): string | null {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Body;
+    if (body.consentAccepted !== true) {
+      return NextResponse.json(
+        { ok: false, message: "Debes aceptar la Política de Privacidad." },
+        { status: 400 },
+      );
+    }
     const name = required(body.name);
     const email = required(body.email);
     const phone = required(body.phone);
@@ -73,6 +80,8 @@ export async function POST(request: Request) {
       subject: `Nueva solicitud web - ${name}`,
       text: [
         "Nueva solicitud desde el formulario web",
+        "",
+        "RGPD: el remitente confirmó en la web la aceptación de la Política de Privacidad.",
         "",
         `Fecha: ${sentAt}`,
         `Nombre: ${name}`,

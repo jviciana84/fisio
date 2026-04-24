@@ -23,6 +23,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { LegalConsentCheckboxText } from "@/components/legal-consent-checkbox-text";
 import { SectionWatermark } from "@/components/section-watermark";
 
 const LOGO_SRC = "/images/logo%20FRB3.svg";
@@ -674,24 +675,15 @@ export default function ReservarPage() {
                           />
                         </label>
 
-                        <label className="flex cursor-pointer gap-2.5 rounded-xl border border-slate-200/90 bg-slate-50/90 p-3 transition hover:border-blue-200 hover:bg-white">
+                        <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/90 px-3 py-2 transition hover:border-blue-200 hover:bg-white">
                           <input
                             type="checkbox"
                             checked={consentRgpd}
                             onChange={(e) => setConsentRgpd(e.target.checked)}
-                            className="mt-0.5 size-3.5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            className="size-3.5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             required
                           />
-                          <span className="text-[11px] leading-snug text-slate-700 sm:text-xs">
-                            Acepto la{" "}
-                            <Link
-                              href="/"
-                              className="font-semibold text-blue-700 underline decoration-blue-300 underline-offset-1 hover:text-blue-900"
-                            >
-                              política de privacidad
-                            </Link>{" "}
-                            y el uso de mis datos para esta reserva y la gestión en el centro.
-                          </span>
+                          <LegalConsentCheckboxText />
                         </label>
                       </div>
 

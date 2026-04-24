@@ -8,6 +8,7 @@ import { BonoSignaturePad, type BonoSignaturePadHandle } from "@/components/bono
 import { bonosWebRequireSignature } from "@/lib/bonos/web-signature-flag"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { LegalConsentCheckboxText } from "@/components/legal-consent-checkbox-text"
 import { cn } from "@/lib/cn"
 
 function ClinicDiscountHighlight({ className }: { className?: string }) {
@@ -597,17 +598,15 @@ export function Pricing() {
                           />
                         </div>
 
-                        <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                        <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
                           <input
                             type="checkbox"
                             checked={purchaseForm.acceptedPolicy}
                             onChange={(e) => handlePurchaseChange("acceptedPolicy", e.target.checked)}
-                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             required
                           />
-                          <span className="text-pretty leading-snug">
-                            Acepto la política de privacidad y el tratamiento de mis datos para gestionar la compra del bono.
-                          </span>
+                          <LegalConsentCheckboxText />
                         </label>
 
                         <div className="grid gap-3 pt-2 sm:grid-cols-2">

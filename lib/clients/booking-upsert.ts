@@ -15,7 +15,7 @@ function buildBookingNote(params: UpsertParams): string {
   return [
     `[Reserva web ${params.appointmentStartIso}]`,
     `Dirección: ${params.address.trim()}`,
-    "Consentimiento RGPD: aceptado al confirmar la reserva online.",
+    "Consentimiento RGPD: aceptada la Política de Privacidad al confirmar la reserva online.",
     params.userNotes?.trim() ? `Notas: ${params.userNotes.trim()}` : "",
   ]
     .filter(Boolean)
