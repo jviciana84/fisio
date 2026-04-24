@@ -94,7 +94,7 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
   return (
     <aside
       className={cn(
-        "sticky top-0 z-20 flex h-screen shrink-0 self-start flex-col overflow-hidden",
+        "sticky top-0 z-20 flex h-screen shrink-0 self-start flex-col overflow-hidden print:hidden",
         "border-r border-slate-300/90 bg-white/72 shadow-[0_14px_38px_rgba(15,23,42,0.2)] backdrop-blur-2xl",
         SIDEBAR_TIMING,
         "transition-[width] will-change-[width]",

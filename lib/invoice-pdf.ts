@@ -309,9 +309,11 @@ function addCanvasToPdf(
   }
 }
 
-export function safeInvoicePdfFilename(invoiceNumber: string): string {
-  return `Factura-${invoiceNumber.replace(/[\\/:*?"<>|]+/g, "-")}.pdf`;
-}
+export {
+  invoicePdfSuggestedDocumentTitle,
+  invoicePdfSuggestedFilename,
+  safeInvoicePdfFilename,
+} from "@/lib/invoices/invoice-pdf-filename";
 
 export async function downloadInvoiceElementPdf(
   elementId: string,
@@ -328,9 +330,12 @@ export async function downloadInvoiceElementPdf(
   const CAPTURE_CLASS = "invoice-pdf-capture-expand";
   el.classList.add(CAPTURE_CLASS);
 
-  const marginMm = 10;
-  const imageMime = "image/jpeg";
-  const imageQuality = 0.92;
+  /** A4 a ancho completo; la imagen de la hoja 210mm encaja con el ancho de página. */
+  const marginMm = 0;
+  const imageMime = "image/png" as const;
+  const imageQuality = 1;
+  const dpr = typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1;
+  const scale = Math.min(3, Math.max(2, dpr * 1.5));
 
   try {
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -339,20 +344,16 @@ export async function downloadInvoiceElementPdf(
     ]);
 
     await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
     const { width: capW, height: capH } = capturePixelBox(el);
 
     const canvas = await html2canvas(el, {
-      scale: 2,
+      scale,
       useCORS: true,
       logging: false,
       foreignObjectRendering: false,
       backgroundColor: "#ffffff",
-      width: capW,
-      height: capH,
-      windowWidth: capW,
-      windowHeight: capH,
       onclone: (clonedDoc, clonedEl) => {
         stripAdoptedStyleSheets(clonedDoc);
         removeAuthorStylesheetsFromClone(clonedDoc, clonedEl);

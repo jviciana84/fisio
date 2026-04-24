@@ -3,6 +3,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+/** `email` opcional: tickets solo cargan `full_name`. */
+type ClientJoin = { full_name: string | null; email?: string | null };
+
 type InvoiceDb = {
   id: string;
   invoice_number: string;
@@ -12,7 +15,7 @@ type InvoiceDb = {
   total_cents: number;
   notes: string | null;
   created_at: string;
-  clients: { full_name: string | null } | { full_name: string | null }[] | null;
+  clients: ClientJoin | ClientJoin[] | null;
 };
 
 type TicketDb = {
@@ -20,15 +23,20 @@ type TicketDb = {
   ticket_number: string;
   total_cents: number;
   created_at: string;
-  clients: { full_name: string | null } | { full_name: string | null }[] | null;
+  clients: ClientJoin | ClientJoin[] | null;
 };
 
-function clientNameFromJoin(
-  value: { full_name: string | null } | { full_name: string | null }[] | null,
-): string | null {
+function clientNameFromJoin(value: ClientJoin | ClientJoin[] | null): string | null {
   if (!value) return null;
   if (Array.isArray(value)) return value[0]?.full_name ?? null;
   return value.full_name ?? null;
+}
+
+function clientEmailFromJoin(value: ClientJoin | ClientJoin[] | null): string | null {
+  if (!value) return null;
+  const row = Array.isArray(value) ? value[0] : value;
+  const e = row?.email?.trim();
+  return e || null;
 }
 
 export default async function FacturasPage() {
@@ -48,7 +56,7 @@ export default async function FacturasPage() {
           total_cents,
           notes,
           created_at,
-          clients ( full_name )
+          clients ( full_name, email )
         `,
         )
         .order("created_at", { ascending: false }),
@@ -88,6 +96,7 @@ export default async function FacturasPage() {
     notes: row.notes,
     created_at: row.created_at,
     client_name: clientNameFromJoin(row.clients),
+    client_email: clientEmailFromJoin(row.clients),
   }));
 
   const invoicedTicketIds = new Set(invoices.map((inv) => inv.ticket_id).filter(Boolean));

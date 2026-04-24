@@ -39,17 +39,19 @@ export default async function DashboardGroupLayout({
         <div className="relative flex min-h-0 flex-1 flex-col overflow-auto">
           {/* Misma marca de agua que Contacto, fija al viewport; el contenido hace scroll encima. */}
           <div
-            className="pointer-events-none fixed inset-0 z-0 gradient-mesh opacity-[0.38]"
+            className="pointer-events-none fixed inset-0 z-0 gradient-mesh opacity-[0.38] print:hidden"
             aria-hidden
           />
           <SectionWatermark align="right" fullViewport scaleFactor={1.05} />
-          <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-12 sm:pt-14">
-            <DashboardTopStatus
-              userName={displayName}
-              sessionIssuedAtIso={session.issuedAt?.toISOString() ?? null}
-              enablePinSwitch={!isAdmin}
-            />
-            <PendingLeadsGlobalAlert />
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-12 sm:pt-14 print:pt-0">
+            <div className="print:hidden">
+              <DashboardTopStatus
+                userName={displayName}
+                sessionIssuedAtIso={session.issuedAt?.toISOString() ?? null}
+                enablePinSwitch={!isAdmin}
+              />
+              <PendingLeadsGlobalAlert />
+            </div>
             {children}
           </div>
         </div>

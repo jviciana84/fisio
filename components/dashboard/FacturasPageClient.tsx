@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Pencil, Printer, Trash2, X } from "lucide-react";
+import { Check, Pencil, Printer, Send, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { IngresosDayCalendar } from "@/components/dashboard/IngresosDayCalendar";
@@ -16,6 +16,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { formatEuroEsTwoDecimals, parseSpanishDecimalInput } from "@/lib/format-es";
+import { buildInvoiceMailtoHref } from "@/lib/invoices/invoice-mailto";
 
 type PaymentMethod = "cash" | "bizum" | "card";
 
@@ -29,6 +30,7 @@ export type InvoiceRow = {
   notes: string | null;
   created_at: string;
   client_name: string | null;
+  client_email: string | null;
 };
 
 export type TicketOptionRow = {
@@ -279,8 +281,8 @@ export function FacturasPageClient({
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600">Administración</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">Facturas</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Filtra por periodo, día o método de pago; genera factura desde un ticket; edita, imprime o elimina en
-              Acciones.
+              Filtra por periodo, día o método de pago; genera factura desde un ticket; edita, imprime, envía por
+              correo o elimina en Acciones.
             </p>
           </div>
 
@@ -442,7 +444,7 @@ export function FacturasPageClient({
 
             <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 md:col-span-2 md:row-start-4 md:col-start-1">
               <p className="border-b border-slate-100/90 bg-slate-50/40 px-3 py-2 text-[11px] leading-snug text-slate-500 md:px-3">
-                Listado con los filtros de arriba; en Acciones editar, imprimir o eliminar.
+                Listado con los filtros de arriba; en Acciones editar, imprimir, enviar por correo o eliminar.
               </p>
               {actionMessage ? (
                 <p
@@ -575,6 +577,31 @@ export function FacturasPageClient({
                               >
                                 <Printer className="h-4 w-4" aria-hidden />
                               </Link>
+
+                              <button
+                                type="button"
+                                title={
+                                  row.client_email?.trim()
+                                    ? "Enviar por correo al cliente"
+                                    : "El cliente no tiene email"
+                                }
+                                disabled={!row.client_email?.trim()}
+                                onClick={() => {
+                                  const email = row.client_email?.trim();
+                                  if (!email) return;
+                                  window.location.href = buildInvoiceMailtoHref({
+                                    clientEmail: email,
+                                    invoiceId: row.id,
+                                    invoiceNumber: row.invoice_number,
+                                    totalCents: row.total_cents,
+                                    returnPath: `/dashboard/facturas/${row.id}/imprimir`,
+                                    origin: window.location.origin,
+                                  });
+                                }}
+                                className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-sky-50 hover:text-sky-800 disabled:pointer-events-none disabled:opacity-35"
+                              >
+                                <Send className="h-4 w-4" aria-hidden />
+                              </button>
 
                               <button
                                 type="button"

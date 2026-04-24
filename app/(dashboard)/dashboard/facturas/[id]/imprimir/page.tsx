@@ -1,40 +1,32 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
-import { InvoicePdfContent, type InvoicePdfClient } from "@/components/dashboard/InvoicePdfContent";
-import { InvoicePrintButton } from "@/components/dashboard/InvoicePrintButton";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { InvoicePdfContent } from "@/components/dashboard/InvoicePdfContent";
+import { InvoicePreviewActionRail } from "@/components/dashboard/InvoicePreviewActionRail";
+import { cn } from "@/lib/cn";
+import { formatEuroFromCents } from "@/lib/format-es";
+import {
+  clientFromJoin,
+  getInvoiceForPrint,
+  paymentLabel,
+} from "@/lib/invoices/invoice-for-print.server";
 
 export const dynamic = "force-dynamic";
 
-type InvoiceWithClient = {
-  id: string;
-  invoice_number: string;
-  issue_date: string;
-  payment_method: "cash" | "bizum" | "card";
-  subtotal_cents: number;
-  total_cents: number;
-  notes: string | null;
-  clients: InvoicePdfClient | InvoicePdfClient[] | null;
-};
+const PRINT_PAGE_STYLES = "@page { size: A4 portrait; margin: 0; }";
 
-type InvoiceItem = {
-  concept: string;
-  quantity: number;
-  unit_price_cents: number;
-  line_total_cents: number;
-};
+/** Mismo perfil que los iconos del rail (botón redondo neutro). */
+const roundBackClass = cn(
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 text-slate-700 shadow-sm ring-1 ring-white/60 transition",
+  "hover:border-slate-300 hover:bg-white hover:text-slate-900",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-0",
+);
 
-function paymentLabel(m: InvoiceWithClient["payment_method"]): string {
-  if (m === "cash") return "Efectivo";
-  if (m === "bizum") return "Bizum";
-  return "Tarjeta";
-}
-
-function clientFromJoin(value: InvoiceWithClient["clients"]): InvoicePdfClient | null {
-  if (!value) return null;
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value;
-}
+/** Columnas de acciones: sticky junto a la factura al hacer scroll (sin “card” extra). */
+const stickyActionsCol = cn(
+  "md:sticky md:top-24 md:z-30 md:self-start",
+  "print:static print:z-auto",
+);
 
 export default async function InvoicePrintPage({
   params,
@@ -42,62 +34,98 @@ export default async function InvoicePrintPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = createSupabaseAdminClient();
+  const data = await getInvoiceForPrint(id);
+  if (!data) {
+    notFound();
+  }
 
-  const [{ data: invoice }, { data: items }] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select(
-        [
-          "id, invoice_number, issue_date, payment_method, subtotal_cents, total_cents, notes",
-          "clients(full_name, tax_id, address, email, phone, client_code)",
-        ].join(","),
-      )
-      .eq("id", id)
-      .maybeSingle(),
-    supabase
-      .from("invoice_items")
-      .select("concept, quantity, unit_price_cents, line_total_cents")
-      .eq("invoice_id", id)
-      .order("created_at", { ascending: true }),
-  ]);
-
-  if (!invoice) notFound();
-
-  const current = invoice as unknown as InvoiceWithClient;
-  const lineItems = (items ?? []) as InvoiceItem[];
+  const { invoice, lines } = data;
+  const returnPath = `/dashboard/facturas/${id}/imprimir`;
+  const client = clientFromJoin(invoice.clients);
+  const clientLabel = client?.full_name?.trim() || "Sin cliente asignado";
+  const payLabel = paymentLabel(invoice.payment_method);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 print:bg-white print:p-0">
-      <div className="mx-auto mb-3 flex w-full max-w-[210mm] items-center justify-between print:hidden">
-        <Link
-          href="/dashboard/facturas"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+    <main className="p-6 md:p-8 print:bg-white print:p-0">
+      <div className="mx-auto max-w-7xl print:max-w-none">
+        <section
+          className={cn(
+            "glass-panel glass-tint-cyan invoice-print-panel relative p-6 md:p-7",
+            "print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none",
+          )}
         >
-          Volver a facturas
-        </Link>
-        <InvoicePrintButton invoiceNumber={current.invoice_number} />
-      </div>
+          <div className="border-b border-white/25 pb-5 print:hidden">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600">
+              Facturación
+            </p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+              Factura {invoice.invoice_number}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+              Vista previa, impresión y descarga. {clientLabel} — {payLabel} —{" "}
+              <span className="font-medium text-slate-800 tabular-nums">
+                {formatEuroFromCents(invoice.total_cents)}
+              </span>
+            </p>
+          </div>
 
-      <div className="flex justify-center overflow-x-auto overflow-y-visible pb-6 print:block print:overflow-visible print:pb-0">
-        <InvoicePdfContent
-          invoiceNumber={current.invoice_number}
-          issueDate={current.issue_date}
-          paymentLabel={paymentLabel(current.payment_method)}
-          client={clientFromJoin(current.clients)}
-          subtotalCents={current.subtotal_cents}
-          totalCents={current.total_cents}
-          notes={current.notes}
-          lines={lineItems}
-        />
+          <div
+            className={cn(
+              "mt-6 min-w-0 print:mt-0",
+              "glass-inner rounded-2xl p-2 shadow-sm ring-1 ring-white/50 md:p-3",
+              "print:mt-0 print:rounded-none print:bg-white print:p-0 print:shadow-none print:ring-0",
+            )}
+          >
+            <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-start md:justify-center md:gap-4 print:block">
+              <div
+                className={cn(
+                  "order-2 flex shrink-0 justify-center md:order-1 md:justify-end print:hidden",
+                  stickyActionsCol,
+                )}
+              >
+                <Link
+                  href="/dashboard/facturas"
+                  className={roundBackClass}
+                  title="Volver a facturas"
+                  aria-label="Volver a facturas"
+                >
+                  <ArrowLeft className="h-5 w-5" aria-hidden />
+                </Link>
+              </div>
+              <div className="order-1 min-w-0 flex-1 overflow-x-auto overflow-y-visible md:order-2 md:max-w-[210mm] md:flex-none md:shrink-0 print:order-none print:block print:overflow-visible">
+                <div className="flex justify-center print:block">
+                  <InvoicePdfContent
+                    invoiceNumber={invoice.invoice_number}
+                    issueDate={invoice.issue_date}
+                    paymentLabel={payLabel}
+                    client={client}
+                    subtotalCents={invoice.subtotal_cents}
+                    totalCents={invoice.total_cents}
+                    notes={invoice.notes}
+                    lines={lines}
+                  />
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "order-3 flex shrink-0 justify-center md:order-3 md:justify-start print:hidden",
+                  stickyActionsCol,
+                )}
+              >
+                <InvoicePreviewActionRail
+                  invoiceId={id}
+                  invoiceNumber={invoice.invoice_number}
+                  clientDisplayName={client?.full_name ?? null}
+                  clientEmail={client?.email ?? null}
+                  totalCents={invoice.total_cents}
+                  returnPath={returnPath}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-
-      <style>{`
-        @page {
-          size: A4;
-          margin: 10mm;
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{ __html: PRINT_PAGE_STYLES }} />
     </main>
   );
 }

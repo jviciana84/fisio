@@ -119,29 +119,32 @@ export function InvoicePdfContent({
   return (
     <section
       id="invoice-pdf-root"
-      className="relative flex h-[297mm] max-h-[297mm] w-[210mm] min-w-[210mm] max-w-[210mm] flex-col overflow-hidden rounded-sm border border-slate-300/85 bg-white text-[10.5px] leading-snug text-slate-900 print:h-auto print:max-h-none print:min-h-0 print:w-full print:min-w-0 print:max-w-none print:flex-none print:overflow-visible print:rounded-none print:border-0"
+      className="relative flex h-[297mm] max-h-[297mm] w-[210mm] min-w-[210mm] max-w-[210mm] flex-col overflow-hidden rounded-sm border border-slate-300/85 bg-white text-[10.5px] leading-snug text-slate-900 print:min-h-[297mm] print:h-auto print:max-h-none print:w-full print:min-w-0 print:max-w-none print:flex-none print:overflow-visible print:rounded-none print:border-0"
       style={{ boxShadow: PAPER_SHADOW }}
     >
       <style>{`
         @media print {
           #invoice-pdf-root { box-shadow: none !important; }
+          #invoice-pdf-wm { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #invoice-pdf-wm img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
       {/* Marca de agua: logo FRB3 texto oscuro (SVG completo, centrado en la hoja) */}
       <div
+        id="invoice-pdf-wm"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden print:block"
         aria-hidden
       >
         <img
           src={WATERMARK_SRC}
           alt=""
-          className="absolute left-1/2 top-1/2 h-auto w-auto max-h-[min(100%,297mm)] max-w-[min(100%,210mm)] origin-center -translate-x-1/2 -translate-y-1/2 scale-110 object-contain object-center opacity-[0.042]"
+          className="absolute left-1/2 top-1/2 h-auto w-auto max-h-[min(100%,297mm)] max-w-[min(100%,210mm)] origin-center -translate-x-1/2 -translate-y-1/2 scale-110 object-contain object-center opacity-[0.042] print:opacity-[0.042]"
         />
       </div>
 
       <div
-        className="relative z-[1] flex h-full min-h-0 flex-col pb-0"
+        className="relative z-[1] flex min-h-0 flex-1 flex-col pb-0"
         style={{
           paddingLeft: SHEET_PAD,
           paddingRight: SHEET_PAD,
@@ -229,8 +232,8 @@ export function InvoicePdfContent({
           </div>
         </header>
 
-        <div className="invoice-mid-column flex min-h-0 flex-1 flex-col overflow-hidden pt-6">
-          <div className="invoice-inner-scroll min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <div className="invoice-mid-column flex min-h-0 flex-1 flex-col overflow-hidden print:min-h-0 print:flex-1 print:overflow-visible pt-6">
+          <div className="invoice-inner-scroll min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] print:min-h-0 print:flex-1 print:max-h-none print:overflow-visible">
             <table className="w-full table-fixed border-collapse text-left text-[10px]">
               <colgroup>
                 <col style={{ width: "11%" }} />
