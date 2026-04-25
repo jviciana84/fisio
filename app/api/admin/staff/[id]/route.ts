@@ -160,7 +160,7 @@ export async function PATCH(
       const cents = parseEuroStringToCents(monthlySalaryRaw);
       if (cents === null || cents <= 0 || cents > MAX_MONTHLY_SALARY_CENTS) {
         return NextResponse.json(
-          { ok: false, message: "Indica un salario mensual bruto válido (mayor que 0)." },
+          { ok: false, message: "Indica un salario bruto anual válido (mayor que 0)." },
           { status: 400 },
         );
       }

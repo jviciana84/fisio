@@ -79,9 +79,16 @@ create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
   client_code text unique,
   full_name text not null,
+  first_name text,
+  last_name_1 text,
+  last_name_2 text,
   email text,
   phone text,
   notes text,
+  address_street text,
+  address_number text,
+  address_postal_code text,
+  address_city text,
   comprobante_pago_url text,
   estado_pago text not null default 'pendiente_validacion',
   lead_contacted_at timestamptz,
@@ -209,6 +216,12 @@ create table if not exists public.fiscal_settings (
   use_vat_on_sales boolean not null default false,
   expense_vat_recoverable_percent integer not null default 100
     check (expense_vat_recoverable_percent >= 0 and expense_vat_recoverable_percent <= 100),
+  employee_irpf_retention_percent numeric(5,2) not null default 15
+    check (employee_irpf_retention_percent >= 0 and employee_irpf_retention_percent <= 60),
+  employee_social_security_percent numeric(5,2) not null default 6.35
+    check (employee_social_security_percent >= 0 and employee_social_security_percent <= 30),
+  employer_social_security_percent numeric(5,2) not null default 31.40
+    check (employer_social_security_percent >= 0 and employer_social_security_percent <= 60),
   updated_at timestamptz not null default now()
 );
 

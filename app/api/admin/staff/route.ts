@@ -34,7 +34,7 @@ type Body = {
   hourlyTariffs?: HourlyTariffSlot[] | unknown;
   /** `salaried` | `self_employed` (o alias `asalariado`). */
   compensationType?: string;
-  /** Salario mensual en € (texto), solo si asalariado. */
+  /** Salario bruto anual en € (texto), solo si asalariado. */
   monthlySalary?: string;
 };
 
@@ -293,7 +293,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             ok: false,
-            message: "Indica un salario mensual bruto válido (mayor que 0).",
+            message: "Indica un salario bruto anual válido (mayor que 0).",
           },
           { status: 400 },
         );

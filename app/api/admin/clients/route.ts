@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { requireStaffOrAdminApi } from "@/lib/auth/require-admin";
+import { buildFullName, splitLegacyFullName, splitSurnameInput } from "@/lib/clients/name-parts";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -9,12 +10,19 @@ type ClientRow = {
   id: string;
   client_code: string | null;
   full_name: string;
+  first_name?: string | null;
+  last_name_1?: string | null;
+  last_name_2?: string | null;
   email: string | null;
   phone: string | null;
   notes: string | null;
   created_at: string;
   tax_id?: string | null;
   address?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_postal_code?: string | null;
+  address_city?: string | null;
   estado_pago: string | null;
   lead_contacted_at: string | null;
   origen_cliente?: string | null;
@@ -43,7 +51,9 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
 
   const selectVariants = [
-    "id, client_code, full_name, email, phone, notes, created_at, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
+    "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, tax_id, address, address_street, address_number, address_postal_code, address_city, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
+    "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
+    "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago, lead_contacted_at, rgpd_consent_at, rgpd_consent_version",
     "id, client_code, full_name, email, phone, notes, created_at, estado_pago",
@@ -77,6 +87,13 @@ export async function GET(request: Request) {
     if (
       !missingColumn(res.error, "tax_id") &&
       !missingColumn(res.error, "address") &&
+      !missingColumn(res.error, "first_name") &&
+      !missingColumn(res.error, "last_name_1") &&
+      !missingColumn(res.error, "last_name_2") &&
+      !missingColumn(res.error, "address_street") &&
+      !missingColumn(res.error, "address_number") &&
+      !missingColumn(res.error, "address_postal_code") &&
+      !missingColumn(res.error, "address_city") &&
       !missingColumn(res.error, "origen_cliente") &&
       !missingColumn(res.error, "rgpd_consent_at") &&
       !missingColumn(res.error, "lead_contacted_at") &&
@@ -99,6 +116,15 @@ export async function GET(request: Request) {
   }
 
   const clients = data.map((c) => ({
+    ...(c.first_name || c.last_name_1 || c.last_name_2
+      ? {
+          firstName: c.first_name ?? "",
+          lastName: [c.last_name_1 ?? "", c.last_name_2 ?? ""].join(" ").trim(),
+        }
+      : {
+          firstName: splitLegacyFullName(c.full_name).firstName,
+          lastName: splitLegacyFullName(c.full_name).lastName,
+        }),
     id: c.id,
     clientCode: c.client_code,
     fullName: c.full_name,
@@ -108,6 +134,10 @@ export async function GET(request: Request) {
     ...(c.created_at ? { createdAt: c.created_at } : {}),
     taxId: c.tax_id ?? null,
     address: c.address ?? null,
+    addressStreet: c.address_street ?? null,
+    addressNumber: c.address_number ?? null,
+    addressPostalCode: c.address_postal_code ?? null,
+    addressCity: c.address_city ?? null,
     estadoPago: c.estado_pago ?? null,
     leadContactedAt: c.lead_contacted_at ?? null,
     origenCliente: c.origen_cliente ?? null,
@@ -119,12 +149,18 @@ export async function GET(request: Request) {
 }
 
 type PostBody = {
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   email?: string;
   phone?: string;
   notes?: string;
   taxId?: string;
   address?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressPostalCode?: string;
+  addressCity?: string;
 };
 
 export async function POST(request: Request) {
@@ -138,25 +174,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "JSON inválido" }, { status: 400 });
   }
 
-  const fullName =
-    typeof body.fullName === "string" ? body.fullName.replace(/\s+/g, " ").trim() : "";
-  if (!fullName || fullName.length < 2) {
+  const firstNameRaw = typeof body.firstName === "string" ? body.firstName.trim() : "";
+  const lastNameRaw = typeof body.lastName === "string" ? body.lastName.trim() : "";
+  const legacyFullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
+  const fallback = splitLegacyFullName(legacyFullName);
+  const firstName = (firstNameRaw || fallback.firstName).replace(/\s+/g, " ").trim();
+  const lastName = (lastNameRaw || fallback.lastName).replace(/\s+/g, " ").trim();
+  if (!firstName || !lastName) {
     return NextResponse.json(
-      { ok: false, message: "El nombre es obligatorio (mínimo 2 caracteres)" },
+      { ok: false, message: "Nombre y apellidos son obligatorios" },
       { status: 400 },
     );
   }
+  const { lastName1, lastName2 } = splitSurnameInput(lastName);
+  const fullName = buildFullName(firstName, lastName);
 
   const emailRaw = typeof body.email === "string" ? body.email.trim() : "";
   const email = emailRaw ? emailRaw.toLowerCase() : null;
   const phoneRaw = typeof body.phone === "string" ? body.phone.trim().replace(/\s+/g, " ") : "";
   const phone = phoneRaw || null;
+  if (!phone) {
+    return NextResponse.json({ ok: false, message: "El teléfono es obligatorio" }, { status: 400 });
+  }
   const notesRaw = typeof body.notes === "string" ? body.notes.trim() : "";
   const notes = notesRaw || null;
   const taxIdRaw = typeof body.taxId === "string" ? body.taxId.trim().slice(0, 32) : "";
   const tax_id = taxIdRaw || null;
   const addressRaw = typeof body.address === "string" ? body.address.trim().slice(0, 500) : "";
   const address = addressRaw || null;
+  const addressStreetRaw = typeof body.addressStreet === "string" ? body.addressStreet.trim().slice(0, 200) : "";
+  const addressStreet = addressStreetRaw || null;
+  const addressNumberRaw = typeof body.addressNumber === "string" ? body.addressNumber.trim().slice(0, 32) : "";
+  const addressNumber = addressNumberRaw || null;
+  const addressPostalRaw =
+    typeof body.addressPostalCode === "string" ? body.addressPostalCode.trim().slice(0, 16) : "";
+  const addressPostalCode = addressPostalRaw || null;
+  const addressCityRaw = typeof body.addressCity === "string" ? body.addressCity.trim().slice(0, 120) : "";
+  const addressCity = addressCityRaw || null;
 
   const supabase = createSupabaseAdminClient();
 
@@ -173,11 +227,41 @@ export async function POST(request: Request) {
     }
   }
 
-  const core = { full_name: fullName, email, phone, notes, is_active: true as const };
+  const coreWithParts = {
+    full_name: fullName,
+    first_name: firstName,
+    last_name_1: lastName1,
+    last_name_2: lastName2,
+    email,
+    phone,
+    notes,
+    is_active: true as const,
+  };
+  const coreLegacy = { full_name: fullName, email, phone, notes, is_active: true as const };
   const withFiscal =
-    tax_id || address
-      ? { ...core, tax_id: tax_id ?? null, address: address ?? null }
-      : core;
+    tax_id || address || addressStreet || addressNumber || addressPostalCode || addressCity
+      ? {
+          ...coreWithParts,
+          tax_id: tax_id ?? null,
+          address: address ?? null,
+          address_street: addressStreet ?? null,
+          address_number: addressNumber ?? null,
+          address_postal_code: addressPostalCode ?? null,
+          address_city: addressCity ?? null,
+        }
+      : coreWithParts;
+  const withFiscalLegacy =
+    tax_id || address || addressStreet || addressNumber || addressPostalCode || addressCity
+      ? {
+          ...coreLegacy,
+          tax_id: tax_id ?? null,
+          address: address ?? null,
+          address_street: addressStreet ?? null,
+          address_number: addressNumber ?? null,
+          address_postal_code: addressPostalCode ?? null,
+          address_city: addressCity ?? null,
+        }
+      : coreLegacy;
   const suffixes: Record<string, unknown>[] = [
     { origen_cliente: "fisico", estado_pago: "validado" },
     { estado_pago: "validado" },
@@ -186,7 +270,10 @@ export async function POST(request: Request) {
   ];
   const variants: Record<string, unknown>[] = [
     ...suffixes.map((s) => ({ ...withFiscal, ...s })),
-    ...(tax_id || address ? suffixes.map((s) => ({ ...core, ...s })) : []),
+    ...suffixes.map((s) => ({ ...withFiscalLegacy, ...s })),
+    ...(tax_id || address || addressStreet || addressNumber || addressPostalCode || addressCity
+      ? [...suffixes.map((s) => ({ ...coreWithParts, ...s })), ...suffixes.map((s) => ({ ...coreLegacy, ...s }))]
+      : []),
   ];
 
   let lastError: PostgrestError | null = null;
@@ -200,6 +287,9 @@ export async function POST(request: Request) {
     if (
       !missingColumn(ins.error, "tax_id") &&
       !missingColumn(ins.error, "address") &&
+      !missingColumn(ins.error, "first_name") &&
+      !missingColumn(ins.error, "last_name_1") &&
+      !missingColumn(ins.error, "last_name_2") &&
       !missingColumn(ins.error, "origen_cliente") &&
       !missingColumn(ins.error, "estado_pago") &&
       !missingColumn(ins.error, "is_active")

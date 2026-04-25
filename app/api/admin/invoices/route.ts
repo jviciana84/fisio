@@ -123,10 +123,17 @@ export async function POST(request: Request) {
       );
     }
 
-    type BillClientRow = { tax_id: string | null; address: string | null };
+    type BillClientRow = {
+      tax_id: string | null;
+      address: string | null;
+      address_street?: string | null;
+      address_number?: string | null;
+      address_postal_code?: string | null;
+      address_city?: string | null;
+    };
     const { data: billClient, error: clientErr } = await supabase
       .from("clients")
-      .select("tax_id, address")
+      .select("tax_id, address, address_street, address_number, address_postal_code, address_city")
       .eq("id", ticket.client_id)
       .maybeSingle();
 
@@ -139,7 +146,14 @@ export async function POST(request: Request) {
 
     const row = billClient as BillClientRow;
     const taxId = String(row.tax_id ?? "").trim();
-    const address = String(row.address ?? "").trim();
+    const addressFromParts = `${String(row.address_street ?? "").trim()}${
+      String(row.address_number ?? "").trim() ? ` ${String(row.address_number ?? "").trim()}` : ""
+    }${
+      String(row.address_postal_code ?? "").trim() || String(row.address_city ?? "").trim() ? ", " : ""
+    }${String(row.address_postal_code ?? "").trim()}${
+      String(row.address_postal_code ?? "").trim() && String(row.address_city ?? "").trim() ? " " : ""
+    }${String(row.address_city ?? "").trim()}`.trim();
+    const address = addressFromParts || String(row.address ?? "").trim();
     if (!taxId || !address) {
       return NextResponse.json(
         {

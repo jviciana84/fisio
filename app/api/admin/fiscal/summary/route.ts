@@ -30,6 +30,18 @@ type ExpenseDb = {
   deductible_percent?: number;
 };
 
+type StaffCompensationRow = {
+  full_name: string | null;
+  is_active: boolean | null;
+  compensation_type: string | null;
+  monthly_salary_cents: number | null;
+};
+
+type ModelWarning = {
+  model: "303" | "130" | "115" | "111" | "190";
+  message: string;
+};
+
 export async function GET() {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
@@ -62,6 +74,9 @@ export async function GET() {
     sales_vat_rate_percent: 21,
     use_vat_on_sales: false,
     expense_vat_recoverable_percent: 100,
+    employee_irpf_retention_percent: 15,
+    employee_social_security_percent: 6.35,
+    employer_social_security_percent: 31.4,
   };
 
   const settings: FiscalSettingsInput = {
@@ -99,6 +114,14 @@ export async function GET() {
     return NextResponse.json({ ok: false, message: "No se pudieron cargar gastos" }, { status: 500 });
   }
 
+  const { data: staffRows, error: staffErr } = await supabase
+    .from("staff_access")
+    .select("full_name, is_active, compensation_type, monthly_salary_cents");
+
+  if (staffErr) {
+    return NextResponse.json({ ok: false, message: "No se pudieron cargar perfiles de personal" }, { status: 500 });
+  }
+
   const monthMap = new Map<
     MonthKey,
     { cashCents: number; bizumCents: number; cardCents: number }
@@ -129,6 +152,41 @@ export async function GET() {
 
   const months = [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
+  const allSalariedProfiles = ((staffRows ?? []) as StaffCompensationRow[]).filter(
+    (row) => row.is_active !== false && row.compensation_type === "salaried",
+  );
+  const salariedProfiles = allSalariedProfiles.filter(
+    (row) => Number(row.monthly_salary_cents ?? 0) > 0,
+  );
+  const salariedWithoutSalary = allSalariedProfiles.filter(
+    (row) => Number(row.monthly_salary_cents ?? 0) <= 0,
+  );
+
+  const salariedAnnualGrossCents = salariedProfiles.reduce(
+    (acc, row) => acc + Number(row.monthly_salary_cents ?? 0),
+    0,
+  );
+
+  const PAYROLL = {
+    employeeIrpfRetentionPercent: Number(settingsData.employee_irpf_retention_percent ?? 15),
+    employeeSocialSecurityPercent: Number(settingsData.employee_social_security_percent ?? 6.35),
+    employerSocialSecurityPercent: Number(settingsData.employer_social_security_percent ?? 31.4),
+  };
+
+  const employeeIrpfRetentionQuarterCents = Math.round(
+    ((salariedAnnualGrossCents / 4) * PAYROLL.employeeIrpfRetentionPercent) / 100,
+  );
+  const employeeSocialSecurityQuarterCents = Math.round(
+    ((salariedAnnualGrossCents / 4) * PAYROLL.employeeSocialSecurityPercent) / 100,
+  );
+  const employerSocialSecurityQuarterCents = Math.round(
+    ((salariedAnnualGrossCents / 4) * PAYROLL.employerSocialSecurityPercent) / 100,
+  );
+  const grossPayrollQuarterCents = Math.round(salariedAnnualGrossCents / 4);
+  const netPayrollQuarterCents =
+    grossPayrollQuarterCents - employeeIrpfRetentionQuarterCents - employeeSocialSecurityQuarterCents;
+  const employerPayrollCostQuarterCents = grossPayrollQuarterCents + employerSocialSecurityQuarterCents;
+
   const chart = months.map(([monthKey, b]) => {
     const total = b.cashCents + b.bizumCents + b.cardCents;
     const official = officialSalesFromBreakdown(b, settings.declareCashPercent);
@@ -153,11 +211,48 @@ export async function GET() {
   }
 
   const deductibleQ = deductibleQuarterTotalCents(expenseInputs, q.monthKeys);
+  const modelWarnings: ModelWarning[] = [];
+  if (qTotals.cashCents + qTotals.bizumCents + qTotals.cardCents <= 0) {
+    modelWarnings.push({
+      model: "303",
+      message: "Faltan tickets del trimestre para calcular IVA repercutido (modelo 303).",
+    });
+    modelWarnings.push({
+      model: "130",
+      message: "Faltan ingresos del trimestre para calcular el pago fraccionado de IRPF (modelo 130).",
+    });
+  }
+  if (settings.rentIsLeased && settings.monthlyRentCents <= 0) {
+    modelWarnings.push({
+      model: "115",
+      message: "El local está marcado como alquilado, pero falta importe de alquiler mensual para calcular el modelo 115.",
+    });
+  }
+  if (allSalariedProfiles.length === 0) {
+    modelWarnings.push({
+      model: "111",
+      message: "No hay perfiles activos marcados como asalariados para calcular retenciones de nómina (modelo 111).",
+    });
+    modelWarnings.push({
+      model: "190",
+      message: "No hay perfiles activos marcados como asalariados para calcular el resumen anual de retenciones (modelo 190).",
+    });
+  } else if (salariedWithoutSalary.length > 0) {
+    modelWarnings.push({
+      model: "111",
+      message: `Hay ${salariedWithoutSalary.length} perfil(es) asalariado(s) sin salario bruto anual válido; se excluyen del cálculo del modelo 111.`,
+    });
+    modelWarnings.push({
+      model: "190",
+      message: `Hay ${salariedWithoutSalary.length} perfil(es) asalariado(s) sin salario bruto anual válido; se excluyen del cálculo del modelo 190.`,
+    });
+  }
 
   const simulation = simulateQuarter({
     settings,
     ticketTotals: qTotals,
     deductibleExpensesQuarterTtcCents: deductibleQ,
+    additionalNonVatDeductibleExpensesQuarterCents: employerPayrollCostQuarterCents,
   });
 
   const calendarYear = now.getFullYear();
@@ -180,6 +275,7 @@ export async function GET() {
       settings,
       ticketTotals: { cashCents, bizumCents, cardCents },
       deductibleExpensesQuarterTtcCents: ded,
+      additionalNonVatDeductibleExpensesQuarterCents: employerPayrollCostQuarterCents,
     });
     return {
       quarter: qi,
@@ -243,6 +339,9 @@ export async function GET() {
       salesVatRatePercent: settings.salesVatRatePercent,
       useVatOnSales: settings.useVatOnSales,
       expenseVatRecoverablePercent: settings.expenseVatRecoverablePercent,
+      employeeIrpfRetentionPercent: PAYROLL.employeeIrpfRetentionPercent,
+      employeeSocialSecurityPercent: PAYROLL.employeeSocialSecurityPercent,
+      employerSocialSecurityPercent: PAYROLL.employerSocialSecurityPercent,
     },
     quarter: q.label,
     chart,
@@ -251,6 +350,9 @@ export async function GET() {
       realTotalEuros: eurosFromCents(simulation.realTotalCents),
       officialSalesEuros: eurosFromCents(simulation.officialSalesTtcCents),
       ivaToPayEuros: eurosFromCents(simulation.iva303ToPayCents),
+      ivaOutputEuros: eurosFromCents(simulation.ivaRepercutidoCents),
+      ivaInputEuros: eurosFromCents(simulation.ivaSoportadoCents),
+      ivaNetEuros: eurosFromCents(simulation.ivaRepercutidoCents - simulation.ivaSoportadoCents),
       irpfEuros: eurosFromCents(simulation.irpf130Cents),
       model115Euros: eurosFromCents(simulation.model115Cents),
       totalTaxesEuros: eurosFromCents(simulation.totalTaxesCents),
@@ -259,5 +361,33 @@ export async function GET() {
       liquidityAlert: simulation.liquidityAlert,
       liquidityGapEuros: eurosFromCents(Math.max(0, simulation.liquidityGapCents)),
     },
+    payrollPreview: {
+      assumptions: {
+        employeeIrpfRetentionPercent: PAYROLL.employeeIrpfRetentionPercent,
+        employeeSocialSecurityPercent: PAYROLL.employeeSocialSecurityPercent,
+        employerSocialSecurityPercent: PAYROLL.employerSocialSecurityPercent,
+      },
+      salariedProfiles: salariedProfiles.map((p) => ({
+        name: p.full_name ?? "Sin nombre",
+        annualGrossEuros: eurosFromCents(Number(p.monthly_salary_cents ?? 0)),
+        monthlyEquivalentEuros: eurosFromCents(Math.round(Number(p.monthly_salary_cents ?? 0) / 12)),
+      })),
+      totals: {
+        salariedCount: salariedProfiles.length,
+        annualGrossEuros: eurosFromCents(salariedAnnualGrossCents),
+        monthlyEquivalentEuros: eurosFromCents(Math.round(salariedAnnualGrossCents / 12)),
+        quarterGrossEuros: eurosFromCents(grossPayrollQuarterCents),
+        quarterNetPayrollEuros: eurosFromCents(netPayrollQuarterCents),
+        quarterEmployerCostEuros: eurosFromCents(employerPayrollCostQuarterCents),
+        quarterEmployeeIrpfRetentionEuros: eurosFromCents(employeeIrpfRetentionQuarterCents),
+        quarterEmployeeSocialSecurityEuros: eurosFromCents(employeeSocialSecurityQuarterCents),
+        quarterEmployerSocialSecurityEuros: eurosFromCents(employerSocialSecurityQuarterCents),
+        model111QuarterEuros: eurosFromCents(employeeIrpfRetentionQuarterCents),
+        model190YearEuros: eurosFromCents(
+          Math.round((salariedAnnualGrossCents * PAYROLL.employeeIrpfRetentionPercent) / 100),
+        ),
+      },
+    },
+    modelWarnings,
   });
 }

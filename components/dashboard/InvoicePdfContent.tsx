@@ -41,6 +41,10 @@ export type InvoicePdfClient = {
   full_name: string | null;
   tax_id: string | null;
   address: string | null;
+  address_street: string | null;
+  address_number: string | null;
+  address_postal_code: string | null;
+  address_city: string | null;
   email: string | null;
   phone: string | null;
   client_code: string | null;
@@ -63,10 +67,18 @@ function ClientInvoiceBlock({ client }: { client: InvoicePdfClient | null }) {
   const name = client.full_name?.trim();
   const tax = client.tax_id?.trim();
   const addr = client.address?.trim();
+  const addrFromParts = `${client.address_street?.trim() ?? ""}${
+    client.address_number?.trim() ? ` ${client.address_number.trim()}` : ""
+  }${client.address_postal_code?.trim() || client.address_city?.trim() ? ", " : ""}${
+    client.address_postal_code?.trim() ?? ""
+  }${
+    client.address_postal_code?.trim() && client.address_city?.trim() ? " " : ""
+  }${client.address_city?.trim() ?? ""}`.trim();
+  const addrFinal = addrFromParts || addr;
   const phone = client.phone?.trim();
   const email = client.email?.trim();
   const code = client.client_code?.trim();
-  const hasAny = name || tax || addr || phone || email || code;
+  const hasAny = name || tax || addrFinal || phone || email || code;
   if (!hasAny) {
     return <p className="text-[9px] text-slate-600">Sin datos</p>;
   }
@@ -76,7 +88,7 @@ function ClientInvoiceBlock({ client }: { client: InvoicePdfClient | null }) {
         <p className="font-serif text-[12px] font-bold leading-tight tracking-tight text-slate-950">{name}</p>
       ) : null}
       {tax ? <p className="tabular-nums leading-tight text-slate-800">{tax}</p> : null}
-      {addr ? <p className="whitespace-pre-line leading-tight text-slate-800">{addr}</p> : null}
+      {addrFinal ? <p className="whitespace-pre-line leading-tight text-slate-800">{addrFinal}</p> : null}
       {phone ? <p className="leading-tight text-slate-800">{phone}</p> : null}
       {email ? <p className="break-all leading-tight text-slate-800">{email}</p> : null}
       {code ? <p className="tabular-nums leading-tight text-slate-600">{code}</p> : null}

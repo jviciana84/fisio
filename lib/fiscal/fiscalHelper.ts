@@ -228,8 +228,15 @@ export function simulateQuarter(params: {
   ticketTotals: { cashCents: number; bizumCents: number; cardCents: number };
   /** Total gastos deducibles en el trimestre (importes con IVA tal como en registro). */
   deductibleExpensesQuarterTtcCents: number;
+  /** Gastos deducibles trimestrales sin IVA (p.ej. nóminas + SS empresa). */
+  additionalNonVatDeductibleExpensesQuarterCents?: number;
 }): FiscalSimulationResult {
-  const { settings, ticketTotals, deductibleExpensesQuarterTtcCents } = params;
+  const {
+    settings,
+    ticketTotals,
+    deductibleExpensesQuarterTtcCents,
+    additionalNonVatDeductibleExpensesQuarterCents = 0,
+  } = params;
 
   const realTotalCents =
     ticketTotals.cashCents + ticketTotals.bizumCents + ticketTotals.cardCents;
@@ -254,7 +261,10 @@ export function simulateQuarter(params: {
 
   const iva303ToPayCents = Math.max(0, vat303NetCents({ outputVatCents: ivaRepercutidoCents, inputVatCents: ivaSoportadoCents }));
 
-  const expenseBaseForIrpfCents = Math.max(0, deductibleExpensesTtcCents - ivaSoportadoCents);
+  const expenseBaseForIrpfCents = Math.max(
+    0,
+    deductibleExpensesTtcCents - ivaSoportadoCents + additionalNonVatDeductibleExpensesQuarterCents,
+  );
   const netBeforeIrpfCents = salesBaseCents - expenseBaseForIrpfCents;
   const irpfFractionCents = irpf130Cents(netBeforeIrpfCents);
 

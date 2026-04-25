@@ -14,6 +14,9 @@ type FiscalRow = {
   sales_vat_rate_percent: number;
   use_vat_on_sales: boolean;
   expense_vat_recoverable_percent: number;
+  employee_irpf_retention_percent: number;
+  employee_social_security_percent: number;
+  employer_social_security_percent: number;
 };
 
 export async function GET() {
@@ -48,6 +51,9 @@ type Body = {
   salesVatRatePercent?: number;
   useVatOnSales?: boolean;
   expenseVatRecoverablePercent?: number;
+  employeeIrpfRetentionPercent?: number;
+  employeeSocialSecurityPercent?: number;
+  employerSocialSecurityPercent?: number;
 };
 
 export async function POST(request: Request) {
@@ -98,6 +104,27 @@ export async function POST(request: Request) {
       }
       patch.expense_vat_recoverable_percent = v;
     }
+    if (body.employeeIrpfRetentionPercent !== undefined) {
+      const v = Number(body.employeeIrpfRetentionPercent);
+      if (!Number.isFinite(v) || v < 0 || v > 60) {
+        return NextResponse.json({ ok: false, message: "IRPF nómina inválido" }, { status: 400 });
+      }
+      patch.employee_irpf_retention_percent = Number(v.toFixed(2));
+    }
+    if (body.employeeSocialSecurityPercent !== undefined) {
+      const v = Number(body.employeeSocialSecurityPercent);
+      if (!Number.isFinite(v) || v < 0 || v > 30) {
+        return NextResponse.json({ ok: false, message: "SS trabajador inválida" }, { status: 400 });
+      }
+      patch.employee_social_security_percent = Number(v.toFixed(2));
+    }
+    if (body.employerSocialSecurityPercent !== undefined) {
+      const v = Number(body.employerSocialSecurityPercent);
+      if (!Number.isFinite(v) || v < 0 || v > 60) {
+        return NextResponse.json({ ok: false, message: "SS empresa inválida" }, { status: 400 });
+      }
+      patch.employer_social_security_percent = Number(v.toFixed(2));
+    }
 
     const { data: current, error: loadErr } = await supabase
       .from("fiscal_settings")
@@ -146,5 +173,8 @@ function mapRow(row: FiscalRow) {
     salesVatRatePercent: row.sales_vat_rate_percent,
     useVatOnSales: row.use_vat_on_sales,
     expenseVatRecoverablePercent: row.expense_vat_recoverable_percent,
+    employeeIrpfRetentionPercent: Number(row.employee_irpf_retention_percent ?? 15),
+    employeeSocialSecurityPercent: Number(row.employee_social_security_percent ?? 6.35),
+    employerSocialSecurityPercent: Number(row.employer_social_security_percent ?? 31.4),
   };
 }

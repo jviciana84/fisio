@@ -268,7 +268,10 @@ export function Pricing() {
     lastName: "",
     email: "",
     phone: "",
-    address: "",
+    addressStreet: "",
+    addressNumber: "",
+    addressPostalCode: "",
+    addressCity: "",
     acceptedPolicy: false,
   })
   const [paymentView, setPaymentView] = useState<"form" | "signature" | "paypal_unavailable" | "bizum">("form")
@@ -284,7 +287,10 @@ export function Pricing() {
     purchaseForm.lastName.trim() &&
     purchaseForm.email.trim() &&
     purchaseForm.phone.trim() &&
-    purchaseForm.address.trim() &&
+    purchaseForm.addressStreet.trim() &&
+    purchaseForm.addressNumber.trim() &&
+    purchaseForm.addressPostalCode.trim() &&
+    purchaseForm.addressCity.trim() &&
     purchaseForm.acceptedPolicy
 
   const openPurchaseModal = (bono: Bono) => {
@@ -364,7 +370,10 @@ export function Pricing() {
         lastName: purchaseForm.lastName.trim(),
         email: purchaseForm.email.trim(),
         phone: purchaseForm.phone.trim(),
-        address: purchaseForm.address.trim(),
+        addressStreet: purchaseForm.addressStreet.trim(),
+        addressNumber: purchaseForm.addressNumber.trim(),
+        addressPostalCode: purchaseForm.addressPostalCode.trim(),
+        addressCity: purchaseForm.addressCity.trim(),
         bonoSessions: selectedBono.sessions,
         bonoPrice: selectedBono.price,
         paymentMethod,
@@ -584,18 +593,59 @@ export function Pricing() {
                           </div>
                         </div>
 
-                        <div>
-                          <label htmlFor="purchase-address" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Dirección
-                          </label>
-                          <Input
-                            id="purchase-address"
-                            value={purchaseForm.address}
-                            onChange={(e) => handlePurchaseChange("address", e.target.value)}
-                            placeholder="Calle, número, ciudad y código postal"
-                            className="bg-white"
-                            required
-                          />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="purchase-address-street" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Calle
+                            </label>
+                            <Input
+                              id="purchase-address-street"
+                              value={purchaseForm.addressStreet}
+                              onChange={(e) => handlePurchaseChange("addressStreet", e.target.value)}
+                              placeholder="Calle"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="purchase-address-number" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Nº
+                            </label>
+                            <Input
+                              id="purchase-address-number"
+                              value={purchaseForm.addressNumber}
+                              onChange={(e) => handlePurchaseChange("addressNumber", e.target.value)}
+                              placeholder="12, 3ºA…"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="purchase-address-postal" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Código postal
+                            </label>
+                            <Input
+                              id="purchase-address-postal"
+                              value={purchaseForm.addressPostalCode}
+                              onChange={(e) => handlePurchaseChange("addressPostalCode", e.target.value)}
+                              placeholder="08221"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="purchase-address-city" className="mb-1.5 block text-sm font-medium text-slate-700">
+                              Población
+                            </label>
+                            <Input
+                              id="purchase-address-city"
+                              value={purchaseForm.addressCity}
+                              onChange={(e) => handlePurchaseChange("addressCity", e.target.value)}
+                              placeholder="Terrassa"
+                              className="bg-white"
+                              required
+                            />
+                          </div>
                         </div>
 
                         <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">

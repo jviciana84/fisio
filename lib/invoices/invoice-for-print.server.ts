@@ -5,6 +5,10 @@ export type InvoiceClientForPrint = {
   full_name: string | null;
   tax_id: string | null;
   address: string | null;
+  address_street: string | null;
+  address_number: string | null;
+  address_postal_code: string | null;
+  address_city: string | null;
   email: string | null;
   phone: string | null;
   client_code: string | null;
@@ -54,7 +58,7 @@ export async function getInvoiceForPrint(
       .select(
         [
           "id, invoice_number, issue_date, payment_method, subtotal_cents, total_cents, notes",
-          "clients(full_name, tax_id, address, email, phone, client_code)",
+          "clients(full_name, tax_id, address, address_street, address_number, address_postal_code, address_city, email, phone, client_code)",
         ].join(","),
       )
       .eq("id", id)

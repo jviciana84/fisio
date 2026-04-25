@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { Save, UserPlus, X } from "lucide-react";
 import {
   type ChartRange,
   RANGE_LABELS,
@@ -139,18 +139,32 @@ export function ClientsOverviewPage() {
   const [markingRgpdId, setMarkingRgpdId] = useState<string | null>(null);
 
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const [ccName, setCcName] = useState("");
+  const [ccFirstName, setCcFirstName] = useState("");
+  const [ccLastName, setCcLastName] = useState("");
   const [ccEmail, setCcEmail] = useState("");
   const [ccPhone, setCcPhone] = useState("");
   const [ccNotes, setCcNotes] = useState("");
+  const [ccWantsInvoice, setCcWantsInvoice] = useState(false);
+  const [ccTaxId, setCcTaxId] = useState("");
+  const [ccStreet, setCcStreet] = useState("");
+  const [ccStreetNumber, setCcStreetNumber] = useState("");
+  const [ccPostalCode, setCcPostalCode] = useState("");
+  const [ccCity, setCcCity] = useState("");
   const [ccSaving, setCcSaving] = useState(false);
 
   const openCreateClientModal = () => {
     setMessage(null);
-    setCcName("");
+    setCcFirstName("");
+    setCcLastName("");
     setCcEmail("");
     setCcPhone("");
     setCcNotes("");
+    setCcWantsInvoice(false);
+    setCcTaxId("");
+    setCcStreet("");
+    setCcStreetNumber("");
+    setCcPostalCode("");
+    setCcCity("");
     setCreateClientOpen(true);
   };
 
@@ -322,8 +336,25 @@ export function ClientsOverviewPage() {
 
   async function submitCreateClient(e: FormEvent) {
     e.preventDefault();
-    const name = ccName.trim();
-    if (name.length < 2) return;
+    const firstName = ccFirstName.trim();
+    const lastName = ccLastName.trim();
+    if (firstName.length < 2 || lastName.length < 2) return;
+    const street = ccStreet.trim();
+    const streetNumber = ccStreetNumber.trim();
+    const postalCode = ccPostalCode.trim();
+    const city = ccCity.trim();
+    const taxId = ccTaxId.trim();
+    if (ccWantsInvoice && (!taxId || !street || !streetNumber || !postalCode || !city)) {
+      setMessage({
+        type: "err",
+        text: "Si el cliente solicita factura, completa NIF/CIF, calle, nº, código postal y población.",
+      });
+      return;
+    }
+    const address =
+      street || streetNumber || postalCode || city
+        ? `${street}${streetNumber ? ` ${streetNumber}` : ""}${postalCode || city ? ", " : ""}${postalCode}${postalCode && city ? " " : ""}${city}`
+        : undefined;
     setCcSaving(true);
     setMessage(null);
     try {
@@ -333,9 +364,17 @@ export function ClientsOverviewPage() {
         credentials: "same-origin",
         body: JSON.stringify({
           fullName: name,
+          firstName,
+          lastName,
           email: ccEmail.trim() || undefined,
           phone: ccPhone.trim() || undefined,
           notes: ccNotes.trim() || undefined,
+          taxId: taxId || undefined,
+          address,
+          addressStreet: street || undefined,
+          addressNumber: streetNumber || undefined,
+          addressPostalCode: postalCode || undefined,
+          addressCity: city || undefined,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; id?: string; message?: string };
@@ -544,9 +583,12 @@ export function ClientsOverviewPage() {
                   <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Nuevos clientes</h2>
                   <p className="mt-1 text-xs leading-snug text-slate-600">Registros nuevos en la base según el periodo.</p>
                 </div>
-                <span className="invisible shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1" aria-hidden>
-                  ·
-                </span>
+                <DashboardAddFabButton
+                  icon={UserPlus}
+                  label="Añadir cliente"
+                  onClick={openCreateClientModal}
+                  className="h-10 w-10 border-blue-200/80 bg-white/90 text-blue-700 shadow-sm hover:text-blue-800"
+                />
               </div>
             </div>
 
@@ -906,7 +948,8 @@ export function ClientsOverviewPage() {
               )}
             </ul>
             <div className="border-t border-slate-200 px-5 py-3 text-right">
-              <Button type="button" variant="outline" size="sm" onClick={() => setPendingModalOpen(false)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setPendingModalOpen(false)} className="inline-flex items-center gap-1.5">
+                <X className="h-4 w-4" aria-hidden />
                 Cerrar
               </Button>
             </div>
@@ -978,7 +1021,8 @@ export function ClientsOverviewPage() {
               >
                 {markingId === detailLead.id ? "Guardando…" : "Marcar como llamado"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setDetailLead(null)}>
+              <Button type="button" variant="outline" onClick={() => setDetailLead(null)} className="inline-flex items-center gap-1.5">
+                <X className="h-4 w-4" aria-hidden />
                 Cerrar
               </Button>
             </div>
@@ -1036,7 +1080,8 @@ export function ClientsOverviewPage() {
               )}
             </ul>
             <div className="border-t border-slate-200 px-5 py-3 text-right">
-              <Button type="button" variant="outline" size="sm" onClick={() => setRgpdModalOpen(false)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setRgpdModalOpen(false)} className="inline-flex items-center gap-1.5">
+                <X className="h-4 w-4" aria-hidden />
                 Cerrar
               </Button>
             </div>
@@ -1094,7 +1139,9 @@ export function ClientsOverviewPage() {
                 variant="gradient"
                 disabled={markingRgpdId === detailRgpd.id}
                 onClick={() => void markRgpdConsent(detailRgpd)}
+                className="inline-flex items-center gap-1.5"
               >
+                <Save className="h-4 w-4" aria-hidden />
                 {markingRgpdId === detailRgpd.id ? "Guardando…" : "Registrar consentimiento"}
               </Button>
               <Button
@@ -1104,7 +1151,9 @@ export function ClientsOverviewPage() {
                   setDetailRgpd(null);
                   setRgpdVersionDraft("");
                 }}
+                className="inline-flex items-center gap-1.5"
               >
+                <X className="h-4 w-4" aria-hidden />
                 Cerrar
               </Button>
             </div>
@@ -1119,28 +1168,41 @@ export function ClientsOverviewPage() {
           aria-modal="true"
           aria-labelledby="create-client-title"
         >
-          <div className="max-h-[min(90vh,36rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
             <h3 id="create-client-title" className="text-lg font-semibold text-slate-900">
               Nuevo cliente
             </h3>
             <p className="mt-1 text-sm text-slate-600">Datos básicos; luego podrás completar la ficha (bono, RGPD, etc.).</p>
-            <form onSubmit={(e) => void submitCreateClient(e)} className="mt-5 space-y-4">
+            <form onSubmit={(e) => void submitCreateClient(e)} className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="cc-name" className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Nombre completo
+                <label htmlFor="cc-first-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Nombre
                 </label>
                 <input
-                  id="cc-name"
-                  value={ccName}
-                  onChange={(e) => setCcName(e.target.value)}
+                  id="cc-first-name"
+                  value={ccFirstName}
+                  onChange={(e) => setCcFirstName(e.target.value)}
                   className={DASHBOARD_INPUT_CLASS_FORM}
                   required
                   minLength={2}
-                  autoComplete="name"
+                  autoComplete="given-name"
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
+              <div>
+                <label htmlFor="cc-last-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Apellidos
+                </label>
+                <input
+                  id="cc-last-name"
+                  value={ccLastName}
+                  onChange={(e) => setCcLastName(e.target.value)}
+                  className={DASHBOARD_INPUT_CLASS_FORM}
+                  required
+                  minLength={2}
+                  autoComplete="family-name"
+                />
+              </div>
+              <div>
                   <label htmlFor="cc-email" className="mb-1.5 block text-sm font-medium text-slate-700">
                     Email <span className="font-normal text-slate-500">(opcional)</span>
                   </label>
@@ -1155,7 +1217,7 @@ export function ClientsOverviewPage() {
                 </div>
                 <div>
                   <label htmlFor="cc-phone" className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Teléfono <span className="font-normal text-slate-500">(opcional)</span>
+                    Teléfono
                   </label>
                   <input
                     id="cc-phone"
@@ -1164,10 +1226,83 @@ export function ClientsOverviewPage() {
                     onChange={(e) => setCcPhone(e.target.value)}
                     className={DASHBOARD_INPUT_CLASS_FORM}
                     autoComplete="tel"
+                    required
                   />
                 </div>
-              </div>
-              <div>
+              <label className="sm:col-span-2 flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={ccWantsInvoice}
+                  onChange={(e) => setCcWantsInvoice(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                />
+                Este cliente solicita factura
+              </label>
+              {ccWantsInvoice ? (
+                <>
+                  <div>
+                    <label htmlFor="cc-tax-id" className="mb-1.5 block text-sm font-medium text-slate-700">
+                      NIF/CIF (obligatorio)
+                    </label>
+                    <input
+                      id="cc-tax-id"
+                      value={ccTaxId}
+                      onChange={(e) => setCcTaxId(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="cc-street" className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Calle (obligatorio)
+                    </label>
+                    <input
+                      id="cc-street"
+                      value={ccStreet}
+                      onChange={(e) => setCcStreet(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                      autoComplete="street-address"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="cc-street-number" className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Nº (obligatorio)
+                    </label>
+                    <input
+                      id="cc-street-number"
+                      value={ccStreetNumber}
+                      onChange={(e) => setCcStreetNumber(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                      autoComplete="address-line2"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="cc-postal" className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Código postal (obligatorio)
+                    </label>
+                    <input
+                      id="cc-postal"
+                      value={ccPostalCode}
+                      onChange={(e) => setCcPostalCode(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                      autoComplete="postal-code"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="cc-city" className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Población (obligatorio)
+                    </label>
+                    <input
+                      id="cc-city"
+                      value={ccCity}
+                      onChange={(e) => setCcCity(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                      autoComplete="address-level2"
+                    />
+                  </div>
+                </>
+              ) : null}
+              <div className="sm:col-span-2">
                 <label htmlFor="cc-notes" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Notas <span className="font-normal text-slate-500">(opcional)</span>
                 </label>
@@ -1175,16 +1310,22 @@ export function ClientsOverviewPage() {
                   id="cc-notes"
                   value={ccNotes}
                   onChange={(e) => setCcNotes(e.target.value)}
-                  rows={3}
+                  rows={2}
                   className={`${DASHBOARD_INPUT_CLASS_FORM} resize-y`}
                   autoComplete="off"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setCreateClientOpen(false)} disabled={ccSaving}>
+              <div className="sm:col-span-2 flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" size="sm" onClick={() => setCreateClientOpen(false)} disabled={ccSaving} className="inline-flex items-center gap-1.5">
+                  <X className="h-4 w-4" aria-hidden />
                   Cancelar
                 </Button>
-                <Button type="submit" variant="gradient" size="sm" disabled={ccSaving || ccName.trim().length < 2}>
+                <Button
+                  type="submit"
+                  variant="gradient"
+                  size="sm"
+                  disabled={ccSaving || ccFirstName.trim().length < 2 || ccLastName.trim().length < 2 || ccPhone.trim().length < 1}
+                >
                   {ccSaving ? "Guardando…" : "Crear cliente"}
                 </Button>
               </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, Save } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
 import { formatEuroEsWhole } from "@/lib/format-es";
@@ -20,6 +21,9 @@ type Sim = {
   realTotalEuros: number;
   officialSalesEuros: number;
   ivaToPayEuros: number;
+  ivaOutputEuros: number;
+  ivaInputEuros: number;
+  ivaNetEuros: number;
   irpfEuros: number;
   model115Euros: number;
   totalTaxesEuros: number;
@@ -38,6 +42,9 @@ type Settings = {
   salesVatRatePercent: number;
   useVatOnSales: boolean;
   expenseVatRecoverablePercent: number;
+  employeeIrpfRetentionPercent: number;
+  employeeSocialSecurityPercent: number;
+  employerSocialSecurityPercent: number;
 };
 
 type QuarterRow = {
@@ -66,6 +73,37 @@ type YearProgress = {
   };
 };
 
+type PayrollPreview = {
+  assumptions: {
+    employeeIrpfRetentionPercent: number;
+    employeeSocialSecurityPercent: number;
+    employerSocialSecurityPercent: number;
+  };
+  salariedProfiles: Array<{
+    name: string;
+    annualGrossEuros: number;
+    monthlyEquivalentEuros: number;
+  }>;
+  totals: {
+    salariedCount: number;
+    annualGrossEuros: number;
+    monthlyEquivalentEuros: number;
+    quarterGrossEuros: number;
+    quarterNetPayrollEuros: number;
+    quarterEmployerCostEuros: number;
+    quarterEmployeeIrpfRetentionEuros: number;
+    quarterEmployeeSocialSecurityEuros: number;
+    quarterEmployerSocialSecurityEuros: number;
+    model111QuarterEuros: number;
+    model190YearEuros: number;
+  };
+};
+
+type ModelWarning = {
+  model: "303" | "130" | "115" | "111" | "190";
+  message: string;
+};
+
 export function FiscalSimulatorClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -76,6 +114,8 @@ export function FiscalSimulatorClient() {
   const [calendarYear, setCalendarYear] = useState<number | null>(null);
   const [currentQuarter, setCurrentQuarter] = useState<number | null>(null);
   const [yearProgress, setYearProgress] = useState<YearProgress | null>(null);
+  const [payrollPreview, setPayrollPreview] = useState<PayrollPreview | null>(null);
+  const [modelWarnings, setModelWarnings] = useState<ModelWarning[]>([]);
 
   const [sliderPct, setSliderPct] = useState([60]);
   const [saving, setSaving] = useState(false);
@@ -95,6 +135,8 @@ export function FiscalSimulatorClient() {
         calendarYear?: number;
         currentQuarter?: number;
         yearProgress?: YearProgress;
+        payrollPreview?: PayrollPreview;
+        modelWarnings?: ModelWarning[];
       };
       if (!res.ok || !data.ok) {
         setErr(data.message ?? "No se pudo cargar el simulador");
@@ -107,6 +149,8 @@ export function FiscalSimulatorClient() {
       setCalendarYear(data.calendarYear ?? null);
       setCurrentQuarter(data.currentQuarter ?? null);
       setYearProgress(data.yearProgress ?? null);
+      setPayrollPreview(data.payrollPreview ?? null);
+      setModelWarnings(data.modelWarnings ?? []);
       if (data.settings?.declareCashPercent != null) {
         setSliderPct([data.settings.declareCashPercent]);
       }
@@ -154,6 +198,42 @@ export function FiscalSimulatorClient() {
     }
     return m;
   }, [yearProgress]);
+
+  const warningByModel = useMemo(() => {
+    const map = new Map<ModelWarning["model"], string>();
+    for (const w of modelWarnings) {
+      if (!map.has(w.model)) map.set(w.model, w.message);
+    }
+    return map;
+  }, [modelWarnings]);
+
+  const modelDescriptions: Array<{ model: ModelWarning["model"]; title: string; description: string }> = [
+    {
+      model: "303",
+      title: "Modelo 303",
+      description: "Declaración trimestral de IVA repercutido menos IVA soportado deducible.",
+    },
+    {
+      model: "130",
+      title: "Modelo 130",
+      description: "Pago fraccionado trimestral de IRPF sobre el beneficio estimado de la actividad.",
+    },
+    {
+      model: "115",
+      title: "Modelo 115",
+      description: "Ingreso trimestral de retenciones practicadas por alquiler de local de negocio.",
+    },
+    {
+      model: "111",
+      title: "Modelo 111",
+      description: "Ingreso trimestral de retenciones de IRPF practicadas en nóminas.",
+    },
+    {
+      model: "190",
+      title: "Modelo 190",
+      description: "Resumen anual informativo de retenciones de trabajo declaradas en los 111.",
+    },
+  ];
 
   if (loading && !sim) {
     return (
@@ -229,14 +309,173 @@ export function FiscalSimulatorClient() {
                 <span className="font-semibold text-emerald-700">{formatEuroEsWhole(sim.netAfterTaxesEuros)}</span>
               </p>
               <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
-                <li>IVA (modelo 303 aprox.): {formatEuroEsWhole(sim.ivaToPayEuros)}</li>
+                <li>
+                  IVA (modelo 303 aprox.): {formatEuroEsWhole(sim.ivaToPayEuros)}{" "}
+                  <span className="text-slate-500">
+                    ({formatEuroEsWhole(sim.ivaOutputEuros)} - {formatEuroEsWhole(sim.ivaInputEuros)} ={" "}
+                    {formatEuroEsWhole(sim.ivaNetEuros)})
+                  </span>
+                </li>
                 <li>IRPF fraccionado (20% sobre beneficio estimado): {formatEuroEsWhole(sim.irpfEuros)}</li>
                 <li>Retención alquiler (modelo 115, si aplica): {formatEuroEsWhole(sim.model115Euros)}</li>
                 <li>Efectivo no declarado en simulación: {formatEuroEsWhole(sim.cashPocketEuros)}</li>
               </ul>
+              {sim.ivaNetEuros < 0 ? (
+                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  En este trimestre te sale IVA a compensar ({formatEuroEsWhole(sim.ivaNetEuros)}). Por eso el 303
+                  mostrado queda en 0 en esta vista (solo pago, no saldo a compensar).
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>
+
+        <section className="glass-panel glass-tint-slate p-5 md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Qué es cada modelo</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {modelDescriptions.map((m) => {
+              const warning = warningByModel.get(m.model);
+              return (
+                <div key={m.model} className="glass-inner border border-slate-200/70 bg-white/65 p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    {m.title}
+                    {warning ? (
+                      <span
+                        title={warning}
+                        className="inline-flex cursor-help items-center text-amber-600"
+                        aria-label={`Aviso ${m.title}`}
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">{m.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {payrollPreview ? (
+          <section className="glass-panel glass-tint-emerald p-6 md:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                  Nóminas y modelos de asalariados
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                  Impacto de perfiles marcados como asalariados
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                  Cálculo orientativo con tus perfiles activos salaried. El coste empresa trimestral se incluye como
+                  gasto deducible en el IRPF del simulador.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Base salarial usada: bruto anual de cada asalariado (prorrateado a trimestre y mes equivalente).
+                </p>
+              </div>
+              <div className="glass-inner border border-emerald-200/60 bg-white/70 px-4 py-3 text-sm">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Perfiles asalariados activos</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-700">{payrollPreview.totals.salariedCount}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="glass-inner border border-cyan-200/60 bg-cyan-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800">Suma nóminas bruto</p>
+                <p className="mt-2 text-xl font-bold text-cyan-900">
+                  {formatEuroEsWhole(payrollPreview.totals.quarterGrossEuros)}
+                </p>
+                <p className="mt-1 text-xs text-cyan-900/80">
+                  {formatEuroEsWhole(payrollPreview.totals.annualGrossEuros)} al año ·{" "}
+                  {formatEuroEsWhole(payrollPreview.totals.monthlyEquivalentEuros)} mes equivalente
+                </p>
+              </div>
+              <div className="glass-inner border border-violet-200/60 bg-violet-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-800">+ SS empresa</p>
+                <p className="mt-2 text-xl font-bold text-violet-900">
+                  +{formatEuroEsWhole(payrollPreview.totals.quarterEmployerSocialSecurityEuros)}
+                </p>
+                <p className="mt-1 text-xs text-violet-900/80">
+                  {payrollPreview.assumptions.employerSocialSecurityPercent}% sobre bruto
+                </p>
+              </div>
+              <div className="glass-inner border border-emerald-200/60 bg-emerald-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">= Coste empresa trim.</p>
+                <p className="mt-2 text-xl font-bold text-emerald-900">
+                  {formatEuroEsWhole(payrollPreview.totals.quarterEmployerCostEuros)}
+                </p>
+                <p className="mt-1 text-xs text-emerald-900/80">Se descuenta como gasto en IRPF</p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="glass-inner border border-amber-200/60 bg-amber-50/70 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Modelo 111 (trimestral)</p>
+                <p className="mt-2 text-2xl font-bold text-amber-900">
+                  {formatEuroEsWhole(payrollPreview.totals.model111QuarterEuros)}
+                </p>
+                <p className="mt-1 text-xs text-amber-900/85">
+                  Retención IRPF de nómina ({payrollPreview.assumptions.employeeIrpfRetentionPercent}% estimado)
+                </p>
+              </div>
+              <div className="glass-inner border border-fuchsia-200/60 bg-fuchsia-50/70 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-fuchsia-800">Modelo 190 (anual)</p>
+                <p className="mt-2 text-2xl font-bold text-fuchsia-900">
+                  {formatEuroEsWhole(payrollPreview.totals.model190YearEuros)}
+                </p>
+                <p className="mt-1 text-xs text-fuchsia-900/85">Resumen anual de retenciones de trabajo</p>
+              </div>
+            </div>
+
+            <div className="glass-inner mt-6 overflow-x-auto rounded-lg border border-slate-200/60 bg-white/55">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50/90 text-xs uppercase tracking-wide text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3">Perfil asalariado</th>
+                    <th className="px-4 py-3 text-right">Bruto anual</th>
+                    <th className="px-4 py-3 text-right">Equivalente mensual</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {payrollPreview.salariedProfiles.map((p) => (
+                    <tr key={p.name} className="text-slate-800">
+                      <td className="px-4 py-3 font-medium">{p.name}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        {formatEuroEsWhole(p.annualGrossEuros)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        {formatEuroEsWhole(p.monthlyEquivalentEuros)}
+                      </td>
+                    </tr>
+                  ))}
+                  {payrollPreview.salariedProfiles.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-3 text-slate-500" colSpan={3}>
+                        No hay perfiles asalariados activos.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
+              <span>
+                SS trabajador estimada ({payrollPreview.assumptions.employeeSocialSecurityPercent}%):{" "}
+                <span className="font-semibold text-slate-800">
+                  {formatEuroEsWhole(payrollPreview.totals.quarterEmployeeSocialSecurityEuros)}
+                </span>
+              </span>
+              <span>
+                Neto nóminas trimestre (aprox.):{" "}
+                <span className="font-semibold text-slate-800">
+                  {formatEuroEsWhole(payrollPreview.totals.quarterNetPayrollEuros)}
+                </span>
+              </span>
+            </div>
+          </section>
+        ) : null}
 
         {sim?.liquidityAlert ? (
           <div
@@ -456,6 +695,9 @@ export function FiscalSimulatorClient() {
                       useVatOnSales: fd.get("vatSales") === "on",
                       salesVatRatePercent: Number(fd.get("vatRate")),
                       expenseVatRecoverablePercent: Number(fd.get("vatRec")),
+                      employeeIrpfRetentionPercent: Number(fd.get("empIrpf")),
+                      employeeSocialSecurityPercent: Number(fd.get("empSs")),
+                      employerSocialSecurityPercent: Number(fd.get("companySs")),
                     }),
                   });
                   if (res.ok) await load();
@@ -517,15 +759,52 @@ export function FiscalSimulatorClient() {
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
               />
             </label>
+            <label className="block text-sm">
+              <span className="font-medium text-slate-700">IRPF nómina trabajador (%)</span>
+              <input
+                name="empIrpf"
+                type="number"
+                min={0}
+                max={60}
+                step="0.01"
+                defaultValue={settings?.employeeIrpfRetentionPercent ?? 15}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-slate-700">SS trabajador (%)</span>
+              <input
+                name="empSs"
+                type="number"
+                min={0}
+                max={30}
+                step="0.01"
+                defaultValue={settings?.employeeSocialSecurityPercent ?? 6.35}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-slate-700">SS empresa (%)</span>
+              <input
+                name="companySs"
+                type="number"
+                min={0}
+                max={60}
+                step="0.01"
+                defaultValue={settings?.employerSocialSecurityPercent ?? 31.4}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+            </label>
             <div className="md:col-span-2">
               <button
                 type="submit"
                 disabled={saving}
                 className={cn(
-                  "rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700",
+                  "inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700",
                   saving && "opacity-60",
                 )}
               >
+                <Save className="h-4 w-4" aria-hidden />
                 Guardar ajustes y recalcular
               </button>
             </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { requireStaffOrAdminApi } from "@/lib/auth/require-admin";
+import { buildFullName, splitLegacyFullName, splitSurnameInput } from "@/lib/clients/name-parts";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -21,8 +22,9 @@ function isUnknownColumnError(err: PostgrestError): boolean {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const CLIENT_SELECT_VARIANTS = [
-  "id, client_code, full_name, email, phone, notes, created_at, is_active, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
-  "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
+  "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, is_active, tax_id, address, address_street, address_number, address_postal_code, address_city, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
+  "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, is_active, tax_id, address, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
+  "id, client_code, full_name, first_name, last_name_1, last_name_2, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version, bono_remaining_sessions, bono_expires_at",
   "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at, origen_cliente, rgpd_consent_at, rgpd_consent_version",
   "id, client_code, full_name, email, phone, notes, created_at, is_active, estado_pago, lead_contacted_at",
   "id, client_code, full_name, email, phone, notes, created_at, is_active",
@@ -32,6 +34,9 @@ type ClientDb = {
   id: string;
   client_code: string | null;
   full_name: string;
+  first_name?: string | null;
+  last_name_1?: string | null;
+  last_name_2?: string | null;
   email: string | null;
   phone: string | null;
   notes: string | null;
@@ -39,6 +44,10 @@ type ClientDb = {
   is_active: boolean | null;
   tax_id?: string | null;
   address?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_postal_code?: string | null;
+  address_city?: string | null;
   estado_pago?: string | null;
   lead_contacted_at?: string | null;
   origen_cliente?: string | null;
@@ -49,10 +58,16 @@ type ClientDb = {
 };
 
 function mapClient(c: ClientDb) {
+  const legacy = splitLegacyFullName(c.full_name);
   return {
     id: c.id,
     clientCode: c.client_code,
     fullName: c.full_name,
+    firstName: c.first_name ?? legacy.firstName,
+    lastName:
+      c.last_name_1 || c.last_name_2
+        ? [c.last_name_1 ?? "", c.last_name_2 ?? ""].join(" ").trim()
+        : legacy.lastName,
     email: c.email,
     phone: c.phone,
     notes: c.notes,
@@ -60,6 +75,10 @@ function mapClient(c: ClientDb) {
     isActive: c.is_active ?? true,
     taxId: c.tax_id ?? null,
     address: c.address ?? null,
+    addressStreet: c.address_street ?? null,
+    addressNumber: c.address_number ?? null,
+    addressPostalCode: c.address_postal_code ?? null,
+    addressCity: c.address_city ?? null,
     estadoPago: c.estado_pago ?? null,
     leadContactedAt: c.lead_contacted_at ?? null,
     origenCliente: c.origen_cliente ?? null,
@@ -93,7 +112,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (
       res.error &&
       !missingColumn(res.error, "tax_id") &&
+      !missingColumn(res.error, "first_name") &&
+      !missingColumn(res.error, "last_name_1") &&
+      !missingColumn(res.error, "last_name_2") &&
       !missingColumn(res.error, "address") &&
+      !missingColumn(res.error, "address_street") &&
+      !missingColumn(res.error, "address_number") &&
+      !missingColumn(res.error, "address_postal_code") &&
+      !missingColumn(res.error, "address_city") &&
       !missingColumn(res.error, "bono_remaining_sessions") &&
       !missingColumn(res.error, "origen_cliente") &&
       !missingColumn(res.error, "rgpd_consent_at") &&
@@ -195,12 +221,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 type PatchBody = {
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
   taxId?: string | null;
   address?: string | null;
+  addressStreet?: string | null;
+  addressNumber?: string | null;
+  addressPostalCode?: string | null;
+  addressCity?: string | null;
   estadoPago?: string | null;
   origenCliente?: string | null;
   leadContactedAt?: string | null;
@@ -226,9 +258,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, message: "JSON inválido" }, { status: 400 });
   }
 
-  const fullName = typeof body.fullName === "string" ? body.fullName.trim() : undefined;
-  if (fullName !== undefined && fullName.length === 0) {
-    return NextResponse.json({ ok: false, message: "El nombre no puede estar vacío" }, { status: 400 });
+  const firstNameRaw = typeof body.firstName === "string" ? body.firstName.trim() : undefined;
+  const lastNameRaw = typeof body.lastName === "string" ? body.lastName.trim() : undefined;
+  const fullNameRaw = typeof body.fullName === "string" ? body.fullName.trim() : undefined;
+  let fullName: string | undefined;
+  let first_name: string | undefined;
+  let last_name_1: string | undefined;
+  let last_name_2: string | null | undefined;
+  if (firstNameRaw !== undefined || lastNameRaw !== undefined || fullNameRaw !== undefined) {
+    const fallback = splitLegacyFullName(fullNameRaw ?? "");
+    const firstName = (firstNameRaw ?? fallback.firstName).trim();
+    const lastName = (lastNameRaw ?? fallback.lastName).trim();
+    if (!firstName || !lastName) {
+      return NextResponse.json({ ok: false, message: "Nombre y apellidos son obligatorios" }, { status: 400 });
+    }
+    const split = splitSurnameInput(lastName);
+    fullName = buildFullName(firstName, lastName);
+    first_name = firstName;
+    last_name_1 = split.lastName1;
+    last_name_2 = split.lastName2;
   }
 
   const email =
@@ -260,6 +308,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.address !== undefined) {
     const a = String(body.address ?? "").trim();
     address = a.length ? a.slice(0, 500) : null;
+  }
+
+  let address_street: string | null | undefined;
+  if (body.addressStreet !== undefined) {
+    const s = String(body.addressStreet ?? "").trim();
+    address_street = s.length ? s.slice(0, 200) : null;
+  }
+
+  let address_number: string | null | undefined;
+  if (body.addressNumber !== undefined) {
+    const s = String(body.addressNumber ?? "").trim();
+    address_number = s.length ? s.slice(0, 32) : null;
+  }
+
+  let address_postal_code: string | null | undefined;
+  if (body.addressPostalCode !== undefined) {
+    const s = String(body.addressPostalCode ?? "").trim();
+    address_postal_code = s.length ? s.slice(0, 16) : null;
+  }
+
+  let address_city: string | null | undefined;
+  if (body.addressCity !== undefined) {
+    const s = String(body.addressCity ?? "").trim();
+    address_city = s.length ? s.slice(0, 120) : null;
   }
 
   let estado_pago: string | undefined;
@@ -329,11 +401,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const patch: Record<string, unknown> = {};
   if (fullName !== undefined) patch.full_name = fullName;
+  if (first_name !== undefined) patch.first_name = first_name;
+  if (last_name_1 !== undefined) patch.last_name_1 = last_name_1;
+  if (last_name_2 !== undefined) patch.last_name_2 = last_name_2;
   if (email !== undefined) patch.email = email;
   if (phone !== undefined) patch.phone = phone;
   if (notes !== undefined) patch.notes = notes;
   if (tax_id !== undefined) patch.tax_id = tax_id;
   if (address !== undefined) patch.address = address;
+  if (address_street !== undefined) patch.address_street = address_street;
+  if (address_number !== undefined) patch.address_number = address_number;
+  if (address_postal_code !== undefined) patch.address_postal_code = address_postal_code;
+  if (address_city !== undefined) patch.address_city = address_city;
   if (estado_pago !== undefined) patch.estado_pago = estado_pago;
   if (origen_cliente !== undefined) patch.origen_cliente = origen_cliente;
   if (lead_contacted_at !== undefined) patch.lead_contacted_at = lead_contacted_at;
@@ -402,6 +481,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (msg.includes("address")) {
       delete payload.address;
+      delete payload.address_street;
+      delete payload.address_number;
+      delete payload.address_postal_code;
+      delete payload.address_city;
+      stripped = true;
+    }
+    if (msg.includes("first_name") || msg.includes("last_name_1") || msg.includes("last_name_2")) {
+      delete payload.first_name;
+      delete payload.last_name_1;
+      delete payload.last_name_2;
       stripped = true;
     }
     if (msg.includes("estado_pago")) {

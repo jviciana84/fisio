@@ -63,7 +63,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
   const [tariff2Kind, setTariff2Kind] = useState<"hourly" | "percentage">("percentage");
   const [tariff2Percent, setTariff2Percent] = useState("");
   const [compensationType, setCompensationType] = useState<StaffCompensationType>("self_employed");
-  const [monthlySalaryEuro, setMonthlySalaryEuro] = useState("");
+  const [annualSalaryEuro, setAnnualSalaryEuro] = useState("");
   const [loading, setLoading] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(
@@ -115,7 +115,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     if (phoneDigits.length < 9 || phoneDigits.length > 15) return false;
     if (!userCode || codeLoading) return false;
     if (compensationType === "salaried") {
-      const sc = parseEuroStringToCents(monthlySalaryEuro);
+      const sc = parseEuroStringToCents(annualSalaryEuro);
       if (sc === null || sc <= 0) return false;
     } else {
       const c1 = parseEuroToCents(tariff1Euro);
@@ -154,7 +154,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     publicProfile,
     publicBio,
     compensationType,
-    monthlySalaryEuro,
+    annualSalaryEuro,
   ]);
 
   function clearAvatar() {
@@ -202,7 +202,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       }
 
       fd.append("compensationType", compensationType);
-      fd.append("monthlySalary", monthlySalaryEuro.trim());
+      fd.append("monthlySalary", annualSalaryEuro.trim());
 
       if (compensationType === "self_employed") {
         const c1 = parseEuroToCents(tariff1Euro)!;
@@ -290,7 +290,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       setTariff2Kind("percentage");
       setTariff2Percent("");
       setCompensationType("self_employed");
-      setMonthlySalaryEuro("");
+      setAnnualSalaryEuro("");
       clearAvatar();
       await loadUserCode({ silent: true });
       onSuccess?.();
@@ -315,7 +315,7 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     showErr &&
     compensationType === "self_employed" &&
     (c1Parsed === null || c1Parsed <= 0);
-  const salaryParsed = parseEuroStringToCents(monthlySalaryEuro);
+  const salaryParsed = parseEuroStringToCents(annualSalaryEuro);
   const errMonthlySalary =
     showErr && compensationType === "salaried" && (salaryParsed === null || salaryParsed <= 0);
   const errBio = showErr && publicProfile && !publicBio.trim();
@@ -591,11 +591,11 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
 
       <div className="mb-3 border-b border-slate-100 pb-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {compensationType === "salaried" ? "Salario mensual" : "Tarifas autónomo"}
+          {compensationType === "salaried" ? "Salario bruto anual" : "Tarifas autónomo"}
         </p>
         <p className="mt-0.5 text-[10px] text-slate-600">
           {compensationType === "salaried"
-            ? "Bruto (referencia interna)"
+            ? "Bruto anual (referencia interna)"
             : "Primera tarifa €/h obligatoria. Segunda opcional: €/h o porcentaje sobre venta."}
         </p>
       </div>
@@ -610,11 +610,11 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
             type="text"
             inputMode="decimal"
             autoComplete="off"
-            value={monthlySalaryEuro}
-            onChange={(e) => setMonthlySalaryEuro(e.target.value)}
+            value={annualSalaryEuro}
+            onChange={(e) => setAnnualSalaryEuro(e.target.value)}
             className={cn(inputClass, "text-right tabular-nums", errMonthlySalary && errField)}
             placeholder="0,00"
-            aria-label="Salario mensual bruto en euros"
+            aria-label="Salario bruto anual en euros"
           />
         </div>
       ) : (

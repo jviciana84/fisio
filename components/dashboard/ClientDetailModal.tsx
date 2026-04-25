@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Save, X } from "lucide-react";
 import { DASHBOARD_INPUT_CLASS, DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -36,11 +37,17 @@ type ClientDetail = {
   id: string;
   clientCode: string | null;
   fullName: string;
+  firstName: string;
+  lastName: string;
   email: string | null;
   phone: string | null;
   notes: string | null;
   taxId: string | null;
   address: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressPostalCode: string | null;
+  addressCity: string | null;
   createdAt: string;
   isActive: boolean;
   estadoPago: string | null;
@@ -90,11 +97,15 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [addressPostalCode, setAddressPostalCode] = useState("");
+  const [addressCity, setAddressCity] = useState("");
   const [notes, setNotes] = useState("");
   const [origenCliente, setOrigenCliente] = useState<string>("");
   const [clearLeadContact, setClearLeadContact] = useState(false);
@@ -139,11 +150,15 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
         rgpdConsentAt: c.rgpdConsentAt,
         rgpdConsentVersion: c.rgpdConsentVersion,
       });
-      setFullName(c.fullName);
+      setFirstName(c.firstName ?? "");
+      setLastName(c.lastName ?? "");
       setTaxId(c.taxId ?? "");
       setEmail(c.email ?? "");
       setPhone(c.phone ?? "");
-      setAddress(c.address ?? "");
+      setAddressStreet(c.addressStreet ?? "");
+      setAddressNumber(c.addressNumber ?? "");
+      setAddressPostalCode(c.addressPostalCode ?? "");
+      setAddressCity(c.addressCity ?? "");
       setNotes(c.notes ?? "");
       setOrigenCliente(c.origenCliente ?? "");
       setClearLeadContact(false);
@@ -173,8 +188,8 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
     !bonoCaducadoPorFecha(bonoExpires.trim() || null);
 
   async function handleSave() {
-    if (!fullName.trim()) {
-      setErr("El nombre es obligatorio");
+    if (!firstName.trim() || !lastName.trim()) {
+      setErr("Nombre y apellidos son obligatorios");
       return;
     }
     setSaving(true);
@@ -182,11 +197,20 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
     setOkMsg(null);
     try {
       const body: Record<string, unknown> = {
-        fullName: fullName.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         taxId: taxId.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
-        address: address.trim() || null,
+        addressStreet: addressStreet.trim() || null,
+        addressNumber: addressNumber.trim() || null,
+        addressPostalCode: addressPostalCode.trim() || null,
+        addressCity: addressCity.trim() || null,
+        address:
+          `${addressStreet.trim()}${addressNumber.trim() ? ` ${addressNumber.trim()}` : ""}${
+            addressPostalCode.trim() || addressCity.trim() ? ", " : ""
+          }${addressPostalCode.trim()}${addressPostalCode.trim() && addressCity.trim() ? " " : ""}${addressCity.trim()}`.trim() ||
+          null,
         notes: notes.trim() || null,
         origenCliente: origenCliente === "" ? null : origenCliente,
       };
@@ -243,17 +267,17 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
       onClick={onClose}
     >
       <div
-        className="max-h-[min(92vh,820px)] w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+        className="w-full max-w-7xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex max-h-[min(92vh,820px)] flex-col">
+        <div className="flex flex-col">
           <div className="shrink-0 border-b border-slate-200 px-3 py-2 sm:px-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">Ficha de cliente</p>
                 <h2 id="client-detail-title" className="truncate text-base font-semibold text-slate-900 sm:text-lg">
-                  {loading ? "Cargando…" : fullName || "Cliente"}
+                  {loading ? "Cargando…" : `${firstName} ${lastName}`.trim() || "Cliente"}
                 </h2>
                 {meta?.clientCode ? (
                   <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">Código {meta.clientCode}</p>
@@ -262,8 +286,9 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:text-sm"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:text-sm"
               >
+                <X className="h-3.5 w-3.5" aria-hidden />
                 Cerrar
               </button>
             </div>
@@ -271,11 +296,11 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
 
           <div
             ref={bodyScrollRef}
-            className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-3 py-2 sm:px-4"
+            className="min-h-0 flex-1 bg-slate-50/70 px-3 py-2 sm:px-4"
           >
             {loading ? (
               <p className="py-6 text-center text-xs text-slate-500">Cargando datos…</p>
-            ) : err && !fullName ? (
+            ) : err && !firstName ? (
               <p className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">{err}</p>
             ) : (
               <div className="space-y-3">
@@ -286,8 +311,12 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                       <h3 className={MODAL_CARD_HEADING}>Contacto</h3>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         <div>
-                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Nombre completo</label>
-                          <input className={inputClass} value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Nombre</label>
+                          <input className={inputClass} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Apellidos</label>
+                          <input className={inputClass} value={lastName} onChange={(e) => setLastName(e.target.value)} />
                         </div>
                         <div>
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">NIF / CIF</label>
@@ -313,14 +342,40 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                           <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Teléfono</label>
                           <input type="tel" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
                         </div>
-                        <div className="sm:col-span-2">
-                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Dirección</label>
-                          <textarea
-                            className={cn(inputClassComfort, "min-h-[3.25rem] resize-y py-1.5 text-xs")}
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            rows={2}
-                            placeholder="Calle, número, CP, ciudad…"
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Calle</label>
+                          <input
+                            className={inputClass}
+                            value={addressStreet}
+                            onChange={(e) => setAddressStreet(e.target.value)}
+                            autoComplete="street-address"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Nº</label>
+                          <input
+                            className={inputClass}
+                            value={addressNumber}
+                            onChange={(e) => setAddressNumber(e.target.value)}
+                            autoComplete="address-line2"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Código postal</label>
+                          <input
+                            className={inputClass}
+                            value={addressPostalCode}
+                            onChange={(e) => setAddressPostalCode(e.target.value)}
+                            autoComplete="postal-code"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[11px] font-medium text-slate-600">Población</label>
+                          <input
+                            className={inputClass}
+                            value={addressCity}
+                            onChange={(e) => setAddressCity(e.target.value)}
+                            autoComplete="address-level2"
                           />
                         </div>
                         <div>
@@ -488,21 +543,23 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
           </div>
 
           <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 py-2 sm:px-4">
-            {!loading && err && fullName.trim() ? (
+            {!loading && err && firstName.trim() ? (
               <p className="mb-2 rounded-lg border border-rose-300 bg-rose-100 px-2.5 py-1.5 text-xs font-medium text-rose-900">
                 {err}
               </p>
             ) : null}
-            {!loading && okMsg && fullName.trim() ? (
+            {!loading && okMsg && firstName.trim() ? (
               <p className="mb-2 rounded-lg border border-blue-300 bg-blue-100 px-2.5 py-1.5 text-xs font-medium text-blue-900">
                 {okMsg}
               </p>
             ) : null}
             <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="inline-flex items-center gap-1.5">
+                <X className="h-4 w-4" aria-hidden />
                 Cerrar
               </Button>
-              <Button type="button" variant="gradient" onClick={() => void handleSave()} disabled={saving || loading}>
+              <Button type="button" variant="gradient" onClick={() => void handleSave()} disabled={saving || loading} className="inline-flex items-center gap-1.5">
+                <Save className="h-4 w-4" aria-hidden />
                 {saving ? "Guardando…" : "Guardar cambios"}
               </Button>
             </div>

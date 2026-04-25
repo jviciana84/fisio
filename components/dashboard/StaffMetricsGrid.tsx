@@ -63,8 +63,8 @@ type DraftState = {
   public_specialty: string;
   public_bio: string;
   compensation_type: StaffCompensationType;
-  /** Texto € para salario mensual (solo asalariado). */
-  monthlySalaryEuro: string;
+  /** Texto € para salario bruto anual (solo asalariado). */
+  annualSalaryEuro: string;
   tariffs: HourlyTariffSlot[];
 };
 
@@ -81,7 +81,7 @@ function draftFromRow(row: StaffGridRow): DraftState {
     public_specialty: row.public_specialty ?? "",
     public_bio: row.public_bio ?? "",
     compensation_type: ct,
-    monthlySalaryEuro:
+    annualSalaryEuro:
       cents != null && cents > 0 ? formatEurosFieldFromNumber(cents / 100) : "",
     tariffs: padHourlyTariffs(row.hourly_tariffs),
   };
@@ -179,9 +179,9 @@ export function StaffMetricsGrid({
   async function handleSave() {
     if (!expandedId || !formDraft) return;
     if (formDraft.compensation_type === "salaried") {
-      const sc = parseEuroStringToCents(formDraft.monthlySalaryEuro);
+      const sc = parseEuroStringToCents(formDraft.annualSalaryEuro);
       if (sc === null || sc <= 0) {
-        setMsg("Indica un salario mensual bruto válido.");
+        setMsg("Indica un salario bruto anual válido.");
         return;
       }
     }
@@ -197,7 +197,7 @@ export function StaffMetricsGrid({
       fd.append("publicBio", formDraft.public_bio);
       fd.append("role", formDraft.role);
       fd.append("compensationType", formDraft.compensation_type);
-      fd.append("monthlySalary", formDraft.monthlySalaryEuro.trim());
+      fd.append("monthlySalary", formDraft.annualSalaryEuro.trim());
       if (formDraft.newPin.trim()) {
         fd.append("newPin", formDraft.newPin.trim());
       }
@@ -298,7 +298,11 @@ export function StaffMetricsGrid({
                   Total vendido: {formatEuroEsWhole(s.totalSalesEuros)}
                 </p>
                 <p className="mt-1 text-[10px] text-slate-500">{metricsPeriodLabel}</p>
-                <p className="mt-2 text-[10px] text-slate-400">Pulsa para ficha y tarifas / h</p>
+                <p className="mt-2 text-[10px] text-slate-400">
+                  {normalizeCompensationType(s.compensation_type) === "salaried"
+                    ? `Asalariado · ${formatEuroEsWhole((s.monthly_salary_cents ?? 0) / 100)} bruto/año`
+                    : "Autónomo · tarifas / h"}
+                </p>
               </button>
             ) : isOpen && expandedRow && formDraft ? (
               <div
@@ -673,12 +677,12 @@ export function StaffMetricsGrid({
                       <div className="min-h-[2.75rem] border-b border-slate-200 pb-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                           {formDraft.compensation_type === "salaried"
-                            ? "Salario mensual"
+                            ? "Salario bruto anual"
                             : "Tarifas autónomo"}
                         </p>
                         <p className="mt-0.5 text-[10px] leading-tight text-slate-600">
                           {formDraft.compensation_type === "salaried"
-                            ? "Bruto (referencia interna)"
+                            ? "Bruto anual (referencia interna)"
                             : `Hasta ${STAFF_HOURLY_TARIFF_SLOTS} conceptos: columna izquierda % sobre venta, derecha €/h (3 filas cada una).`}
                         </p>
                       </div>
@@ -694,8 +698,8 @@ export function StaffMetricsGrid({
                             autoComplete="off"
                             className={cn(inputCls, "text-right tabular-nums")}
                             placeholder="0,00"
-                            aria-label="Salario mensual bruto en euros"
-                            value={formDraft.monthlySalaryEuro}
+                            aria-label="Salario bruto anual en euros"
+                            value={formDraft.annualSalaryEuro}
                             onChange={(e) => {
                               let raw = e.target.value.replace(/[^\d.,\s]/g, "").replace(/\s/g, "");
                               const ci = raw.indexOf(",");
@@ -705,7 +709,7 @@ export function StaffMetricsGrid({
                               setDraft((d) => {
                                 const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
                                 if (!base) return d;
-                                return { ...base, monthlySalaryEuro: raw };
+                                return { ...base, annualSalaryEuro: raw };
                               });
                             }}
                           />

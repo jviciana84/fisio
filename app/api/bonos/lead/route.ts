@@ -14,6 +14,10 @@ type Body = {
   email?: string;
   phone?: string;
   address?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressPostalCode?: string;
+  addressCity?: string;
   bonoSessions?: number;
   bonoPrice?: number;
   paymentMethod?: "bizum" | "paypal";
@@ -32,6 +36,11 @@ type RowPack = {
   email: string;
   phone: string;
   mergedNotes: string;
+  address: string;
+  addressStreet: string;
+  addressNumber: string;
+  addressPostalCode: string;
+  addressCity: string;
 };
 
 /** Variantes de actualización/inserción: primero con columnas nuevas (origen, lead), luego fallback sin columna opcional. */
@@ -40,13 +49,33 @@ function buildUpdateVariants(
   opts: { requireSig: boolean; sigRaw: string | null; includeOrigen: boolean },
 ): Record<string, unknown>[] {
   const { fullName, email, phone, mergedNotes } = pack;
+  const { address, addressStreet, addressNumber, addressPostalCode, addressCity } = pack;
   const { requireSig, sigRaw, includeOrigen } = opts;
   const origen = includeOrigen ? ({ origen_cliente: "internet" } as const) : {};
+  const addressSplit = {
+    address,
+    address_street: addressStreet,
+    address_number: addressNumber,
+    address_postal_code: addressPostalCode,
+    address_city: addressCity,
+  };
+  const addressLegacy = { address };
 
   const rowWithEstadoNoSig = {
     full_name: fullName,
     email,
     phone,
+    ...addressSplit,
+    notes: mergedNotes,
+    estado_pago: "pendiente_contacto" as const,
+    lead_contacted_at: null as null,
+    ...origen,
+  };
+  const rowWithEstadoNoSigLegacy = {
+    full_name: fullName,
+    email,
+    phone,
+    ...addressLegacy,
     notes: mergedNotes,
     estado_pago: "pendiente_contacto" as const,
     lead_contacted_at: null as null,
@@ -57,6 +86,16 @@ function buildUpdateVariants(
     full_name: fullName,
     email,
     phone,
+    ...addressSplit,
+    notes: mergedNotes,
+    estado_pago: "pendiente_contacto" as const,
+    ...origen,
+  };
+  const rowWithEstadoNoSigNoLeadColLegacy = {
+    full_name: fullName,
+    email,
+    phone,
+    ...addressLegacy,
     notes: mergedNotes,
     estado_pago: "pendiente_contacto" as const,
     ...origen,
@@ -66,12 +105,28 @@ function buildUpdateVariants(
     full_name: fullName,
     email,
     phone,
+    ...addressSplit,
+    notes: `${mergedNotes} | estado: pendiente_contacto`,
+    ...origen,
+  };
+  const rowWithoutEstadoNoSigLegacy = {
+    full_name: fullName,
+    email,
+    phone,
+    ...addressLegacy,
     notes: `${mergedNotes} | estado: pendiente_contacto`,
     ...origen,
   };
 
   if (!requireSig || !sigRaw) {
-    return [rowWithEstadoNoSig, rowWithEstadoNoSigNoLeadCol, rowWithoutEstadoNoSig];
+    return [
+      rowWithEstadoNoSig,
+      rowWithEstadoNoSigLegacy,
+      rowWithEstadoNoSigNoLeadCol,
+      rowWithEstadoNoSigNoLeadColLegacy,
+      rowWithoutEstadoNoSig,
+      rowWithoutEstadoNoSigLegacy,
+    ];
   }
 
   const rowWithEstado = {
@@ -89,7 +144,20 @@ function buildUpdateVariants(
     bono_web_signature_png: sigRaw,
   };
 
-  return [rowWithEstado, rowWithEstadoNoLeadCol, rowWithoutEstado, rowWithoutEstadoNoSig];
+  const rowWithEstadoLegacy = { ...rowWithEstadoNoSigLegacy, bono_web_signature_png: sigRaw };
+  const rowWithEstadoNoLeadColLegacy = { ...rowWithEstadoNoSigNoLeadColLegacy, bono_web_signature_png: sigRaw };
+  const rowWithoutEstadoLegacy = { ...rowWithoutEstadoNoSigLegacy, bono_web_signature_png: sigRaw };
+
+  return [
+    rowWithEstado,
+    rowWithEstadoLegacy,
+    rowWithEstadoNoLeadCol,
+    rowWithEstadoNoLeadColLegacy,
+    rowWithoutEstado,
+    rowWithoutEstadoLegacy,
+    rowWithoutEstadoNoSig,
+    rowWithoutEstadoNoSigLegacy,
+  ];
 }
 
 function chainVariants(pack: RowPack, opts: { requireSig: boolean; sigRaw: string | null }): Record<string, unknown>[] {
@@ -137,19 +205,23 @@ export async function POST(request: Request) {
     const lastName = required(body.lastName);
     const email = required(body.email)?.toLowerCase();
     const phone = required(body.phone);
-    const address = required(body.address);
+    const addressStreet = required(body.addressStreet);
+    const addressNumber = required(body.addressNumber);
+    const addressPostalCode = required(body.addressPostalCode);
+    const addressCity = required(body.addressCity);
     const paymentMethod = body.paymentMethod;
     const bonoSessions = Number(body.bonoSessions ?? 0);
     const bonoPrice = Number(body.bonoPrice ?? 0);
     const reuseWebSignature = body.reuseWebSignature === true;
     const requireSig = bonosWebRequireSignature();
 
-    if (!name || !lastName || !email || !phone || !address) {
+    if (!name || !lastName || !email || !phone || !addressStreet || !addressNumber || !addressPostalCode || !addressCity) {
       return NextResponse.json(
         { ok: false, message: "Faltan datos obligatorios del cliente." },
         { status: 400 },
       );
     }
+    const address = `${addressStreet} ${addressNumber}, ${addressPostalCode} ${addressCity}`;
 
     if (!["bizum", "paypal"].includes(String(paymentMethod))) {
       return NextResponse.json(
@@ -195,7 +267,20 @@ export async function POST(request: Request) {
           );
         }
         const mergedNotes = mergeClientNotesBlock(row?.notes ?? null, intentBlock);
-        const variants = chainVariants({ fullName, email, phone, mergedNotes }, { requireSig: false, sigRaw: null });
+        const variants = chainVariants(
+          {
+            fullName,
+            email,
+            phone,
+            mergedNotes,
+            address,
+            addressStreet,
+            addressNumber,
+            addressPostalCode,
+            addressCity,
+          },
+          { requireSig: false, sigRaw: null },
+        );
         let last: PostgrestError | null = null;
         for (const rowUp of variants) {
           const { error } = await supabase.from("clients").update(rowUp).eq("id", clientId);
@@ -246,7 +331,17 @@ export async function POST(request: Request) {
       ? mergeClientNotesBlock(byEmail.notes, intentBlock)
       : intentBlock;
 
-    const pack: RowPack = { fullName, email, phone, mergedNotes };
+    const pack: RowPack = {
+      fullName,
+      email,
+      phone,
+      mergedNotes,
+      address,
+      addressStreet,
+      addressNumber,
+      addressPostalCode,
+      addressCity,
+    };
     const updateVariants = chainVariants(pack, { requireSig, sigRaw });
 
     async function updateClient(id: string): Promise<PostgrestError | null> {
@@ -299,7 +394,17 @@ export async function POST(request: Request) {
         .maybeSingle();
       if (!dupErr && byEmailDup?.id) {
         const mergedDup = mergeClientNotesBlock(byEmailDup.notes, intentBlock);
-        const packDup: RowPack = { fullName, email, phone, mergedNotes: mergedDup };
+          const packDup: RowPack = {
+            fullName,
+            email,
+            phone,
+            mergedNotes: mergedDup,
+            address,
+            addressStreet,
+            addressNumber,
+            addressPostalCode,
+            addressCity,
+          };
         const varsDup = chainVariants(packDup, { requireSig, sigRaw });
         let lastE: PostgrestError | null = null;
         for (const row of varsDup) {
@@ -317,7 +422,17 @@ export async function POST(request: Request) {
         const { data: byPhone } = await supabase.from("clients").select("id, notes").eq("phone", pv).maybeSingle();
         if (byPhone?.id) {
           const mergedPh = mergeClientNotesBlock(byPhone.notes, intentBlock);
-          const packPh: RowPack = { fullName, email, phone, mergedNotes: mergedPh };
+          const packPh: RowPack = {
+            fullName,
+            email,
+            phone,
+            mergedNotes: mergedPh,
+            address,
+            addressStreet,
+            addressNumber,
+            addressPostalCode,
+            addressCity,
+          };
           const varsPh = chainVariants(packPh, { requireSig, sigRaw });
           let lastP: PostgrestError | null = null;
           for (const row of varsPh) {
