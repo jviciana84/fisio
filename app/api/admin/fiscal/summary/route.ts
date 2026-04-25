@@ -42,7 +42,7 @@ type ModelWarning = {
   message: string;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
 
@@ -91,12 +91,31 @@ export async function GET() {
   };
 
   const now = new Date();
+  const url = new URL(request.url);
+  const qYearRaw = url.searchParams.get("year");
+  const qQuarterRaw = url.searchParams.get("quarter");
+  const targetYear = Math.round(Number(qYearRaw));
+  const targetQuarter = Math.round(Number(qQuarterRaw));
+  const hasTargetQuarter =
+    Number.isFinite(targetYear) &&
+    targetYear >= 2000 &&
+    targetYear <= 2100 &&
+    Number.isFinite(targetQuarter) &&
+    targetQuarter >= 1 &&
+    targetQuarter <= 4;
+
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const twelveMonthsBack = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-  const since = new Date(
-    Math.min(yearStart.getTime(), twelveMonthsBack.getTime()),
-  );
-  since.setHours(0, 0, 0, 0);
+  const sinceDefault = new Date(Math.min(yearStart.getTime(), twelveMonthsBack.getTime()));
+  sinceDefault.setHours(0, 0, 0, 0);
+
+  const since = hasTargetQuarter
+    ? (() => {
+        const d = new Date(targetYear, 0, 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      })()
+    : sinceDefault;
 
   const { data: tickets, error: tErr } = await supabase
     .from("cash_tickets")
@@ -214,7 +233,17 @@ export async function GET() {
     };
   });
 
-  const q = quarterForDate(new Date());
+  const q = hasTargetQuarter
+    ? { quarter: targetQuarter as 1 | 2 | 3 | 4, label: `T${targetQuarter} ${targetYear}`, monthKeys: quarterMonthKeys(targetYear, targetQuarter as 1 | 2 | 3 | 4) }
+    : quarterForDate(new Date());
+
+  const referenceDate = (() => {
+    if (!hasTargetQuarter) return now;
+    const lastMonthIndex = (targetQuarter - 1) * 3 + 2;
+    const endOfQuarter = new Date(targetYear, lastMonthIndex + 1, 0, 23, 59, 59, 999);
+    return now.getTime() < endOfQuarter.getTime() ? now : endOfQuarter;
+  })();
+
   let qTotals = { cashCents: 0, bizumCents: 0, cardCents: 0 };
   for (const mk of q.monthKeys) {
     const b = monthMap.get(mk);
@@ -283,8 +312,8 @@ export async function GET() {
   }
   const quarterCashFreeCents = Math.max(0, quarterCashTotalCents - quarterCashInvoicedCents);
 
-  const calendarYear = now.getFullYear();
-  const currentQ = quarterForDate(now).quarter;
+  const calendarYear = hasTargetQuarter ? targetYear : now.getFullYear();
+  const currentQ = quarterForDate(referenceDate).quarter;
 
   const quarterlyYear = ([1, 2, 3, 4] as const).map((qi) => {
     const mks = quarterMonthKeys(calendarYear, qi);

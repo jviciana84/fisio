@@ -111,6 +111,16 @@ type ModelWarning = {
   message: string;
 };
 
+type FiscalSnapshotRow = {
+  id: string;
+  calendar_year: number;
+  quarter: number;
+  quarter_label: string | null;
+  declare_cash_percent: number;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
 export function FiscalSimulatorClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -129,12 +139,50 @@ export function FiscalSimulatorClient() {
   const [saving, setSaving] = useState(false);
   const [declaredCashInput, setDeclaredCashInput] = useState("");
   const [editingDeclaredCash, setEditingDeclaredCash] = useState(false);
+  const [simView, setSimView] = useState<"elapsed" | "full">("elapsed");
+  const [mainTab, setMainTab] = useState<"actual" | "historico">("actual");
+  const [snapshots, setSnapshots] = useState<FiscalSnapshotRow[]>([]);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [snapshotsErr, setSnapshotsErr] = useState<string | null>(null);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
+  const [snapshotSaving, setSnapshotSaving] = useState(false);
 
-  const load = useCallback(async () => {
+  const applySummaryPayload = useCallback((data: {
+    quarter?: string;
+    chart?: ChartRow[];
+    simulation?: Sim;
+    settings?: Settings;
+    calendarYear?: number;
+    currentQuarter?: number;
+    yearProgress?: YearProgress;
+    payrollPreview?: PayrollPreview;
+    modelWarnings?: ModelWarning[];
+    quarterCash?: QuarterCash;
+  }) => {
+    setQuarter(data.quarter ?? "");
+    setChart(data.chart ?? []);
+    setSim(data.simulation ?? null);
+    setSettings(data.settings ?? null);
+    setCalendarYear(data.calendarYear ?? null);
+    setCurrentQuarter(data.currentQuarter ?? null);
+    setYearProgress(data.yearProgress ?? null);
+    setPayrollPreview(data.payrollPreview ?? null);
+    setModelWarnings(data.modelWarnings ?? []);
+    setQuarterCash(data.quarterCash ?? null);
+    if (data.settings?.declareCashPercent != null) {
+      setSliderPct([data.settings.declareCashPercent]);
+    }
+  }, []);
+
+  const load = useCallback(async (opts?: { year?: number; quarter?: number }) => {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/admin/fiscal/summary");
+      const qs =
+        opts?.year != null && opts?.quarter != null
+          ? `?year=${encodeURIComponent(String(opts.year))}&quarter=${encodeURIComponent(String(opts.quarter))}`
+          : "";
+      const res = await fetch(`/api/admin/fiscal/summary${qs}`);
       const data = (await res.json()) as {
         ok?: boolean;
         message?: string;
@@ -153,29 +201,95 @@ export function FiscalSimulatorClient() {
         setErr(data.message ?? "No se pudo cargar el simulador");
         return;
       }
-      setQuarter(data.quarter ?? "");
-      setChart(data.chart ?? []);
-      setSim(data.simulation ?? null);
-      setSettings(data.settings ?? null);
-      setCalendarYear(data.calendarYear ?? null);
-      setCurrentQuarter(data.currentQuarter ?? null);
-      setYearProgress(data.yearProgress ?? null);
-      setPayrollPreview(data.payrollPreview ?? null);
-      setModelWarnings(data.modelWarnings ?? []);
-      setQuarterCash(data.quarterCash ?? null);
-      if (data.settings?.declareCashPercent != null) {
-        setSliderPct([data.settings.declareCashPercent]);
-      }
+      applySummaryPayload(data);
     } catch {
       setErr("Error de red");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applySummaryPayload]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadSnapshots = useCallback(async () => {
+    setSnapshotsLoading(true);
+    setSnapshotsErr(null);
+    try {
+      const res = await fetch("/api/admin/fiscal/snapshots");
+      const data = (await res.json()) as { ok?: boolean; message?: string; snapshots?: FiscalSnapshotRow[] };
+      if (!res.ok || !data.ok) {
+        setSnapshotsErr(data.message ?? "No se pudo cargar el histórico");
+        return;
+      }
+      setSnapshots(data.snapshots ?? []);
+    } catch {
+      setSnapshotsErr("Error de red");
+    } finally {
+      setSnapshotsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mainTab !== "historico") return;
+    void loadSnapshots();
+  }, [mainTab, loadSnapshots]);
+
+  const saveQuarterSnapshot = useCallback(async () => {
+    if (calendarYear == null || currentQuarter == null || !settings || !sim) {
+      setSnapshotsErr("Faltan datos del trimestre para guardar.");
+      return;
+    }
+    setSnapshotSaving(true);
+    setSnapshotsErr(null);
+    try {
+      const payload = {
+        quarterLabel: quarter,
+        simulation: sim,
+        settings,
+        chart,
+        yearProgress,
+        payrollPreview,
+        modelWarnings,
+        quarterCash,
+        savedAt: new Date().toISOString(),
+      };
+      const res = await fetch("/api/admin/fiscal/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          calendarYear,
+          quarter: currentQuarter,
+          quarterLabel: quarter,
+          declareCashPercent: settings.declareCashPercent,
+          payload,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setSnapshotsErr(data.message ?? "No se pudo guardar");
+        return;
+      }
+      await loadSnapshots();
+    } catch {
+      setSnapshotsErr("Error de red");
+    } finally {
+      setSnapshotSaving(false);
+    }
+  }, [
+    calendarYear,
+    currentQuarter,
+    quarter,
+    settings,
+    sim,
+    chart,
+    yearProgress,
+    payrollPreview,
+    modelWarnings,
+    quarterCash,
+    loadSnapshots,
+  ]);
 
   const persistSlider = useCallback(async (value: number) => {
     setSaving(true);
@@ -188,12 +302,16 @@ export function FiscalSimulatorClient() {
       const data = (await res.json()) as { ok?: boolean; settings?: Settings };
       if (res.ok && data.ok && data.settings) {
         setSettings(data.settings);
-        await load();
+        if (calendarYear != null && currentQuarter != null) {
+          await load({ year: calendarYear, quarter: currentQuarter });
+        } else {
+          await load();
+        }
       }
     } finally {
       setSaving(false);
     }
-  }, [load]);
+  }, [load, calendarYear, currentQuarter]);
 
   const maxBar = useMemo(() => {
     let m = 1;
@@ -246,6 +364,43 @@ export function FiscalSimulatorClient() {
     const free = quarterCash?.freeEuros ?? quarterTotals.cashEuros;
     return (free * pct) / 100;
   }, [quarterCash?.freeEuros, quarterTotals.cashEuros, sliderPct]);
+
+  const elapsedQuarterRatio = useMemo(() => {
+    if (calendarYear == null || currentQuarter == null) return 1;
+    const startMonth = (currentQuarter - 1) * 3;
+    const quarterStart = new Date(calendarYear, startMonth, 1);
+    const quarterEndExclusive = new Date(calendarYear, startMonth + 3, 1);
+    const now = new Date();
+    const effectiveNow = now < quarterStart ? quarterStart : now > quarterEndExclusive ? quarterEndExclusive : now;
+    const totalMs = Math.max(1, quarterEndExclusive.getTime() - quarterStart.getTime());
+    const elapsedMs = Math.max(1, effectiveNow.getTime() - quarterStart.getTime());
+    return Math.max(0, Math.min(1, elapsedMs / totalMs));
+  }, [calendarYear, currentQuarter]);
+
+  const quarterRangeLabels = useMemo(() => {
+    if (calendarYear == null || currentQuarter == null) {
+      return { from: "—", to: "—" };
+    }
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const startMonth = (currentQuarter - 1) * 3;
+    const quarterStart = new Date(calendarYear, startMonth, 1);
+    const quarterEnd = new Date(calendarYear, startMonth + 3, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let endLabel = quarterEnd;
+    if (today < quarterStart) endLabel = quarterStart;
+    else if (today <= quarterEnd) endLabel = today;
+    return { from: fmt(quarterStart), to: fmt(endLabel) };
+  }, [calendarYear, currentQuarter]);
+
+  const netBeforeForView = useMemo(() => {
+    if (!sim) return 0;
+    if (simView === "full") return sim.netBeforeIrpfEuros;
+    const quarterPayroll = payrollPreview?.totals.quarterEmployerCostEuros ?? 0;
+    const elapsedPayroll = quarterPayroll * elapsedQuarterRatio;
+    return sim.netBeforeIrpfEuros + quarterPayroll - elapsedPayroll;
+  }, [sim, simView, payrollPreview?.totals.quarterEmployerCostEuros, elapsedQuarterRatio]);
 
   useEffect(() => {
     if (editingDeclaredCash) return;
@@ -324,7 +479,179 @@ export function FiscalSimulatorClient() {
           </p>
         </header>
 
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/70 pb-3">
+          <button
+            type="button"
+            onClick={() => setMainTab("actual")}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+              mainTab === "actual" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100",
+            )}
+          >
+            Actual
+          </button>
+          <button
+            type="button"
+            onClick={() => setMainTab("historico")}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+              mainTab === "historico" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100",
+            )}
+          >
+            Histórico
+          </button>
+        </div>
+
+        {mainTab === "historico" ? (
+          <section className="glass-panel-strong glass-tint-blue grid gap-4 p-5 md:grid-cols-2 md:p-6">
+            <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Trimestres guardados</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Copias estáticas de la simulación (números y ajustes) en el momento de guardar.
+              </p>
+              {snapshotsErr ? <p className="mt-2 text-xs text-rose-700">{snapshotsErr}</p> : null}
+              <div className="mt-3 space-y-2">
+                {snapshotsLoading ? <p className="text-sm text-slate-600">Cargando…</p> : null}
+                {!snapshotsLoading && snapshots.length === 0 ? (
+                  <p className="text-sm text-slate-600">Aún no hay registros. Guarda desde la pestaña Actual.</p>
+                ) : null}
+                {snapshots.map((s) => {
+                  const active = s.id === selectedSnapshotId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSnapshotId(s.id)}
+                      className={cn(
+                        "w-full rounded-lg border px-3 py-2 text-left text-sm transition",
+                        active
+                          ? "border-blue-300 bg-blue-50/80 text-slate-900"
+                          : "border-slate-200/80 bg-white/70 text-slate-800 hover:border-blue-200",
+                      )}
+                    >
+                      <p className="font-semibold">{s.quarter_label ?? `T${s.quarter} ${s.calendar_year}`}</p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        Efectivo declarado: {s.declare_cash_percent}% ·{" "}
+                        {new Date(s.created_at).toLocaleString("es-ES", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Detalle</p>
+              {(() => {
+                const sel = snapshots.find((x) => x.id === selectedSnapshotId) ?? snapshots[0] ?? null;
+                if (!sel) {
+                  return <p className="mt-2 text-sm text-slate-600">Selecciona un trimestre de la lista.</p>;
+                }
+                const snapSim = sel.payload?.simulation as Sim | undefined;
+                if (!snapSim) {
+                  return <p className="mt-2 text-sm text-slate-600">Este registro no tiene simulación guardada.</p>;
+                }
+                return (
+                  <div className="mt-2 space-y-2 text-sm text-slate-700">
+                    <p className="font-semibold text-slate-900">{sel.quarter_label ?? `T${sel.quarter} ${sel.calendar_year}`}</p>
+                    <p>
+                      Hacienda (estim.): <span className="font-semibold">{formatEuroEsWhole(snapSim.totalTaxesEuros)}</span>
+                    </p>
+                    <p>
+                      Dinero limpio (cobrado − impuestos):{" "}
+                      <span className="font-semibold text-emerald-700">{formatEuroEsTwoDecimals(snapSim.netAfterTaxesEuros)}</span>
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      IVA 303: {formatEuroEsTwoDecimals(snapSim.ivaToPayEuros)} · IRPF 130:{" "}
+                      {formatEuroEsTwoDecimals(snapSim.irpfEuros)} · 115: {formatEuroEsTwoDecimals(snapSim.model115Euros)}
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+        ) : (
         <section className="glass-panel-strong glass-tint-blue grid gap-4 p-5 md:grid-cols-[30fr_50fr_20fr] md:p-6">
+          <div className="md:col-span-3 flex flex-wrap items-center justify-start gap-x-3 gap-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Vista del trimestre</p>
+            <div className="inline-flex shrink-0 rounded-lg border border-slate-200/80 bg-white/80 p-0.5">
+              <button
+                type="button"
+                onClick={() => setSimView("elapsed")}
+                className={cn(
+                  "rounded-md px-2 py-1 text-[11px] font-semibold transition",
+                  simView === "elapsed" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100",
+                )}
+              >
+                Transcurrido
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimView("full")}
+                className={cn(
+                  "rounded-md px-2 py-1 text-[11px] font-semibold transition",
+                  simView === "full" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100",
+                )}
+              >
+                Completo
+              </button>
+            </div>
+            <p className="min-w-0 text-[11px] font-medium tabular-nums text-slate-600">
+              Del {quarterRangeLabels.from} al {quarterRangeLabels.to}
+            </p>
+            <span className="hidden h-4 w-px bg-slate-200 sm:inline" aria-hidden />
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-500">Año</span>
+              <select
+                className="rounded-md border border-slate-200/80 bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-800"
+                value={calendarYear ?? ""}
+                disabled={calendarYear == null}
+                onChange={(e) => {
+                  const y = Number(e.target.value);
+                  if (!Number.isFinite(y) || currentQuarter == null) return;
+                  void load({ year: y, quarter: currentQuarter });
+                }}
+              >
+                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-500">T</span>
+              <select
+                className="rounded-md border border-slate-200/80 bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-800"
+                value={currentQuarter ?? ""}
+                disabled={currentQuarter == null || calendarYear == null}
+                onChange={(e) => {
+                  const q = Number(e.target.value);
+                  if (!Number.isFinite(q) || calendarYear == null) return;
+                  void load({ year: calendarYear, quarter: q });
+                }}
+              >
+                {[1, 2, 3, 4].map((q) => (
+                  <option key={q} value={q}>
+                    {q}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void saveQuarterSnapshot()}
+              disabled={snapshotSaving || calendarYear == null || currentQuarter == null || !sim}
+              className="ml-auto rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {snapshotSaving ? "Guardando…" : "Guardar en histórico"}
+            </button>
+          </div>
           <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">La hucha de efectivo</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">¿Qué parte del efectivo declaras?</h2>
@@ -412,6 +739,7 @@ export function FiscalSimulatorClient() {
 
           {sim ? (
             <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">La hucha fiscal</p>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Si declaras el {sim.declareCashPercent}% del efectivo…
               </p>
@@ -437,12 +765,12 @@ export function FiscalSimulatorClient() {
                     </span>
                     <span
                       className={`rounded-md px-2 py-1 font-semibold ${
-                        sim.netBeforeIrpfEuros > 0
+                        netBeforeForView > 0
                           ? "border border-emerald-200/70 bg-emerald-50/70 text-emerald-900"
                           : "border border-rose-200/70 bg-rose-50/70 text-rose-900"
                       }`}
                     >
-                      {sim.netBeforeIrpfEuros > 0 ? "Positivo" : "Nulo/Negativo"}
+                      {netBeforeForView > 0 ? "Positivo" : "Nulo/Negativo"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -451,14 +779,14 @@ export function FiscalSimulatorClient() {
                     </span>
                     <span
                       className={`rounded-md px-2 py-1 font-semibold ${
-                        sim.netBeforeIrpfEuros > 0 &&
+                        netBeforeForView > 0 &&
                         sim.realTotalEuros > 0 &&
                         sim.netAfterTaxesEuros / sim.realTotalEuros >= 0.25
                           ? "border border-emerald-200/70 bg-emerald-50/70 text-emerald-900"
                           : "border border-rose-200/70 bg-rose-50/70 text-rose-900"
                       }`}
                     >
-                      {sim.netBeforeIrpfEuros > 0 &&
+                      {netBeforeForView > 0 &&
                       sim.realTotalEuros > 0 &&
                       sim.netAfterTaxesEuros / sim.realTotalEuros >= 0.25
                         ? "Bajo"
@@ -466,6 +794,11 @@ export function FiscalSimulatorClient() {
                     </span>
                   </div>
                 </div>
+                {simView === "elapsed" ? (
+                  <p className="mt-1 text-[10px] leading-snug text-slate-600">
+                    Vista transcurrida: el margen descuenta solo la parte devengada de salarios del trimestre.
+                  </p>
+                ) : null}
                 <p className="mt-1.5 text-[10px] leading-snug text-slate-600">
                   Caja positiva no siempre implica beneficio: puede alcanzar para cubrir estructura, pero no salarios.
                 </p>
@@ -550,7 +883,7 @@ export function FiscalSimulatorClient() {
           ) : null}
 
             <div className="glass-inner p-3 ring-1 ring-white/55 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Leyenda de impuestos</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Leyenda de impuestos</p>
             <div className="mt-2.5 grid gap-1.5">
               {modelDescriptions.map((m) => {
                 const warning = warningByModel.get(m.model);
@@ -582,7 +915,10 @@ export function FiscalSimulatorClient() {
             </div>
           </div>
         </section>
+        )}
 
+        {mainTab === "actual" ? (
+        <>
         {payrollPreview ? (
           <section className="glass-panel glass-tint-emerald p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1045,6 +1381,8 @@ export function FiscalSimulatorClient() {
           </Link>{" "}
           con la guía por categoría.
         </p>
+        </>
+        ) : null}
       </div>
     </main>
   );

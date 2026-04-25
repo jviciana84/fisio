@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type ChartRange,
   type ExpenseRow,
@@ -11,6 +11,7 @@ import {
   buildTrendSeries,
   formatIncomeRangeLabel,
   maxTrendValue,
+  niceCeiling,
 } from "@/lib/dashboard/trendChartData";
 import { formatEuroEsWhole } from "@/lib/format-es";
 
@@ -20,6 +21,8 @@ const COLORS = {
   bizum: "#8b5cf6",
   efectivo: "#16a34a",
   tarjeta: "#f59e0b",
+  salarios: "#0f766e",
+  margen: "#334155",
 } as const;
 
 function buildLinePath(values: number[], maxValue: number, plotW: number, plotH: number): string {
@@ -49,6 +52,34 @@ function indexFromSvgX(svgX: number, n: number, plotW: number, ml: number): numb
   return Math.max(0, Math.min(n - 1, i));
 }
 
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function startOfWeekMonday(d: Date): Date {
+  const x = startOfDay(d);
+  const dow = x.getDay();
+  const daysFromMonday = dow === 0 ? 6 : dow - 1;
+  return addDays(x, -daysFromMonday);
+}
+
+function startOfQuarter(d: Date): Date {
+  const q = Math.floor(d.getMonth() / 3);
+  return new Date(d.getFullYear(), q * 3, 1);
+}
+
+function startOfSemester(d: Date): Date {
+  return d.getMonth() < 6 ? new Date(d.getFullYear(), 0, 1) : new Date(d.getFullYear(), 6, 1);
+}
+
 export function DashboardTrendChart({
   tickets,
   expenses,
@@ -56,12 +87,27 @@ export function DashboardTrendChart({
   tickets: TicketRow[];
   expenses: ExpenseRow[];
 }) {
+  type SeriesKey = "ingresos" | "gastos" | "bizum" | "efectivo" | "tarjeta" | "salarios" | "margen";
   const [range, setRange] = useState<ChartRange>("month");
   const [hover, setHover] = useState<{
     index: number;
     clientX: number;
     clientY: number;
   } | null>(null);
+  const [fiscalOverlay, setFiscalOverlay] = useState<{
+    quarterTaxesEuros: number;
+    monthlySalaryEuros: number;
+    quarterDays: number;
+  } | null>(null);
+  const [visibleSeries, setVisibleSeries] = useState<Record<SeriesKey, boolean>>({
+    ingresos: true,
+    gastos: true,
+    bizum: true,
+    efectivo: true,
+    tarjeta: true,
+    salarios: true,
+    margen: true,
+  });
 
   const points = useMemo(
     () => buildTrendSeries(range, tickets, expenses),
@@ -70,7 +116,112 @@ export function DashboardTrendChart({
 
   const rangeLabel = useMemo(() => formatIncomeRangeLabel(range), [range]);
 
-  const maxY = useMemo(() => maxTrendValue(points), [points]);
+  useEffect(() => {
+    let disposed = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/fiscal/summary");
+        const data = (await res.json()) as {
+          ok?: boolean;
+          simulation?: { totalTaxesEuros?: number };
+          payrollPreview?: { totals?: { quarterEmployerCostEuros?: number; monthlyEquivalentEuros?: number } };
+        };
+        if (!res.ok || !data.ok) return;
+        const now = new Date();
+        const startMonth = Math.floor(now.getMonth() / 3) * 3;
+        const quarterStart = new Date(now.getFullYear(), startMonth, 1);
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const quarterDays = Math.max(1, Math.floor((now.getTime() - quarterStart.getTime()) / msPerDay) + 1);
+        if (!disposed) {
+          setFiscalOverlay({
+            quarterTaxesEuros: Number(data.simulation?.totalTaxesEuros ?? 0),
+            monthlySalaryEuros: Number(data.payrollPreview?.totals?.monthlyEquivalentEuros ?? 0),
+            quarterDays,
+          });
+        }
+      } catch {
+        // Gráfico usable aunque falle la carga del overlay fiscal.
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  const overlaySeries = useMemo(() => {
+    const n = points.length;
+    if (!n || !fiscalOverlay) {
+      return {
+        salarios: Array.from({ length: n }, () => 0),
+        margenReal: points.map((p) => p.ingresos - p.gastos),
+      };
+    }
+
+    const now = new Date();
+    const pointDates: Date[] = [];
+    if (range === "day") {
+      for (let h = 23; h >= 0; h--) {
+        const slot = new Date(now);
+        slot.setMinutes(0, 0, 0);
+        slot.setHours(slot.getHours() - h);
+        pointDates.push(slot);
+      }
+    } else if (range === "week") {
+      const monday = startOfWeekMonday(now);
+      for (let i = 0; i < 7; i++) pointDates.push(addDays(monday, i));
+    } else {
+      const start =
+        range === "month"
+          ? new Date(now.getFullYear(), now.getMonth(), 1)
+          : range === "quarter"
+            ? startOfQuarter(now)
+            : range === "semester"
+              ? startOfSemester(now)
+              : new Date(now.getFullYear(), 0, 1);
+      const endDay = startOfDay(now);
+      for (let day = startOfDay(start); day.getTime() <= endDay.getTime(); day = addDays(day, 1)) {
+        pointDates.push(day);
+      }
+    }
+
+    const taxesDaily = fiscalOverlay.quarterTaxesEuros / fiscalOverlay.quarterDays;
+    const impuestos = pointDates.map((d) => {
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const elapsedDays = Math.max(1, Math.floor((startOfDay(d).getTime() - startOfQuarter(d).getTime()) / msPerDay) + 1);
+      return taxesDaily * elapsedDays;
+    });
+
+    // Salarios reales: salto el día 1 de cada mes (carga de nómina).
+    let acumuladoSalarios = 0;
+    let lastMonthKey = "";
+    const salarios = pointDates.map((d) => {
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (d.getDate() === 1 && monthKey !== lastMonthKey) {
+        acumuladoSalarios += fiscalOverlay.monthlySalaryEuros;
+        lastMonthKey = monthKey;
+      }
+      return acumuladoSalarios;
+    });
+
+    // Margen operativo real acumulado (antes de nómina): ingresos - gastos - impuestos.
+    const margenReal = points.map((p, i) => p.ingresos - p.gastos - (impuestos[i] ?? 0));
+
+    return { salarios, margenReal };
+  }, [points, fiscalOverlay, range]);
+
+  const maxY = useMemo(() => {
+    let m = 0;
+    for (let i = 0; i < points.length; i++) {
+      if (visibleSeries.ingresos) m = Math.max(m, points[i]?.ingresos ?? 0);
+      if (visibleSeries.gastos) m = Math.max(m, points[i]?.gastos ?? 0);
+      if (visibleSeries.bizum) m = Math.max(m, points[i]?.bizum ?? 0);
+      if (visibleSeries.efectivo) m = Math.max(m, points[i]?.efectivo ?? 0);
+      if (visibleSeries.tarjeta) m = Math.max(m, points[i]?.tarjeta ?? 0);
+      if (visibleSeries.salarios) m = Math.max(m, overlaySeries.salarios[i] ?? 0);
+      if (visibleSeries.margen) m = Math.max(m, overlaySeries.margenReal[i] ?? 0);
+    }
+    return niceCeiling(Math.max(m, maxTrendValue(points), 1));
+  }, [points, overlaySeries, visibleSeries]);
 
   const W = 920;
   const H = 340;
@@ -92,6 +243,8 @@ export function DashboardTrendChart({
     const bz = points.map((p) => p.bizum);
     const ef = points.map((p) => p.efectivo);
     const tj = points.map((p) => p.tarjeta);
+    const sal = overlaySeries.salarios;
+    const mar = overlaySeries.margenReal;
     const m = maxY;
     return {
       gastos: buildLinePath(g, m, plotW, plotH),
@@ -99,8 +252,10 @@ export function DashboardTrendChart({
       bizum: buildLinePath(bz, m, plotW, plotH),
       efectivo: buildLinePath(ef, m, plotW, plotH),
       tarjeta: buildLinePath(tj, m, plotW, plotH),
+      salarios: buildLinePath(sal, m, plotW, plotH),
+      margen: buildLinePath(mar, m, plotW, plotH),
     };
-  }, [points, maxY, plotW, plotH]);
+  }, [points, overlaySeries, maxY, plotW, plotH]);
 
   const n = Math.max(points.length, 1);
   const xAt = (i: number) => {
@@ -141,29 +296,49 @@ export function DashboardTrendChart({
   const vx = hover != null ? xAt(hover.index) : 0;
 
   const tooltipSeries = useMemo(
-    () =>
-      hoverPoint
-        ? [
-            { label: "Ingresos acumulados", v: hoverPoint.ingresos, c: COLORS.ingresos },
-            { label: "Gastos acumulados", v: hoverPoint.gastos, c: COLORS.gastos },
-            { label: "Bizum acumulado", v: hoverPoint.bizum, c: COLORS.bizum },
-            { label: "Efectivo acumulado", v: hoverPoint.efectivo, c: COLORS.efectivo },
-            { label: "Tarjeta acumulada", v: hoverPoint.tarjeta, c: COLORS.tarjeta },
-          ]
-        : [],
-    [hoverPoint],
+    () => {
+      if (!hover || !hoverPoint) return [];
+      const idx = hover.index;
+      const rows: Array<{ key: SeriesKey; label: string; v: number; c: string; dash?: string; w?: number }> = [
+        { key: "ingresos", label: "Ingresos acumulados", v: hoverPoint.ingresos, c: COLORS.ingresos, w: 2.25 },
+        { key: "gastos", label: "Gastos acumulados", v: hoverPoint.gastos, c: COLORS.gastos, w: 2.25 },
+        { key: "bizum", label: "Bizum acumulado", v: hoverPoint.bizum, c: COLORS.bizum, dash: "6 4", w: 1.85 },
+        { key: "efectivo", label: "Efectivo acumulado", v: hoverPoint.efectivo, c: COLORS.efectivo, dash: "4 3", w: 1.85 },
+        { key: "tarjeta", label: "Tarjeta acumulada", v: hoverPoint.tarjeta, c: COLORS.tarjeta, dash: "2 4", w: 1.85 },
+        {
+          key: "salarios",
+          label: "Salarios acumulados",
+          v: overlaySeries.salarios[idx] ?? 0,
+          c: COLORS.salarios,
+          dash: "8 5",
+          w: 1.75,
+        },
+        {
+          key: "margen",
+          label: "Margen acumulado",
+          v: overlaySeries.margenReal[idx] ?? 0,
+          c: COLORS.margen,
+          w: 2.1,
+        },
+      ];
+      return rows.filter((row) => visibleSeries[row.key]);
+    },
+    [hover, hoverPoint, overlaySeries, visibleSeries],
   );
 
   const tooltipPos = useMemo(() => {
     if (!hover) return { left: 0, top: 0 };
-    const pad = 14;
+    const pad = 20;
+    const avoidLineGap = 72;
     const boxW = 252;
     const boxH = 200;
     if (typeof window === "undefined") return { left: hover.clientX + pad, top: hover.clientY + pad };
-    let left = hover.clientX + pad;
-    let top = hover.clientY + pad;
-    left = Math.min(left, window.innerWidth - boxW - 8);
-    left = Math.max(8, left);
+    const placeRight = hover.clientX <= window.innerWidth / 2;
+    let left = placeRight ? hover.clientX + avoidLineGap : hover.clientX - boxW - avoidLineGap;
+    if (left + boxW > window.innerWidth - 8) left = hover.clientX - boxW - avoidLineGap;
+    if (left < 8) left = hover.clientX + avoidLineGap;
+    left = Math.max(8, Math.min(left, window.innerWidth - boxW - 8));
+    let top = hover.clientY - boxH / 2;
     top = Math.min(top, window.innerHeight - boxH - 8);
     top = Math.max(8, top);
     return { left, top };
@@ -277,11 +452,19 @@ export function DashboardTrendChart({
             />
 
             <g transform={`translate(${ml},${mt})`} fill="none" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
-              <path d={paths.ingresos} stroke={COLORS.ingresos} />
-              <path d={paths.gastos} stroke={COLORS.gastos} />
-              <path d={paths.bizum} stroke={COLORS.bizum} strokeDasharray="6 4" strokeWidth={1.85} />
-              <path d={paths.efectivo} stroke={COLORS.efectivo} strokeDasharray="4 3" strokeWidth={1.85} />
-              <path d={paths.tarjeta} stroke={COLORS.tarjeta} strokeDasharray="2 4" strokeWidth={1.85} />
+              {visibleSeries.ingresos ? <path d={paths.ingresos} stroke={COLORS.ingresos} /> : null}
+              {visibleSeries.gastos ? <path d={paths.gastos} stroke={COLORS.gastos} /> : null}
+              {visibleSeries.bizum ? <path d={paths.bizum} stroke={COLORS.bizum} strokeDasharray="6 4" strokeWidth={1.85} /> : null}
+              {visibleSeries.efectivo ? (
+                <path d={paths.efectivo} stroke={COLORS.efectivo} strokeDasharray="4 3" strokeWidth={1.85} />
+              ) : null}
+              {visibleSeries.tarjeta ? (
+                <path d={paths.tarjeta} stroke={COLORS.tarjeta} strokeDasharray="2 4" strokeWidth={1.85} />
+              ) : null}
+              {visibleSeries.salarios ? (
+                <path d={paths.salarios} stroke={COLORS.salarios} strokeDasharray="8 5" strokeWidth={1.75} />
+              ) : null}
+              {visibleSeries.margen ? <path d={paths.margen} stroke={COLORS.margen} strokeDasharray="1 0" strokeWidth={2.1} /> : null}
             </g>
 
             {/* Línea vertical + puntos al hover */}
@@ -303,7 +486,14 @@ export function DashboardTrendChart({
                   { v: hoverPoint.bizum, c: COLORS.bizum },
                   { v: hoverPoint.efectivo, c: COLORS.efectivo },
                   { v: hoverPoint.tarjeta, c: COLORS.tarjeta },
-                ].map((s, i) => (
+                  { v: overlaySeries.salarios[hover.index] ?? 0, c: COLORS.salarios },
+                  { v: overlaySeries.margenReal[hover.index] ?? 0, c: COLORS.margen },
+                ]
+                  .filter((_, i) => {
+                    const keys: SeriesKey[] = ["ingresos", "gastos", "bizum", "efectivo", "tarjeta", "salarios", "margen"];
+                    return visibleSeries[keys[i] as SeriesKey];
+                  })
+                  .map((s, i) => (
                   <circle
                     key={`dot-${i}`}
                     cx={vx}
@@ -330,7 +520,18 @@ export function DashboardTrendChart({
               {tooltipSeries.map((row) => (
                 <li key={row.label} className="flex items-center justify-between gap-4">
                   <span className="flex items-center gap-2 text-slate-600">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: row.c }} />
+                    <svg width="16" height="8" viewBox="0 0 16 8" aria-hidden="true" className="shrink-0">
+                      <line
+                        x1="1"
+                        y1="4"
+                        x2="15"
+                        y2="4"
+                        stroke={row.c}
+                        strokeWidth={row.w ?? 2}
+                        strokeDasharray={row.dash}
+                        strokeLinecap="round"
+                      />
+                    </svg>
                     {row.label}
                   </span>
                   <span className="font-semibold tabular-nums text-slate-900">{formatEuroEsWhole(row.v)}</span>
@@ -342,11 +543,44 @@ export function DashboardTrendChart({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800">Ingresos (acum.)</span>
-        <span className="rounded-full bg-red-100 px-3 py-1 font-medium text-red-700">Gastos (acum.)</span>
-        <span className="rounded-full bg-violet-100 px-3 py-1 font-medium text-violet-700">Bizum (acum.)</span>
-        <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">Efectivo (acum.)</span>
-        <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Tarjeta (acum.)</span>
+        {[
+          { key: "ingresos", label: "Ingresos", color: COLORS.ingresos, dash: undefined, width: 2.25, bg: "bg-blue-100", text: "text-blue-800" },
+          { key: "gastos", label: "Gastos", color: COLORS.gastos, dash: undefined, width: 2.25, bg: "bg-red-100", text: "text-red-700" },
+          { key: "bizum", label: "Bizum", color: COLORS.bizum, dash: "6 4", width: 1.85, bg: "bg-violet-100", text: "text-violet-700" },
+          { key: "efectivo", label: "Efectivo", color: COLORS.efectivo, dash: "4 3", width: 1.85, bg: "bg-emerald-100", text: "text-emerald-700" },
+          { key: "tarjeta", label: "Tarjeta", color: COLORS.tarjeta, dash: "2 4", width: 1.85, bg: "bg-amber-100", text: "text-amber-800" },
+          { key: "salarios", label: "Salarios", color: COLORS.salarios, dash: "8 5", width: 1.75, bg: "bg-teal-100", text: "text-teal-800" },
+          { key: "margen", label: "Margen", color: COLORS.margen, dash: undefined, width: 2.1, bg: "bg-slate-200", text: "text-slate-800" },
+        ].map((item) => {
+          const key = item.key as SeriesKey;
+          const active = visibleSeries[key];
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setVisibleSeries((prev) => ({ ...prev, [key]: !prev[key] }))}
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-medium transition ${
+                active ? `${item.bg} ${item.text}` : "bg-slate-100 text-slate-400"
+              }`}
+              aria-pressed={active}
+              title={active ? "Ocultar serie" : "Mostrar serie"}
+            >
+              <svg width="18" height="8" viewBox="0 0 18 8" aria-hidden="true">
+                <line
+                  x1="1"
+                  y1="4"
+                  x2="17"
+                  y2="4"
+                  stroke={active ? item.color : "#94a3b8"}
+                  strokeWidth={item.width}
+                  strokeDasharray={item.dash}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
