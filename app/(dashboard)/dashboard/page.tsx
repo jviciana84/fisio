@@ -8,10 +8,13 @@ import { DashboardTerrassaWeather } from "@/components/dashboard/DashboardTerras
 import { DashboardIncomeCards } from "@/components/dashboard/DashboardIncomeCards";
 import { DashboardTrendChart } from "@/components/dashboard/DashboardTrendChart";
 import { fetchTerrassaWeather } from "@/lib/weather/terrassa";
+import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
 
 export const dynamic = "force-dynamic";
 
 type ExpenseRow = {
+  concept: string;
+  category: string;
   amount_cents: number;
   recurrence: "none" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
   expense_date: string;
@@ -64,7 +67,7 @@ export default async function DashboardPage() {
         : Promise.resolve({ data: null } as { data: { full_name?: string } | null }),
       supabase
         .from("expenses")
-        .select("amount_cents, recurrence, expense_date")
+        .select("concept, category, amount_cents, recurrence, expense_date")
         .order("expense_date", { ascending: false }),
       fetchTerrassaWeather(),
     ]);
@@ -84,7 +87,14 @@ export default async function DashboardPage() {
       return sum + t.total_cents / 100;
     }, 0);
 
-    const gastosFijosMensuales = expenses.reduce(
+    // Un cargo fijo por serie (concepto canónico + categoría + recurrencia), no por cada alta histórica.
+    const recurringSeries = new Map<string, ExpenseRow>();
+    for (const e of expenses) {
+      if (e.recurrence === "none") continue;
+      const key = `${canonicalConceptForFixedKey(e.concept).toLowerCase()}|${e.category.trim().toLowerCase()}|${e.recurrence}`;
+      if (!recurringSeries.has(key)) recurringSeries.set(key, e);
+    }
+    const gastosFijosMensuales = [...recurringSeries.values()].reduce(
       (acc, e) => acc + monthlyEquivalent(e.amount_cents, e.recurrence),
       0,
     );
