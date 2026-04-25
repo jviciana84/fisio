@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
-  deductibleQuarterTotalCents,
+  deductibleQuarterExtractTotalCents,
   eurosFromCents,
   getYearMonthKey,
   officialSalesFromBreakdown,
   quarterForDate,
   quarterMonthKeys,
   simulateQuarter,
-  type ExpenseRowInput,
+  type ExpenseExtractRowInput,
   type FiscalSettingsInput,
   type MonthKey,
 } from "@/lib/fiscal/fiscalHelper";
@@ -17,6 +17,7 @@ import {
 export const runtime = "nodejs";
 
 type TicketRow = {
+  id: string;
   total_cents: number;
   payment_method: string;
   created_at: string;
@@ -24,7 +25,6 @@ type TicketRow = {
 
 type ExpenseDb = {
   amount_cents: number;
-  recurrence: string;
   expense_date?: string;
   deductibility?: string;
   deductible_percent?: number;
@@ -100,13 +100,28 @@ export async function GET() {
 
   const { data: tickets, error: tErr } = await supabase
     .from("cash_tickets")
-    .select("total_cents, payment_method, created_at")
+    .select("id, total_cents, payment_method, created_at")
     .gte("created_at", since.toISOString())
     .order("created_at", { ascending: true });
 
   if (tErr) {
     return NextResponse.json({ ok: false, message: "No se pudieron cargar tickets" }, { status: 500 });
   }
+
+  const { data: invoiceLinks, error: invErr } = await supabase
+    .from("invoices")
+    .select("ticket_id")
+    .not("ticket_id", "is", null);
+
+  if (invErr) {
+    return NextResponse.json({ ok: false, message: "No se pudieron cargar facturas vinculadas a tickets" }, { status: 500 });
+  }
+
+  const invoicedTicketIds = new Set(
+    (invoiceLinks ?? [])
+      .map((r) => String((r as { ticket_id?: string | null }).ticket_id ?? "").trim())
+      .filter(Boolean),
+  );
 
   const { data: expenses, error: eErr } = await supabase.from("expenses").select("*");
 
@@ -138,12 +153,11 @@ export async function GET() {
     monthMap.set(key, cur);
   }
 
-  const expenseInputs: ExpenseRowInput[] = (expenses ?? []).map((e: ExpenseDb) => {
+  const expenseExtractRows: ExpenseExtractRowInput[] = (expenses ?? []).map((e: ExpenseDb) => {
     const raw = e.expense_date?.trim() ?? "";
     const expenseMonthKey = (raw.length >= 7 ? raw.slice(0, 7) : "1970-01") as MonthKey;
     return {
       amountCents: e.amount_cents,
-      recurrence: e.recurrence,
       deductibility: (e.deductibility as "full" | "partial" | "none") ?? "full",
       deductiblePercent: e.deductible_percent ?? 100,
       expenseMonthKey,
@@ -210,7 +224,7 @@ export async function GET() {
     qTotals.cardCents += b.cardCents;
   }
 
-  const deductibleQ = deductibleQuarterTotalCents(expenseInputs, q.monthKeys);
+  const deductibleQ = deductibleQuarterExtractTotalCents(expenseExtractRows, q.monthKeys);
   const modelWarnings: ModelWarning[] = [];
   if (qTotals.cashCents + qTotals.bizumCents + qTotals.cardCents <= 0) {
     modelWarnings.push({
@@ -255,6 +269,20 @@ export async function GET() {
     additionalNonVatDeductibleExpensesQuarterCents: employerPayrollCostQuarterCents,
   });
 
+  let quarterCashTotalCents = 0;
+  let quarterCashInvoicedCents = 0;
+  for (const row of (tickets ?? []) as TicketRow[]) {
+    if (row.payment_method !== "cash") continue;
+    const mk = getYearMonthKey(new Date(row.created_at));
+    if (!q.monthKeys.includes(mk)) continue;
+    const cents = Number(row.total_cents ?? 0);
+    quarterCashTotalCents += cents;
+    if (invoicedTicketIds.has(String(row.id))) {
+      quarterCashInvoicedCents += cents;
+    }
+  }
+  const quarterCashFreeCents = Math.max(0, quarterCashTotalCents - quarterCashInvoicedCents);
+
   const calendarYear = now.getFullYear();
   const currentQ = quarterForDate(now).quarter;
 
@@ -270,7 +298,7 @@ export async function GET() {
       bizumCents += b.bizumCents;
       cardCents += b.cardCents;
     }
-    const ded = deductibleQuarterTotalCents(expenseInputs, mks);
+    const ded = deductibleQuarterExtractTotalCents(expenseExtractRows, mks);
     const simQ = simulateQuarter({
       settings,
       ticketTotals: { cashCents, bizumCents, cardCents },
@@ -349,6 +377,7 @@ export async function GET() {
       declareCashPercent: simulation.declareCashPercent,
       realTotalEuros: eurosFromCents(simulation.realTotalCents),
       officialSalesEuros: eurosFromCents(simulation.officialSalesTtcCents),
+      netBeforeIrpfEuros: eurosFromCents(simulation.netBeforeIrpfCents),
       ivaToPayEuros: eurosFromCents(simulation.iva303ToPayCents),
       ivaOutputEuros: eurosFromCents(simulation.ivaRepercutidoCents),
       ivaInputEuros: eurosFromCents(simulation.ivaSoportadoCents),
@@ -360,6 +389,11 @@ export async function GET() {
       cashPocketEuros: eurosFromCents(simulation.cashPocketCents),
       liquidityAlert: simulation.liquidityAlert,
       liquidityGapEuros: eurosFromCents(Math.max(0, simulation.liquidityGapCents)),
+    },
+    quarterCash: {
+      totalEuros: eurosFromCents(quarterCashTotalCents),
+      invoicedEuros: eurosFromCents(quarterCashInvoicedCents),
+      freeEuros: eurosFromCents(quarterCashFreeCents),
     },
     payrollPreview: {
       assumptions: {

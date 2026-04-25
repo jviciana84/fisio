@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Save } from "lucide-react";
+import { AlertTriangle, CircleHelp, Save, ShieldAlert, Wallet, TrendingUp } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
-import { formatEuroEsWhole } from "@/lib/format-es";
+import { formatEuroEsTwoDecimals, formatEuroEsWhole, parseSpanishDecimalInput } from "@/lib/format-es";
 
 type ChartRow = {
   monthKey: string;
@@ -20,6 +20,7 @@ type Sim = {
   declareCashPercent: number;
   realTotalEuros: number;
   officialSalesEuros: number;
+  netBeforeIrpfEuros: number;
   ivaToPayEuros: number;
   ivaOutputEuros: number;
   ivaInputEuros: number;
@@ -99,6 +100,12 @@ type PayrollPreview = {
   };
 };
 
+type QuarterCash = {
+  totalEuros: number;
+  invoicedEuros: number;
+  freeEuros: number;
+};
+
 type ModelWarning = {
   model: "303" | "130" | "115" | "111" | "190";
   message: string;
@@ -116,9 +123,12 @@ export function FiscalSimulatorClient() {
   const [yearProgress, setYearProgress] = useState<YearProgress | null>(null);
   const [payrollPreview, setPayrollPreview] = useState<PayrollPreview | null>(null);
   const [modelWarnings, setModelWarnings] = useState<ModelWarning[]>([]);
+  const [quarterCash, setQuarterCash] = useState<QuarterCash | null>(null);
 
   const [sliderPct, setSliderPct] = useState([60]);
   const [saving, setSaving] = useState(false);
+  const [declaredCashInput, setDeclaredCashInput] = useState("");
+  const [editingDeclaredCash, setEditingDeclaredCash] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +147,7 @@ export function FiscalSimulatorClient() {
         yearProgress?: YearProgress;
         payrollPreview?: PayrollPreview;
         modelWarnings?: ModelWarning[];
+        quarterCash?: QuarterCash;
       };
       if (!res.ok || !data.ok) {
         setErr(data.message ?? "No se pudo cargar el simulador");
@@ -151,6 +162,7 @@ export function FiscalSimulatorClient() {
       setYearProgress(data.yearProgress ?? null);
       setPayrollPreview(data.payrollPreview ?? null);
       setModelWarnings(data.modelWarnings ?? []);
+      setQuarterCash(data.quarterCash ?? null);
       if (data.settings?.declareCashPercent != null) {
         setSliderPct([data.settings.declareCashPercent]);
       }
@@ -206,6 +218,49 @@ export function FiscalSimulatorClient() {
     }
     return map;
   }, [modelWarnings]);
+
+  const quarterTotals = useMemo(() => {
+    if (!chart.length) return { cashEuros: 0, bizumCardEuros: 0 };
+    let cashEuros = 0;
+    let bizumCardEuros = 0;
+    const useCurrentQuarter = currentQuarter != null && calendarYear != null;
+    const startMonth = useCurrentQuarter ? (currentQuarter - 1) * 3 + 1 : null;
+    const endMonth = useCurrentQuarter ? startMonth! + 2 : null;
+
+    for (const r of chart) {
+      if (useCurrentQuarter) {
+        const m = /^(\d{4})-(\d{2})$/.exec(r.monthKey.trim());
+        if (!m) continue;
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        if (y !== calendarYear || mo < startMonth! || mo > endMonth!) continue;
+      }
+      cashEuros += r.cashEuros;
+      bizumCardEuros += r.bizumEuros + r.cardEuros;
+    }
+    return { cashEuros, bizumCardEuros };
+  }, [chart, currentQuarter, calendarYear]);
+
+  const declaredCashEuros = useMemo(() => {
+    const pct = sliderPct[0] ?? 0;
+    const free = quarterCash?.freeEuros ?? quarterTotals.cashEuros;
+    return (free * pct) / 100;
+  }, [quarterCash?.freeEuros, quarterTotals.cashEuros, sliderPct]);
+
+  useEffect(() => {
+    if (editingDeclaredCash) return;
+    setDeclaredCashInput(formatEuroEsTwoDecimals(declaredCashEuros).replace(" €", ""));
+  }, [declaredCashEuros, editingDeclaredCash]);
+
+  const commitDeclaredCash = useCallback(() => {
+    const parsed = parseSpanishDecimalInput(declaredCashInput);
+    const freeCash = quarterCash?.freeEuros ?? quarterTotals.cashEuros;
+    const safe = Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, freeCash)) : declaredCashEuros;
+    const nextPct = freeCash > 0 ? Math.round((safe / freeCash) * 100) : 0;
+    setSliderPct([nextPct]);
+    setEditingDeclaredCash(false);
+    void persistSlider(nextPct);
+  }, [declaredCashInput, quarterCash?.freeEuros, quarterTotals.cashEuros, declaredCashEuros, persistSlider]);
 
   const modelDescriptions: Array<{ model: ModelWarning["model"]; title: string; description: string }> = [
     {
@@ -269,18 +324,23 @@ export function FiscalSimulatorClient() {
           </p>
         </header>
 
-        <section className="glass-panel-strong glass-tint-blue grid gap-6 p-6 md:grid-cols-2 md:p-8">
-          <div>
+        <section className="glass-panel-strong glass-tint-blue grid gap-4 p-5 md:grid-cols-[30fr_50fr_20fr] md:p-6">
+          <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">La hucha de efectivo</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">¿Qué parte del efectivo “blanqueas”?</h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">¿Qué parte del efectivo declaras?</h2>
             <p className="mt-2 text-sm text-slate-600">
               Bizum y tarjeta se consideran ya trazables al 100% en esta simulación. Solo el efectivo se ajusta con el
               porcentaje.
             </p>
-            <div className="mt-6 space-y-3">
+            <div className="mt-5 space-y-2.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-600">Efectivo declarado</span>
-                <span className="font-mono text-lg font-bold text-blue-700">{sliderPct[0]}%</span>
+                <div className="flex items-center gap-2">
+                  {saving ? (
+                    <span className="text-[10px] font-semibold text-blue-700">Guardando…</span>
+                  ) : null}
+                  <span className="font-mono text-lg font-bold text-blue-700">{sliderPct[0]}%</span>
+                </div>
               </div>
               <Slider
                 value={sliderPct}
@@ -290,69 +350,236 @@ export function FiscalSimulatorClient() {
                 max={100}
                 aria-label="Porcentaje de efectivo a declarar"
               />
-              <p className="text-xs text-slate-500">
-                {saving ? "Guardando…" : "Suelta la barra para recalcular."}
-              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-violet-200/70 bg-violet-50/70 p-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-800">
+                    Declarar del libre
+                  </p>
+                  <input
+                    value={declaredCashInput}
+                    onFocus={() => setEditingDeclaredCash(true)}
+                    onChange={(e) => setDeclaredCashInput(e.target.value)}
+                    onBlur={commitDeclaredCash}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      commitDeclaredCash();
+                    }}
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-md border border-violet-200/80 bg-white/85 px-2 py-1 text-sm font-semibold text-violet-900 outline-none ring-1 ring-white/70 focus:border-violet-400"
+                  />
+                </div>
+                <div className="rounded-lg border border-fuchsia-200/70 bg-fuchsia-50/70 px-2.5 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-800">Libre definitivo</p>
+                  <p className="mt-0.5 text-lg font-bold leading-none text-fuchsia-900">
+                    {formatEuroEsTwoDecimals(
+                      Math.max(0, (quarterCash?.freeEuros ?? quarterTotals.cashEuros) - declaredCashEuros),
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-fuchsia-900/80">Libre − declarado</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-cyan-200/70 bg-cyan-50/70 p-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-cyan-800">Pagos Bizum / Tarjeta</p>
+                <p className="mt-1 text-lg font-bold leading-none text-cyan-900">
+                  {formatEuroEsTwoDecimals(quarterTotals.bizumCardEuros)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Pago en efectivo</p>
+                <p className="mt-1 text-lg font-bold leading-none text-emerald-900">
+                  {formatEuroEsTwoDecimals(quarterCash?.totalEuros ?? quarterTotals.cashEuros)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-blue-200/70 bg-blue-50/70 p-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-800">Efectivo facturado</p>
+                <p className="mt-1 text-lg font-bold leading-none text-blue-900">
+                  {formatEuroEsTwoDecimals(quarterCash?.invoicedEuros ?? 0)}
+                </p>
+                <p className="mt-1 text-[10px] text-blue-900/80">Trazable por factura</p>
+              </div>
+              <div className="rounded-lg border border-violet-200/70 bg-violet-50/70 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-800">Efectivo libre</p>
+                <p className="mt-0.5 text-lg font-bold leading-none text-violet-900">
+                  {formatEuroEsTwoDecimals(quarterCash?.freeEuros ?? quarterTotals.cashEuros)}
+                </p>
+                <p className="mt-0.5 text-[10px] text-violet-900/80">Efectivo no trazable</p>
+              </div>
             </div>
           </div>
 
           {sim ? (
-            <div className="glass-inner p-5 ring-1 ring-white/55 shadow-sm">
+            <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Si declaras el {sim.declareCashPercent}% del efectivo…
               </p>
-              <p className="mt-3 text-2xl font-bold text-slate-900">
+              <p className="mt-2 text-2xl font-bold text-slate-900">
                 Hacienda (estim. trim. {quarter}): {formatEuroEsWhole(sim.totalTaxesEuros)}
               </p>
-              <p className="mt-2 text-sm text-slate-700">
-                Dinero limpio después de impuestos (todo lo cobrado − impuestos):{" "}
-                <span className="font-semibold text-emerald-700">{formatEuroEsWhole(sim.netAfterTaxesEuros)}</span>
+              <p className="mt-2 whitespace-nowrap text-sm text-slate-700">
+                Dinero limpio después de impuestos (todo lo cobrado − impuestos): <span className="font-semibold text-emerald-700">{formatEuroEsTwoDecimals(sim.netAfterTaxesEuros)}</span>
               </p>
-              <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
-                <li>
-                  IVA (modelo 303 aprox.): {formatEuroEsWhole(sim.ivaToPayEuros)}{" "}
-                  <span className="text-slate-500">
-                    ({formatEuroEsWhole(sim.ivaOutputEuros)} - {formatEuroEsWhole(sim.ivaInputEuros)} ={" "}
-                    {formatEuroEsWhole(sim.ivaNetEuros)})
-                  </span>
-                </li>
-                <li>IRPF fraccionado (20% sobre beneficio estimado): {formatEuroEsWhole(sim.irpfEuros)}</li>
-                <li>Retención alquiler (modelo 115, si aplica): {formatEuroEsWhole(sim.model115Euros)}</li>
-                <li>Efectivo no declarado en simulación: {formatEuroEsWhole(sim.cashPocketEuros)}</li>
-              </ul>
+              <div className="mt-2.5 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2">
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <Wallet className="h-3.5 w-3.5" /> Caja
+                    </span>
+                    <span className="rounded-md border border-cyan-200/70 bg-cyan-50/70 px-2 py-1 font-semibold text-cyan-900">
+                      {sim.realTotalEuros > 0 ? "Positiva" : "Sin cobros"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <TrendingUp className="h-3.5 w-3.5" /> Margen
+                    </span>
+                    <span
+                      className={`rounded-md px-2 py-1 font-semibold ${
+                        sim.netBeforeIrpfEuros > 0
+                          ? "border border-emerald-200/70 bg-emerald-50/70 text-emerald-900"
+                          : "border border-rose-200/70 bg-rose-50/70 text-rose-900"
+                      }`}
+                    >
+                      {sim.netBeforeIrpfEuros > 0 ? "Positivo" : "Nulo/Negativo"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <ShieldAlert className="h-3.5 w-3.5" /> Riesgo
+                    </span>
+                    <span
+                      className={`rounded-md px-2 py-1 font-semibold ${
+                        sim.netBeforeIrpfEuros > 0 &&
+                        sim.realTotalEuros > 0 &&
+                        sim.netAfterTaxesEuros / sim.realTotalEuros >= 0.25
+                          ? "border border-emerald-200/70 bg-emerald-50/70 text-emerald-900"
+                          : "border border-rose-200/70 bg-rose-50/70 text-rose-900"
+                      }`}
+                    >
+                      {sim.netBeforeIrpfEuros > 0 &&
+                      sim.realTotalEuros > 0 &&
+                      sim.netAfterTaxesEuros / sim.realTotalEuros >= 0.25
+                        ? "Bajo"
+                        : "Alto"}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[10px] leading-snug text-slate-600">
+                  Caja positiva no siempre implica beneficio: puede alcanzar para cubrir estructura, pero no salarios.
+                </p>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                <div className="rounded-lg border border-blue-200/70 bg-blue-50/70 p-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-800">IVA (303)</p>
+                  <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-blue-900">{formatEuroEsTwoDecimals(sim.ivaToPayEuros)}</p>
+                  <p className="mt-1 text-[10px] text-blue-900/80">
+                    {formatEuroEsTwoDecimals(sim.ivaOutputEuros)} - {formatEuroEsTwoDecimals(sim.ivaInputEuros)}
+                  </p>
+                  <details className="mt-1.5 text-[10px] text-blue-900/90">
+                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
+                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
+                    </summary>
+                    <p className="mt-1 leading-snug">
+                      Lo que cobras de IVA menos el IVA que pagas en gastos. Ejemplo: si cobras 500 y soportas 200, pagas
+                      300.
+                    </p>
+                  </details>
+                </div>
+                <div className="rounded-lg border border-violet-200/70 bg-violet-50/70 p-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-800">IRPF (130)</p>
+                  <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-violet-900">{formatEuroEsTwoDecimals(sim.irpfEuros)}</p>
+                  <p className="mt-1 text-[10px] text-violet-900/80">20% sobre beneficio estimado</p>
+                  <details className="mt-1.5 text-[10px] text-violet-900/90">
+                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
+                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
+                    </summary>
+                    <p className="mt-1 leading-snug">
+                      Es un adelanto de tu IRPF. Ejemplo: beneficio 2.000, aprox. pagas 400 en este modelo.
+                    </p>
+                  </details>
+                </div>
+                <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 p-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Alquiler (115)</p>
+                  <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-amber-900">{formatEuroEsTwoDecimals(sim.model115Euros)}</p>
+                  <p className="mt-1 text-[10px] text-amber-900/80">Solo si el local es alquilado</p>
+                  <details className="mt-1.5 text-[10px] text-amber-900/90">
+                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
+                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
+                    </summary>
+                    <p className="mt-1 leading-snug">
+                      Retención sobre alquiler del local (19%). Si no tienes alquiler, este importe es 0.
+                    </p>
+                  </details>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-slate-600">
+                Efectivo no declarado en simulación:{" "}
+                <span className="font-semibold">
+                  {formatEuroEsTwoDecimals(
+                    Math.max(0, (quarterCash?.freeEuros ?? quarterTotals.cashEuros) - declaredCashEuros),
+                  )}
+                </span>
+              </p>
               {sim.ivaNetEuros < 0 ? (
                 <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  En este trimestre te sale IVA a compensar ({formatEuroEsWhole(sim.ivaNetEuros)}). Por eso el 303
+                  En este trimestre te sale IVA a compensar ({formatEuroEsTwoDecimals(sim.ivaNetEuros)}). Por eso el 303
                   mostrado queda en 0 en esta vista (solo pago, no saldo a compensar).
                 </p>
               ) : null}
+              <div className="mt-2 rounded-lg border border-blue-200/70 bg-blue-50/55 p-2.5">
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  Resumen fácil de la hucha
+                  <span className="inline-flex items-center text-blue-700" aria-hidden>
+                    <CircleHelp className="h-4 w-4" />
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-slate-700">
+                  Lo que apartas para Hacienda en el trimestre sale de sumar 303 + 130 + 115.
+                </p>
+                <details className="mt-2 text-xs text-slate-700">
+                  <summary className="cursor-pointer font-medium text-blue-800">Ver ejemplo paso a paso</summary>
+                  <p className="mt-1 leading-snug">
+                    Si el 303 son 300 €, el 130 son 400 € y el 115 son 100 €, la hucha recomendada para el trimestre
+                    sería 800 €.
+                  </p>
+                </details>
+              </div>
             </div>
           ) : null}
-        </section>
 
-        <section className="glass-panel glass-tint-slate p-5 md:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Qué es cada modelo</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {modelDescriptions.map((m) => {
-              const warning = warningByModel.get(m.model);
-              return (
-                <div key={m.model} className="glass-inner border border-slate-200/70 bg-white/65 p-3">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    {m.title}
-                    {warning ? (
-                      <span
-                        title={warning}
-                        className="inline-flex cursor-help items-center text-amber-600"
-                        aria-label={`Aviso ${m.title}`}
-                      >
-                        <AlertTriangle className="h-4 w-4" />
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-600">{m.description}</p>
-                </div>
-              );
-            })}
+            <div className="glass-inner p-3 ring-1 ring-white/55 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Leyenda de impuestos</p>
+            <div className="mt-2.5 grid gap-1.5">
+              {modelDescriptions.map((m) => {
+                const warning = warningByModel.get(m.model);
+                return (
+                  <div key={m.model} className="rounded-lg border border-slate-200/70 bg-white/75 p-2">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      {m.title}
+                      {warning ? (
+                        <span
+                          title={warning}
+                          className="inline-flex cursor-help items-center text-amber-600"
+                          aria-label={`Aviso ${m.title}`}
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                      ) : null}
+                    </p>
+                    <details className="mt-0.5 text-[11px] text-slate-700">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-blue-800">
+                        <CircleHelp className="h-3.5 w-3.5" /> Qué es y ejemplo
+                      </summary>
+                      <p className="mt-1 leading-snug">
+                        {m.description}
+                      </p>
+                    </details>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 

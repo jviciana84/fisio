@@ -42,6 +42,15 @@ export type ExpenseRowInput = {
   expenseMonthKey?: MonthKey;
 };
 
+/** Apunte real del extracto de gastos (no plantilla recurrente). */
+export type ExpenseExtractRowInput = {
+  amountCents: number;
+  deductibility: "full" | "partial" | "none";
+  deductiblePercent: number;
+  /** Mes del apunte real (YYYY-MM). */
+  expenseMonthKey: MonthKey;
+};
+
 function monthlyEquivalentCents(cents: number, recurrence: string): number {
   if (recurrence === "none") return 0;
   switch (recurrence) {
@@ -103,6 +112,22 @@ export function deductibleQuarterTotalCents(
       continue;
     }
     total += d * 3;
+  }
+  return total;
+}
+
+/**
+ * Total deducible trimestral desde extracto real:
+ * suma los apuntes cuya fecha cae dentro del trimestre, sin expandir recurrencias.
+ */
+export function deductibleQuarterExtractTotalCents(
+  rows: ExpenseExtractRowInput[],
+  quarterMonthKeys: MonthKey[],
+): number {
+  let total = 0;
+  for (const e of rows) {
+    if (!quarterMonthKeys.includes(e.expenseMonthKey)) continue;
+    total += applyDeductibilityToAmount(e.amountCents, e.deductibility, e.deductiblePercent);
   }
   return total;
 }

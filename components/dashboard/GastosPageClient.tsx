@@ -112,6 +112,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   const [selectedFixedRowId, setSelectedFixedRowId] = useState<string | null>(null);
 
   const [editingFixedId, setEditingFixedId] = useState<string | null>(null);
+  const [editConcept, setEditConcept] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editRecurrence, setEditRecurrence] = useState("monthly");
   const [editAmountStr, setEditAmountStr] = useState("");
@@ -330,6 +331,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditingMainId(null);
     setSelectedFixedRowId(row.id);
     setEditingFixedId(row.id);
+    setEditConcept(canonicalConceptForFixedKey(row.concept));
     setEditCategory(row.category?.trim() || "");
     setEditRecurrence(row.recurrence || "monthly");
     setEditAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
@@ -570,6 +572,11 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
       return;
     }
     const recurrence = overrides?.recurrence ?? editRecurrence;
+    const concept = editConcept.trim();
+    if (!overrides?.recurrenceOnly && concept.length < 2) {
+      setFixedActionError("Indica un concepto (mín. 2 caracteres).");
+      return;
+    }
 
     /** Solo periodicidad en recurrentes: no reescribe importe/categoría en todo el grupo. */
     if (overrides?.recurrenceOnly && overrides.recurrence !== undefined && row.recurrence !== "none") {
@@ -633,6 +640,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
       const effectiveFrom = row.expense_date?.slice(0, 10);
       const isCurrentRecurring = row.recurrence !== "none";
       const payload: Record<string, unknown> = {
+        concept,
         category: editCategory.trim(),
         recurrence,
         amountEuros,
@@ -676,6 +684,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           touched.has(e.id)
             ? {
                 ...e,
+                concept,
                 category: newCategory,
                 recurrence,
                 amount_cents: amountCents,
@@ -1545,7 +1554,27 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               : "hover:bg-slate-50/80"
                           }`}
                         >
-                          <td className="px-3 py-2.5 font-medium text-slate-900 md:px-4">{label}</td>
+                          <td
+                            className="max-w-[13rem] px-3 py-2.5 font-medium text-slate-900 md:px-4"
+                            title="Clic para editar"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isEditing) return;
+                              startEditFixed(row);
+                            }}
+                          >
+                            {isEditing ? (
+                              <input
+                                className={inputCls}
+                                value={editConcept}
+                                onChange={(e) => setEditConcept(e.target.value)}
+                                onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
+                                aria-label="Concepto"
+                              />
+                            ) : (
+                              <span className="block truncate py-0.5">{label}</span>
+                            )}
+                          </td>
                           <td
                             className="max-w-[12rem] px-3 py-2 text-slate-700 md:px-4"
                             title="Clic para editar"
