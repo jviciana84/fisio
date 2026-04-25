@@ -21,6 +21,8 @@ export function monthlyEquivalentEurFromCents(
       return euros * (52 / 12);
     case "monthly":
       return euros;
+    case "bimonthly":
+      return euros / 2;
     case "quarterly":
       return euros / 3;
     case "semiannual":

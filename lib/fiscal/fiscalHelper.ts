@@ -49,6 +49,8 @@ function monthlyEquivalentCents(cents: number, recurrence: string): number {
       return Math.round((cents * 52) / 12);
     case "monthly":
       return cents;
+    case "bimonthly":
+      return Math.round(cents / 2);
     case "quarterly":
       return Math.round(cents / 3);
     case "semiannual":
@@ -94,6 +96,12 @@ export function deductibleQuarterTotalCents(
     }
     const monthly = monthlyEquivalentCents(e.amountCents, e.recurrence);
     const d = applyDeductibilityToAmount(monthly, e.deductibility, e.deductiblePercent);
+    if (e.expenseMonthKey) {
+      // Solo cuenta meses del trimestre en los que el gasto ya estaba vigente.
+      const activeMonthsInQuarter = quarterMonthKeys.filter((mk) => mk >= e.expenseMonthKey!).length;
+      total += d * activeMonthsInQuarter;
+      continue;
+    }
     total += d * 3;
   }
   return total;

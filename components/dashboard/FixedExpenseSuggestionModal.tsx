@@ -18,6 +18,7 @@ const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Sin periodicidad (puntual)" },
   { value: "weekly", label: "Semanal" },
   { value: "monthly", label: "Mensual" },
+  { value: "bimonthly", label: "Bimensual" },
   { value: "quarterly", label: "Trimestral" },
   { value: "semiannual", label: "Semestral" },
   { value: "annual", label: "Anual" },
@@ -126,6 +127,15 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
       resetForm();
     }
   }, [open, resetForm]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
 
   const amountNum = useMemo(() => {
     const n = parseSpanishDecimalInput(amountStr);

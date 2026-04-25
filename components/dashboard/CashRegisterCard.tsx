@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Star, X } from "lucide-react";
+import { Plus, Save, Star, X } from "lucide-react";
 import { formatEuroEsTwoDecimals } from "@/lib/format-es";
+import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { ClientDetailModal } from "@/components/dashboard/ClientDetailModal";
 
@@ -62,10 +63,17 @@ export function CashRegisterCard() {
   const [saving, setSaving] = useState(false);
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<string[]>([]);
   const [clientModalOpen, setClientModalOpen] = useState(false);
-  const [createClientName, setCreateClientName] = useState("");
+  const [createClientFirstName, setCreateClientFirstName] = useState("");
+  const [createClientLastName, setCreateClientLastName] = useState("");
   const [createClientEmail, setCreateClientEmail] = useState("");
   const [createClientPhone, setCreateClientPhone] = useState("");
   const [createClientNotes, setCreateClientNotes] = useState("");
+  const [createClientWantsInvoice, setCreateClientWantsInvoice] = useState(false);
+  const [createClientTaxId, setCreateClientTaxId] = useState("");
+  const [createClientStreet, setCreateClientStreet] = useState("");
+  const [createClientStreetNumber, setCreateClientStreetNumber] = useState("");
+  const [createClientPostalCode, setCreateClientPostalCode] = useState("");
+  const [createClientCity, setCreateClientCity] = useState("");
   const [creatingClient, setCreatingClient] = useState(false);
   const [clientModalError, setClientModalError] = useState<string | null>(null);
   const [loadingClientDetail, setLoadingClientDetail] = useState(false);
@@ -97,6 +105,18 @@ export function CashRegisterCard() {
   }, [selectedProducts, manualAmountNum]);
 
   const canSave = total > 0 && !saving;
+
+  useEffect(() => {
+    const hasOpenModal = clientModalOpen || !!fichaClienteId;
+    if (!hasOpenModal) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (clientModalOpen && !creatingClient) setClientModalOpen(false);
+      if (fichaClienteId) setFichaClienteId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [clientModalOpen, creatingClient, fichaClienteId]);
 
   useEffect(() => {
     void (async () => {
@@ -152,10 +172,17 @@ export function CashRegisterCard() {
   }
 
   function resetCreateClientForm() {
-    setCreateClientName("");
+    setCreateClientFirstName("");
+    setCreateClientLastName("");
     setCreateClientEmail("");
     setCreateClientPhone("");
     setCreateClientNotes("");
+    setCreateClientWantsInvoice(false);
+    setCreateClientTaxId("");
+    setCreateClientStreet("");
+    setCreateClientStreetNumber("");
+    setCreateClientPostalCode("");
+    setCreateClientCity("");
     setClientModalError(null);
   }
 
@@ -173,9 +200,28 @@ export function CashRegisterCard() {
   }
 
   async function handleCreateClient() {
-    const fullName = createClientName.trim();
-    if (fullName.length < 2) {
-      setClientModalError("El nombre es obligatorio (mínimo 2 caracteres).");
+    const firstName = createClientFirstName.trim();
+    const lastName = createClientLastName.trim();
+    const phone = createClientPhone.trim();
+    const email = createClientEmail.trim();
+    const notes = createClientNotes.trim();
+    const taxId = createClientTaxId.trim();
+    const addressStreet = createClientStreet.trim();
+    const addressNumber = createClientStreetNumber.trim();
+    const addressPostalCode = createClientPostalCode.trim();
+    const addressCity = createClientCity.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+    if (firstName.length < 2 || lastName.length < 2) {
+      setClientModalError("Nombre y apellidos son obligatorios.");
+      return;
+    }
+    if (phone.length < 6) {
+      setClientModalError("El teléfono es obligatorio.");
+      return;
+    }
+    if (createClientWantsInvoice && (!taxId || !addressStreet || !addressNumber || !addressPostalCode || !addressCity)) {
+      setClientModalError("Para solicitar factura debes completar NIF/CIF y toda la dirección.");
       return;
     }
     setCreatingClient(true);
@@ -185,10 +231,18 @@ export function CashRegisterCard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          firstName,
+          lastName,
           fullName,
-          email: createClientEmail.trim() || undefined,
-          phone: createClientPhone.trim() || undefined,
-          notes: createClientNotes.trim() || undefined,
+          email: email || undefined,
+          phone,
+          notes: notes || undefined,
+          wantsInvoice: createClientWantsInvoice,
+          taxId: taxId || undefined,
+          addressStreet: addressStreet || undefined,
+          addressNumber: addressNumber || undefined,
+          addressPostalCode: addressPostalCode || undefined,
+          addressCity: addressCity || undefined,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; id?: string; message?: string };
@@ -734,18 +788,13 @@ export function CashRegisterCard() {
             if (!creatingClient) setClientModalOpen(false);
           }}
         >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 id="cash-create-client-title" className="text-base font-semibold text-slate-900">
+                <h3 id="cash-create-client-title" className="text-lg font-semibold text-slate-900">
                   Nuevo cliente
                 </h3>
-                <p className="mt-1 text-xs text-slate-600">
-                  Alta rápida desde caja. Luego podrás completar la ficha en Clientes.
-                </p>
+                <p className="mt-1 text-sm text-slate-600">Datos básicos; luego podrás completar la ficha (bono, RGPD, etc.).</p>
               </div>
               <button
                 type="button"
@@ -758,43 +807,107 @@ export function CashRegisterCard() {
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Nombre completo</label>
-                <input
-                  value={createClientName}
-                  onChange={(e) => setCreateClientName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Nombre y apellidos"
-                />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Nombre</label>
+                  <input
+                    value={createClientFirstName}
+                    onChange={(e) => setCreateClientFirstName(e.target.value)}
+                    className={DASHBOARD_INPUT_CLASS_FORM}
+                    placeholder="Nombre"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Apellidos</label>
+                  <input
+                    value={createClientLastName}
+                    onChange={(e) => setCreateClientLastName(e.target.value)}
+                    className={DASHBOARD_INPUT_CLASS_FORM}
+                    placeholder="Apellidos"
+                  />
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Teléfono</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Teléfono</label>
                   <input
                     value={createClientPhone}
                     onChange={(e) => setCreateClientPhone(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                    placeholder="Opcional"
+                    className={DASHBOARD_INPUT_CLASS_FORM}
+                    placeholder="Obligatorio"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Email <span className="font-normal text-slate-500">(opcional)</span></label>
                   <input
                     value={createClientEmail}
                     onChange={(e) => setCreateClientEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    className={DASHBOARD_INPUT_CLASS_FORM}
                     placeholder="Opcional"
                   />
                 </div>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Notas</label>
+              <label className="sm:col-span-2 flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={createClientWantsInvoice}
+                  onChange={(e) => setCreateClientWantsInvoice(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300"
+                />
+                Este cliente solicita factura
+              </label>
+              {createClientWantsInvoice ? (
+                <>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">NIF/CIF (obligatorio)</label>
+                    <input
+                      value={createClientTaxId}
+                      onChange={(e) => setCreateClientTaxId(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Calle (obligatorio)</label>
+                    <input
+                      value={createClientStreet}
+                      onChange={(e) => setCreateClientStreet(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Nº (obligatorio)</label>
+                    <input
+                      value={createClientStreetNumber}
+                      onChange={(e) => setCreateClientStreetNumber(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Código postal (obligatorio)</label>
+                    <input
+                      value={createClientPostalCode}
+                      onChange={(e) => setCreateClientPostalCode(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Población (obligatorio)</label>
+                    <input
+                      value={createClientCity}
+                      onChange={(e) => setCreateClientCity(e.target.value)}
+                      className={DASHBOARD_INPUT_CLASS_FORM}
+                    />
+                  </div>
+                </>
+              ) : null}
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Notas <span className="font-normal text-slate-500">(opcional)</span></label>
                 <textarea
                   value={createClientNotes}
                   onChange={(e) => setCreateClientNotes(e.target.value)}
-                  rows={3}
-                  className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  rows={2}
+                  className={`${DASHBOARD_INPUT_CLASS_FORM} resize-y`}
                   placeholder="Opcional"
                 />
               </div>
@@ -813,7 +926,9 @@ export function CashRegisterCard() {
                 size="sm"
                 onClick={() => setClientModalOpen(false)}
                 disabled={creatingClient}
+                className="inline-flex items-center gap-1.5"
               >
+                <X className="h-4 w-4" aria-hidden />
                 Cancelar
               </Button>
               <Button
@@ -821,8 +936,15 @@ export function CashRegisterCard() {
                 variant="gradient"
                 size="sm"
                 onClick={() => void handleCreateClient()}
-                disabled={creatingClient}
+                disabled={
+                  creatingClient ||
+                  createClientFirstName.trim().length < 2 ||
+                  createClientLastName.trim().length < 2 ||
+                  createClientPhone.trim().length < 1
+                }
+                className="inline-flex items-center gap-1.5"
               >
+                <Save className="h-4 w-4" aria-hidden />
                 {creatingClient ? "Guardando…" : "Crear cliente"}
               </Button>
             </div>

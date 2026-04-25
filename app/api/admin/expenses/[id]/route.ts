@@ -10,6 +10,7 @@ const RECURRENCE = [
   "none",
   "weekly",
   "monthly",
+  "bimonthly",
   "quarterly",
   "semiannual",
   "annual",
@@ -194,14 +195,25 @@ export async function PATCH(
       );
     }
 
+    /** Filas realmente actualizadas (una o varias en bulk); el cliente sincroniza la tabla sin depender solo del refresh. */
+    let updatedIds: string[] = [id];
+
     const effRaw = body.effectiveFrom?.trim();
     const effectiveFrom =
       effRaw && /^\d{4}-\d{2}-\d{2}$/.test(effRaw) ? effRaw : undefined;
 
+    const recurrenceChanging =
+      updates.recurrence !== undefined && String(updates.recurrence) !== current.recurrence;
+
+    /**
+     * Bulk: por rango de fechas (importe/categoría…) o siempre que cambie la periodicidad en un
+     * recurrente (toda la serie con la misma periodicidad anterior), para no dejar apuntes
+     * viejos con otra cadencia (efecto «duplicado» en la tabla de fijos).
+     */
     const useBulk =
       current.recurrence !== "none" &&
-      effectiveFrom !== undefined &&
-      Object.keys(updates).length > 0;
+      Object.keys(updates).length > 0 &&
+      (effectiveFrom !== undefined || recurrenceChanging);
 
     if (useBulk) {
       const groupKey = expenseRecurringGroupKey(current);
@@ -217,9 +229,35 @@ export async function PATCH(
         );
       }
 
-      const ids = (candidates as { id: string; concept: string; category: string; expense_date: string; recurrence: string }[])
-        .filter((r) => expenseRecurringGroupKey(r) === groupKey && r.expense_date >= effectiveFrom!)
-        .map((r) => r.id);
+      const typed = candidates as {
+        id: string;
+        concept: string;
+        category: string;
+        expense_date: string;
+        recurrence: string;
+      }[];
+
+      const sameGroup = typed.filter((r) => expenseRecurringGroupKey(r) === groupKey);
+
+      let ids: string[];
+
+      if (recurrenceChanging) {
+        ids = sameGroup.map((r) => r.id);
+      } else {
+        if (effectiveFrom === undefined) {
+          return NextResponse.json(
+            { ok: false, message: "Indica desde qué fecha aplicar los cambios" },
+            { status: 400 },
+          );
+        }
+        const eff = effectiveFrom;
+        const inRange = (d: string) => {
+          const key = (d ?? "").trim().slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+          return key >= eff;
+        };
+        ids = sameGroup.filter((r) => inRange(r.expense_date)).map((r) => r.id);
+      }
 
       if (ids.length === 0) {
         return NextResponse.json(
@@ -227,6 +265,8 @@ export async function PATCH(
           { status: 400 },
         );
       }
+
+      updatedIds = ids;
 
       const { error: upErr } = await supabase.from("expenses").update(updates).in("id", ids);
       if (upErr) {
@@ -252,14 +292,14 @@ export async function PATCH(
     revalidatePath("/dashboard/gastos");
     revalidatePath("/dashboard");
 
-    return NextResponse.json({ ok: true, updatedBulk: useBulk });
+    return NextResponse.json({ ok: true, updatedBulk: useBulk, updatedIds });
   } catch {
     return NextResponse.json({ ok: false, message: "Solicitud inválida" }, { status: 400 });
   }
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAdminApi();
@@ -271,6 +311,60 @@ export async function DELETE(
   }
 
   const supabase = createSupabaseAdminClient();
+  const url = new URL(request.url);
+  const scope = url.searchParams.get("scope");
+
+  if (scope === "group") {
+    const { data: currentRows, error: currentErr } = await supabase
+      .from("expenses")
+      .select("id, concept, category, recurrence")
+      .eq("id", id)
+      .limit(1);
+
+    if (currentErr || !currentRows?.length) {
+      return NextResponse.json({ ok: false, message: "Gasto no encontrado" }, { status: 404 });
+    }
+
+    const current = currentRows[0] as Pick<ExpenseRow, "id" | "concept" | "category" | "recurrence">;
+
+    if (current.recurrence !== "none") {
+      const groupKey = expenseRecurringGroupKey(current);
+      const { data: candidates, error: candErr } = await supabase
+        .from("expenses")
+        .select("id, concept, category, recurrence")
+        .eq("recurrence", current.recurrence);
+
+      if (candErr || !candidates) {
+        return NextResponse.json(
+          { ok: false, message: "No se pudieron buscar cargos relacionados" },
+          { status: 500 },
+        );
+      }
+
+      const ids = (
+        candidates as Pick<ExpenseRow, "id" | "concept" | "category" | "recurrence">[]
+      )
+        .filter((row) => expenseRecurringGroupKey(row) === groupKey)
+        .map((row) => row.id);
+
+      if (!ids.length) {
+        return NextResponse.json({ ok: false, message: "No hay cargos para eliminar" }, { status: 404 });
+      }
+
+      const { error: delErr } = await supabase.from("expenses").delete().in("id", ids);
+      if (delErr) {
+        return NextResponse.json(
+          { ok: false, message: delErr.message || "No se pudo eliminar el grupo de gastos" },
+          { status: 500 },
+        );
+      }
+
+      revalidatePath("/dashboard/gastos");
+      revalidatePath("/dashboard");
+      return NextResponse.json({ ok: true, deletedCount: ids.length, deletedScope: "group" });
+    }
+  }
+
   const { data, error } = await supabase.from("expenses").delete().eq("id", id).select("id");
 
   if (error) {
@@ -286,5 +380,5 @@ export async function DELETE(
   revalidatePath("/dashboard/gastos");
   revalidatePath("/dashboard");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deletedCount: 1, deletedScope: "single" });
 }

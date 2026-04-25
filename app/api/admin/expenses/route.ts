@@ -9,6 +9,7 @@ const RECURRENCE = [
   "none",
   "weekly",
   "monthly",
+  "bimonthly",
   "quarterly",
   "semiannual",
   "annual",

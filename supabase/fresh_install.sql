@@ -112,7 +112,7 @@ create table if not exists public.expenses (
   amount_cents integer not null check (amount_cents > 0),
   expense_date date not null default (current_date),
   recurrence text not null default 'monthly'
-    check (recurrence in ('none', 'weekly', 'monthly', 'quarterly', 'semiannual', 'annual')),
+    check (recurrence in ('none', 'weekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual')),
   deductibility text not null default 'full'
     check (deductibility in ('full', 'partial', 'none')),
   deductible_percent integer not null default 100
@@ -143,7 +143,7 @@ alter table public.expenses
 
 alter table public.expenses
   add constraint expenses_recurrence_check check (
-    recurrence in ('none', 'weekly', 'monthly', 'quarterly', 'semiannual', 'annual')
+    recurrence in ('none', 'weekly', 'monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual')
   );
 
 alter table public.expenses

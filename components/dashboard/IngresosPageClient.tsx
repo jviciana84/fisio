@@ -129,6 +129,21 @@ export function IngresosPageClient({
     return sorted.slice(start, start + pageSize);
   }, [sorted, page, pageSize]);
 
+  /** Totales de la tabla sobre todos los tickets filtrados (todas las páginas). */
+  const ingresosTableFooter = useMemo(() => {
+    let totalCents = 0;
+    let cashCents = 0;
+    let bizumCents = 0;
+    let cardCents = 0;
+    for (const t of sorted) {
+      totalCents += t.total_cents;
+      if (t.payment_method === "cash") cashCents += t.total_cents;
+      else if (t.payment_method === "bizum") bizumCents += t.total_cents;
+      else cardCents += t.total_cents;
+    }
+    return { count: sorted.length, totalCents, cashCents, bizumCents, cardCents };
+  }, [sorted]);
+
   useEffect(() => {
     setSelectedRowId((id) =>
       id != null && sorted.some((r) => r.id === id) ? id : null,
@@ -496,7 +511,8 @@ export function IngresosPageClient({
                     </td>
                   </tr>
                 ) : (
-                  paginatedRows.map((row) => {
+                  <>
+                    {paginatedRows.map((row) => {
                     const isSelected = selectedRowId === row.id;
                     const isEditing = editingTicketId === row.id;
                     const inputCls =
@@ -674,7 +690,37 @@ export function IngresosPageClient({
                       </td>
                     </tr>
                     );
-                  })
+                  })}
+                    <tr
+                      className="border-t-2 border-slate-200/90 bg-slate-50/95 text-slate-800"
+                      aria-label="Totales de todos los tickets de la tabla (todas las páginas)"
+                    >
+                      <td colSpan={4} className="px-2 py-2.5 align-top md:px-3 md:py-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                          Totales
+                        </span>
+                        <span className="mt-0.5 block text-[11px] font-normal leading-snug text-slate-500">
+                          {ingresosTableFooter.count} tickets
+                          {totalPages > 1
+                            ? ` en ${totalPages} páginas · suma de todas las filas filtradas`
+                            : null}
+                        </span>
+                        {ingresosTableFooter.count > 0 ? (
+                          <span className="mt-1 block text-[10px] leading-snug text-slate-500">
+                            Efectivo {formatEuroEsTwoDecimals(ingresosTableFooter.cashCents / 100)} · Bizum{" "}
+                            {formatEuroEsTwoDecimals(ingresosTableFooter.bizumCents / 100)} · Tarjeta{" "}
+                            {formatEuroEsTwoDecimals(ingresosTableFooter.cardCents / 100)}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-2.5 text-right align-top text-sm font-bold tabular-nums text-slate-900 md:px-3 md:py-3">
+                        {ingresosTableFooter.count > 0
+                          ? formatEuroEsTwoDecimals(ingresosTableFooter.totalCents / 100)
+                          : "—"}
+                      </td>
+                      <td className="px-1 py-2 align-top md:px-2 md:py-3" aria-hidden />
+                    </tr>
+                  </>
                 )}
               </tbody>
               </table>

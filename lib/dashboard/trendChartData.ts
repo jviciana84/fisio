@@ -16,7 +16,7 @@ export type TrendPoint = {
 
 export type ExpenseRow = {
   amount_cents: number;
-  recurrence: "none" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+  recurrence: "none" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
   expense_date: string;
 };
 

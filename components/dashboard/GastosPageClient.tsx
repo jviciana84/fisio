@@ -18,7 +18,7 @@ import {
   formatIncomeRangeLabel,
   localDayKeyFromExpenseDate,
 } from "@/lib/dashboard/trendChartData";
-import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
+import { canonicalConceptForFixedKey, expenseRecurringGroupKey } from "@/lib/dashboard/expenseCanonical";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
 import { computeStructureFromRecurringRows } from "@/lib/dashboard/structureCost";
 import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
@@ -64,6 +64,7 @@ function recurrenceLabel(r: string): string {
     none: "Puntual",
     weekly: "Semanal",
     monthly: "Mensual",
+    bimonthly: "Bimensual",
     quarterly: "Trimestral",
     semiannual: "Semestral",
     annual: "Anual",
@@ -77,6 +78,7 @@ const FIXED_RECURRENCE_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Puntual" },
   { value: "weekly", label: "Semanal" },
   { value: "monthly", label: "Mensual" },
+  { value: "bimonthly", label: "Bimensual" },
   { value: "quarterly", label: "Trimestral" },
   { value: "semiannual", label: "Semestral" },
   { value: "annual", label: "Anual" },
@@ -84,6 +86,16 @@ const FIXED_RECURRENCE_OPTIONS: { value: string; label: string }[] = [
 
 export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] }) {
   const router = useRouter();
+  /** Evita «Router action dispatched before initialization» al llamar refresh en el mismo tick que termina un fetch. */
+  const scheduleRouterRefresh = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.queueMicrotask(() => {
+      window.setTimeout(() => {
+        router.refresh();
+      }, 0);
+    });
+  }, [router]);
+
   const [expenseList, setExpenseList] = useState<ExpenseDetailRow[]>(expenses);
   useEffect(() => {
     setExpenseList(expenses);
@@ -103,6 +115,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   const [editCategory, setEditCategory] = useState("");
   const [editRecurrence, setEditRecurrence] = useState("monthly");
   const [editAmountStr, setEditAmountStr] = useState("");
+  const [editApplyMode, setEditApplyMode] = useState<"single" | "fromDate" | "all">("fromDate");
   const [fixedActionError, setFixedActionError] = useState<string | null>(null);
   const [savingFixed, setSavingFixed] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -187,6 +200,19 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     const start = (page - 1) * pageSize;
     return sorted.slice(start, start + pageSize);
   }, [sorted, page, pageSize]);
+
+  /** Suma y desglose de la tabla «Gastos del periodo» sobre todos los apuntes filtrados (todas las páginas). */
+  const periodTableFooter = useMemo(() => {
+    let totalCents = 0;
+    let puntualesCents = 0;
+    let recurrentesCents = 0;
+    for (const e of sorted) {
+      totalCents += e.amount_cents;
+      if (e.recurrence === "none") puntualesCents += e.amount_cents;
+      else recurrentesCents += e.amount_cents;
+    }
+    return { count: sorted.length, totalCents, puntualesCents, recurrentesCents };
+  }, [sorted]);
 
   const totals = useMemo(() => {
     let total = 0;
@@ -274,6 +300,15 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     return fixedRowsForTable.slice(start, start + fixedPageSize);
   }, [fixedRowsForTable, fixedPage, fixedPageSize]);
 
+  /** Suma de importes de la tabla de gastos fijos sobre todas las filas filtradas (todas las páginas). */
+  const fixedTableFooter = useMemo(() => {
+    let totalCents = 0;
+    for (const r of fixedRowsForTable) {
+      totalCents += r.amount_cents;
+    }
+    return { count: fixedRowsForTable.length, totalCents };
+  }, [fixedRowsForTable]);
+
   const goToFixedCategory = useCallback(
     (category: string) => {
       setCategoryFilter(category);
@@ -298,6 +333,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditCategory(row.category?.trim() || "");
     setEditRecurrence(row.recurrence || "monthly");
     setEditAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
+    setEditApplyMode("fromDate");
     setFixedActionError(null);
   }
 
@@ -320,6 +356,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
 
   function cancelEditFixed() {
     setEditingFixedId(null);
+    setEditApplyMode("fromDate");
     setFixedActionError(null);
   }
 
@@ -347,7 +384,66 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     return () => window.removeEventListener("keydown", onKey);
   }, [editingMainId]);
 
-  async function saveMainEdit(id: string) {
+  async function saveMainEdit(
+    id: string,
+    overrides?: { recurrence?: string; recurrenceOnly?: boolean },
+  ) {
+    const recurrence = overrides?.recurrence ?? editMainRecurrence;
+    const prev = expenseList.find((e) => e.id === id);
+    if (!prev) {
+      setMainListError("No se encontró el apunte.");
+      return;
+    }
+
+    /** Solo periodicidad: el servidor puede actualizar todo el grupo sin tocar fechas/importes. */
+    if (overrides?.recurrenceOnly && overrides.recurrence !== undefined) {
+      setSavingMain(true);
+      setMainListError(null);
+      try {
+        const payload: Record<string, unknown> = {
+          recurrence,
+          deductibility: prev.deductibility,
+          deductiblePercent: prev.deductibility === "partial" ? prev.deductible_percent : undefined,
+        };
+        if (recurrence !== "none") {
+          payload.structureMode = prev.structure_mode ?? "strict";
+        }
+        const res = await fetch(`/api/admin/expenses/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          message?: string;
+          updatedIds?: string[];
+        };
+        if (!res.ok || !data.ok) {
+          setMainListError(data.message ?? "No se pudo guardar");
+          return;
+        }
+        const nextStructure =
+          recurrence === "none" ? null : (prev.structure_mode ?? "strict");
+        const touchedMain = new Set(
+          Array.isArray(data.updatedIds) && data.updatedIds.length > 0 ? data.updatedIds : [id],
+        );
+        setExpenseList((list) =>
+          list.map((e) =>
+            touchedMain.has(e.id)
+              ? { ...e, recurrence, structure_mode: nextStructure }
+              : e,
+          ),
+        );
+        setEditingMainId(null);
+        scheduleRouterRefresh();
+      } catch {
+        setMainListError("Error de red");
+      } finally {
+        setSavingMain(false);
+      }
+      return;
+    }
+
     const amountEuros = parseSpanishDecimalInput(editMainAmountStr);
     const concept = editMainConcept.trim();
     if (concept.length < 2) {
@@ -369,48 +465,55 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setSavingMain(true);
     setMainListError(null);
     try {
-      const prev = expenseList.find((e) => e.id === id);
       const payload: Record<string, unknown> = {
         concept,
         expenseDate: editMainDate,
         category: editMainCategory.trim(),
-        recurrence: editMainRecurrence,
+        recurrence,
         amountEuros,
       };
-      if (prev) {
-        payload.deductibility = prev.deductibility;
-        payload.deductiblePercent = prev.deductibility === "partial" ? prev.deductible_percent : undefined;
-        if (editMainRecurrence !== "none") {
-          payload.structureMode = prev.structure_mode ?? "strict";
-        }
+      payload.deductibility = prev.deductibility;
+      payload.deductiblePercent = prev.deductibility === "partial" ? prev.deductible_percent : undefined;
+      if (recurrence !== "none") {
+        payload.structureMode = prev.structure_mode ?? "strict";
       }
       const res = await fetch(`/api/admin/expenses/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await res.json()) as { ok?: boolean; message?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        updatedIds?: string[];
+      };
       if (!res.ok || !data.ok) {
         setMainListError(data.message ?? "No se pudo guardar");
         return;
       }
       const amountCents = Math.round(amountEuros * 100);
+      const nextStructure =
+        recurrence === "none" ? null : (prev.structure_mode ?? "strict");
+      const touchedMain = new Set(
+        Array.isArray(data.updatedIds) && data.updatedIds.length > 0 ? data.updatedIds : [id],
+      );
       setExpenseList((list) =>
         list.map((e) =>
-          e.id === id
+          touchedMain.has(e.id)
             ? {
                 ...e,
                 concept,
                 expense_date: editMainDate,
                 category: editMainCategory.trim(),
-                recurrence: editMainRecurrence,
+                recurrence,
                 amount_cents: amountCents,
+                structure_mode: nextStructure,
               }
             : e,
         ),
       );
       setEditingMainId(null);
-      router.refresh();
+      scheduleRouterRefresh();
     } catch {
       setMainListError("Error de red");
     } finally {
@@ -447,7 +550,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
       setSelectedRowId((rid) => (rid === deleteMainId ? null : rid));
       if (editingMainId === deleteMainId) setEditingMainId(null);
       setDeleteMainId(null);
-      router.refresh();
+      scheduleRouterRefresh();
     } catch {
       const msg = "Error de red";
       setDeleteMainModalError(msg);
@@ -457,13 +560,65 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     }
   }
 
-  async function saveFixedEdit(id: string) {
-    const amountEuros = parseSpanishDecimalInput(editAmountStr);
+  async function saveFixedEdit(
+    id: string,
+    overrides?: { recurrence?: string; recurrenceOnly?: boolean },
+  ) {
     const row = expenseList.find((e) => e.id === id);
     if (!row) {
       setFixedActionError("No se encontró el cargo.");
       return;
     }
+    const recurrence = overrides?.recurrence ?? editRecurrence;
+
+    /** Solo periodicidad en recurrentes: no reescribe importe/categoría en todo el grupo. */
+    if (overrides?.recurrenceOnly && overrides.recurrence !== undefined && row.recurrence !== "none") {
+      setSavingFixed(true);
+      setFixedActionError(null);
+      try {
+        const payload: Record<string, unknown> = {
+          recurrence,
+          deductibility: row.deductibility,
+          deductiblePercent: row.deductibility === "partial" ? row.deductible_percent : undefined,
+        };
+        if (recurrence !== "none") {
+          payload.structureMode = row.structure_mode ?? "strict";
+        }
+        const res = await fetch(`/api/admin/expenses/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          message?: string;
+          updatedIds?: string[];
+        };
+        if (!res.ok || !data.ok) {
+          setFixedActionError(data.message ?? "No se pudo guardar");
+          return;
+        }
+        const nextStructure =
+          recurrence === "none" ? null : (row.structure_mode ?? "strict");
+        const touched = new Set(
+          Array.isArray(data.updatedIds) && data.updatedIds.length > 0 ? data.updatedIds : [id],
+        );
+        setExpenseList((list) =>
+          list.map((e) =>
+            touched.has(e.id) ? { ...e, recurrence, structure_mode: nextStructure } : e,
+          ),
+        );
+        setEditingFixedId(null);
+        scheduleRouterRefresh();
+      } catch {
+        setFixedActionError("Error de red");
+      } finally {
+        setSavingFixed(false);
+      }
+      return;
+    }
+
+    const amountEuros = parseSpanishDecimalInput(editAmountStr);
     if (!editCategory.trim()) {
       setFixedActionError("Indica una categoría.");
       return;
@@ -475,44 +630,77 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setSavingFixed(true);
     setFixedActionError(null);
     try {
-      const eff = new Date();
-      const effectiveFrom = `${eff.getFullYear()}-${String(eff.getMonth() + 1).padStart(2, "0")}-01`;
+      const effectiveFrom = row.expense_date?.slice(0, 10);
+      const isCurrentRecurring = row.recurrence !== "none";
       const payload: Record<string, unknown> = {
         category: editCategory.trim(),
-        recurrence: editRecurrence,
+        recurrence,
         amountEuros,
         deductibility: row.deductibility,
         deductiblePercent: row.deductibility === "partial" ? row.deductible_percent : undefined,
       };
-      if (editRecurrence !== "none") {
+      if (recurrence !== "none") {
         payload.structureMode = row.structure_mode ?? "strict";
-        payload.effectiveFrom = effectiveFrom;
+      }
+      if (isCurrentRecurring) {
+        if (editApplyMode === "all") {
+          payload.effectiveFrom = "1900-01-01";
+        } else if (editApplyMode === "fromDate") {
+          if (effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) {
+            payload.effectiveFrom = effectiveFrom;
+          }
+        }
       }
       const res = await fetch(`/api/admin/expenses/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await res.json()) as { ok?: boolean; message?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        updatedIds?: string[];
+      };
       if (!res.ok || !data.ok) {
         setFixedActionError(data.message ?? "No se pudo guardar");
         return;
       }
       const amountCents = Math.round(amountEuros * 100);
+      const newCategory = editCategory.trim();
+      const nextStructure = recurrence === "none" ? null : (row.structure_mode ?? "strict");
+      const touched = new Set(
+        Array.isArray(data.updatedIds) && data.updatedIds.length > 0 ? data.updatedIds : [id],
+      );
       setExpenseList((list) =>
         list.map((e) =>
-          e.id === id
-            ? { ...e, category: editCategory.trim(), recurrence: editRecurrence, amount_cents: amountCents }
+          touched.has(e.id)
+            ? {
+                ...e,
+                category: newCategory,
+                recurrence,
+                amount_cents: amountCents,
+                structure_mode: nextStructure,
+              }
             : e,
         ),
       );
       setEditingFixedId(null);
-      router.refresh();
+      scheduleRouterRefresh();
     } catch {
       setFixedActionError("Error de red");
     } finally {
       setSavingFixed(false);
     }
+  }
+
+  function handleFixedEditEnter(
+    e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+    id: string,
+  ) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (savingFixed) return;
+    void saveFixedEdit(id);
   }
 
   async function confirmDeleteFixed() {
@@ -521,7 +709,12 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setFixedActionError(null);
     setDeleteFixedModalError(null);
     try {
-      const res = await fetch(`/api/admin/expenses/${deleteTargetId}`, {
+      const targetRow = expenseList.find((e) => e.id === deleteTargetId);
+      const isRecurringTarget = !!targetRow && targetRow.recurrence !== "none";
+      const endpoint = isRecurringTarget
+        ? `/api/admin/expenses/${deleteTargetId}?scope=group`
+        : `/api/admin/expenses/${deleteTargetId}`;
+      const res = await fetch(endpoint, {
         method: "DELETE",
         credentials: "same-origin",
         cache: "no-store",
@@ -540,11 +733,17 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
         setFixedActionError(msg);
         return;
       }
-      setExpenseList((list) => list.filter((e) => e.id !== deleteTargetId));
+      setExpenseList((list) => {
+        if (!targetRow || targetRow.recurrence === "none") {
+          return list.filter((e) => e.id !== deleteTargetId);
+        }
+        const groupKey = expenseRecurringGroupKey(targetRow);
+        return list.filter((e) => expenseRecurringGroupKey(e) !== groupKey);
+      });
       setSelectedFixedRowId((id) => (id === deleteTargetId ? null : id));
       if (editingFixedId === deleteTargetId) setEditingFixedId(null);
       setDeleteTargetId(null);
-      router.refresh();
+      scheduleRouterRefresh();
     } catch {
       const msg = "Error de red";
       setDeleteFixedModalError(msg);
@@ -918,6 +1117,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               title="Clic para editar"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (isEditing) return;
                                 startEditMain(row);
                               }}
                             >
@@ -942,6 +1142,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               title="Clic para editar"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (isEditing) return;
                                 startEditMain(row);
                               }}
                             >
@@ -961,6 +1162,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               title="Clic para editar"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (isEditing) return;
                                 startEditMain(row);
                               }}
                             >
@@ -980,6 +1182,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               title="Clic para editar"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (isEditing) return;
                                 startEditMain(row);
                               }}
                             >
@@ -987,7 +1190,12 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                                 <select
                                   className={`${inputCls} min-w-[6.5rem]`}
                                   value={editMainRecurrence}
-                                  onChange={(e) => setEditMainRecurrence(e.target.value)}
+                                  disabled={savingMain}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setEditMainRecurrence(v);
+                                    void saveMainEdit(row.id, { recurrence: v, recurrenceOnly: true });
+                                  }}
                                   aria-label="Recurrencia"
                                 >
                                   {FIXED_RECURRENCE_OPTIONS.map((opt) => (
@@ -1005,6 +1213,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               title="Clic para editar"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (isEditing) return;
                                 startEditMain(row);
                               }}
                             >
@@ -1088,6 +1297,34 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                           </tr>
                         );
                       })}
+                      <tr
+                        className="border-t-2 border-slate-200/90 bg-slate-50/95 text-slate-800"
+                        aria-label="Totales de todos los apuntes de la tabla (todas las páginas)"
+                      >
+                        <td colSpan={4} className="px-2 py-2.5 align-top md:px-3 md:py-3">
+                          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                            Totales
+                          </span>
+                          <span className="mt-0.5 block text-[11px] font-normal leading-snug text-slate-500">
+                            {periodTableFooter.count} apuntes
+                            {totalPages > 1
+                              ? ` en ${totalPages} páginas · suma de todas las filas filtradas`
+                              : null}
+                          </span>
+                          {periodTableFooter.count > 0 ? (
+                            <span className="mt-1 block text-[10px] leading-snug text-slate-500">
+                              Puntuales {formatEuroEsTwoDecimals(periodTableFooter.puntualesCents / 100)} ·
+                              Recurrentes {formatEuroEsTwoDecimals(periodTableFooter.recurrentesCents / 100)}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-2.5 text-right align-top text-sm font-bold tabular-nums text-slate-900 md:px-3 md:py-3">
+                          {periodTableFooter.count > 0
+                            ? formatEuroEsTwoDecimals(periodTableFooter.totalCents / 100)
+                            : "—"}
+                        </td>
+                        <td className="px-1 py-2 align-top md:px-2 md:py-3" aria-hidden />
+                      </tr>
                     </>
                   )}
                 </tbody>
@@ -1243,6 +1480,9 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     <th className="min-w-[7rem] px-3 py-2.5 md:px-4">Categoría</th>
                     <th className="whitespace-nowrap px-3 py-2.5 md:px-4">Periodicidad</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right md:px-4">Importe</th>
+                    {editingFixedId ? (
+                      <th className="whitespace-nowrap px-3 py-2.5 md:px-4">Aplicar cambios</th>
+                    ) : null}
                     <th className="whitespace-nowrap px-3 py-2.5 md:px-4">Última alta</th>
                     <th
                       className="whitespace-nowrap px-3 py-2.5 text-right md:px-4"
@@ -1255,7 +1495,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 <tbody>
                   {fixedConfiguredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-600">
+                      <td colSpan={editingFixedId ? 7 : 6} className="px-4 py-8 text-center text-slate-600">
                         No hay gastos recurrentes configurados.{" "}
                         <Link
                           href="/dashboard/configuracion/gastos"
@@ -1267,7 +1507,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     </tr>
                   ) : fixedRowsForTable.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-600">
+                      <td colSpan={editingFixedId ? 7 : 6} className="px-4 py-8 text-center text-slate-600">
                         Ningún gasto fijo en la categoría «{fixedCategoryFilter}».{" "}
                         <button
                           type="button"
@@ -1282,7 +1522,8 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                       </td>
                     </tr>
                   ) : (
-                    fixedPaginatedRows.map((row) => {
+                    <>
+                      {fixedPaginatedRows.map((row) => {
                       const isSelected = selectedFixedRowId === row.id;
                       const isEditing = editingFixedId === row.id;
                       const label = canonicalConceptForFixedKey(row.concept);
@@ -1310,6 +1551,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                             title="Clic para editar"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (isEditing) return;
                               startEditFixed(row);
                             }}
                           >
@@ -1318,6 +1560,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                                 className={inputCls}
                                 value={editCategory}
                                 onChange={(e) => setEditCategory(e.target.value)}
+                                onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
                                 aria-label="Categoría"
                               />
                             ) : (
@@ -1329,6 +1572,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                             title="Clic para editar"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (isEditing) return;
                               startEditFixed(row);
                             }}
                           >
@@ -1336,7 +1580,13 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               <select
                                 className={`${inputCls} min-w-[7.5rem]`}
                                 value={editRecurrence}
-                                onChange={(e) => setEditRecurrence(e.target.value)}
+                                disabled={savingFixed}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setEditRecurrence(v);
+                                  void saveFixedEdit(row.id, { recurrence: v, recurrenceOnly: true });
+                                }}
+                                onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
                                 aria-label="Periodicidad"
                               >
                                 {FIXED_RECURRENCE_OPTIONS.map((opt) => (
@@ -1356,6 +1606,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                             title="Clic para editar"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (isEditing) return;
                               startEditFixed(row);
                             }}
                           >
@@ -1365,6 +1616,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                                 inputMode="decimal"
                                 value={editAmountStr}
                                 onChange={(e) => setEditAmountStr(e.target.value)}
+                                onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
                                 aria-label="Importe en euros"
                               />
                             ) : (
@@ -1373,6 +1625,29 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               </span>
                             )}
                           </td>
+                          {editingFixedId ? (
+                            <td className="whitespace-nowrap px-3 py-2.5 md:px-4">
+                              {isEditing ? (
+                                <select
+                                  value={editApplyMode}
+                                  onChange={(e) =>
+                                    setEditApplyMode(e.target.value as "single" | "fromDate" | "all")
+                                  }
+                                  onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
+                                  disabled={row.recurrence === "none"}
+                                  className="w-full min-w-[14rem] rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] text-slate-700 shadow-sm focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                  aria-label="Aplicar cambios"
+                                  title="Alcance de los cambios"
+                                >
+                                  <option value="single">Aplicar solo a este apunte</option>
+                                  <option value="fromDate">Aplicar a toda la serie desde esta fecha</option>
+                                  <option value="all">Aplicar a todos los registrados</option>
+                                </select>
+                              ) : (
+                                <span className="text-[11px] text-slate-400">—</span>
+                              )}
+                            </td>
+                          ) : null}
                           <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700 md:px-4">
                             {formatUltimaAlta(row)}
                           </td>
@@ -1441,7 +1716,38 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                           </td>
                         </tr>
                       );
-                    })
+                    })}
+                    <tr
+                      className="border-t-2 border-slate-200/90 bg-slate-50/95 text-slate-800"
+                      aria-label="Totales de todos los cargos fijos de la tabla (todas las páginas)"
+                    >
+                      <td colSpan={3} className="px-3 py-2.5 align-top md:px-4 md:py-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                          Totales
+                        </span>
+                        <span className="mt-0.5 block text-[11px] font-normal leading-snug text-slate-500">
+                          {fixedTableFooter.count} cargos
+                          {fixedTotalPages > 1
+                            ? ` en ${fixedTotalPages} páginas · suma de todas las filas filtradas`
+                            : null}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right align-top text-sm font-bold tabular-nums text-slate-900 md:px-4 md:py-3">
+                        {fixedTableFooter.count > 0
+                          ? formatEuroEsTwoDecimals(fixedTableFooter.totalCents / 100)
+                          : "—"}
+                      </td>
+                      {editingFixedId ? (
+                        <td className="whitespace-nowrap px-3 py-2.5 align-top md:px-4 md:py-3" aria-hidden>
+                          <span className="text-[11px] text-slate-400">—</span>
+                        </td>
+                      ) : null}
+                      <td className="whitespace-nowrap px-3 py-2.5 align-top md:px-4 md:py-3" aria-hidden>
+                        <span className="text-[11px] text-slate-400">—</span>
+                      </td>
+                      <td className="px-2 py-2 align-top md:px-3 md:py-3" aria-hidden />
+                    </tr>
+                    </>
                   )}
                 </tbody>
               </table>
@@ -1551,7 +1857,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
           <FixedExpenseSuggestionModal
             open={fixedSuggestionsModalOpen}
             onClose={() => setFixedSuggestionsModalOpen(false)}
-            onSuccess={() => router.refresh()}
+            onSuccess={() => scheduleRouterRefresh()}
             expenses={expenseList}
           />
 
@@ -1637,7 +1943,11 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 </h3>
                 <p className="mt-2 text-sm text-slate-600">
                   Se eliminará del registro «{canonicalConceptForFixedKey(deleteTargetRow.concept)}» (
-                  {formatEuroEsTwoDecimals(deleteTargetRow.amount_cents / 100)}). Esta acción no se puede deshacer.
+                  {formatEuroEsTwoDecimals(deleteTargetRow.amount_cents / 100)})
+                  {deleteTargetRow.recurrence !== "none"
+                    ? ". Al ser recurrente, se eliminarán también los apuntes históricos de este mismo cargo."
+                    : "."}{" "}
+                  Esta acción no se puede deshacer.
                 </p>
                 {deleteFixedModalError ? (
                   <p className="mt-3 text-sm text-rose-700" role="alert">

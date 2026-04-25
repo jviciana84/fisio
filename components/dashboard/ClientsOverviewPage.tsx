@@ -152,6 +152,36 @@ export function ClientsOverviewPage() {
   const [ccCity, setCcCity] = useState("");
   const [ccSaving, setCcSaving] = useState(false);
 
+  useEffect(() => {
+    const hasOpenModal =
+      pendingModalOpen || !!detailLead || rgpdModalOpen || !!detailRgpd || createClientOpen || !!detailClientId;
+    if (!hasOpenModal) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (createClientOpen && !ccSaving) setCreateClientOpen(false);
+      if (detailRgpd && !markingRgpdId) {
+        setDetailRgpd(null);
+        setRgpdVersionDraft("");
+      }
+      if (rgpdModalOpen) setRgpdModalOpen(false);
+      if (detailLead && !markingId) setDetailLead(null);
+      if (pendingModalOpen) setPendingModalOpen(false);
+      if (detailClientId) setDetailClientId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    pendingModalOpen,
+    detailLead,
+    rgpdModalOpen,
+    detailRgpd,
+    createClientOpen,
+    detailClientId,
+    ccSaving,
+    markingId,
+    markingRgpdId,
+  ]);
+
   const openCreateClientModal = () => {
     setMessage(null);
     setCcFirstName("");

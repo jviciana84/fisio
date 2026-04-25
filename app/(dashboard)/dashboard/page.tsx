@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 type ExpenseRow = {
   amount_cents: number;
-  recurrence: "none" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+  recurrence: "none" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
   expense_date: string;
 };
 
@@ -37,6 +37,8 @@ function monthlyEquivalent(cents: number, recurrence: ExpenseRow["recurrence"]) 
       return eurosValue * (52 / 12);
     case "monthly":
       return eurosValue;
+    case "bimonthly":
+      return eurosValue / 2;
     case "quarterly":
       return eurosValue / 3;
     case "semiannual":

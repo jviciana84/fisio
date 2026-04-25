@@ -119,6 +119,14 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
     rgpdConsentVersion: string | null;
   } | null>(null);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const bodyScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
