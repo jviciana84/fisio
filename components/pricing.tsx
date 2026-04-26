@@ -80,15 +80,35 @@ const bonos = [
   },
 ]
 
+function bonoStepDirection(oldIndex: number, newIndex: number, len: number) {
+  if (oldIndex === newIndex) return 1
+  const forward = (newIndex - oldIndex + len) % len
+  const backward = (oldIndex - newIndex + len) % len
+  return forward <= backward ? 1 : -1
+}
+
 type Bono = (typeof bonos)[number]
 
-function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy: (bono: Bono) => void }) {
+type PricingCardVariant = "grid" | "carousel"
+
+function PricingCard({
+  bono,
+  index,
+  onBuy,
+  variant = "grid",
+}: {
+  bono: Bono
+  index: number
+  onBuy: (bono: Bono) => void
+  variant?: PricingCardVariant
+}) {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-50px" })
   const [isHovered, setIsHovered] = useState(false)
   const reduceMotion = useReducedMotion()
 
-  const borderBreathe = bono.popular && !reduceMotion && !isHovered
+  const showPopularLook = bono.popular || variant === "carousel"
+  const borderBreathe = showPopularLook && !reduceMotion && !isHovered
 
   const cardBody = (
     <motion.div
@@ -101,7 +121,7 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
       }
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
       className={`relative overflow-hidden rounded-3xl glass-extreme ${
-        bono.popular
+        showPopularLook
           ? "border border-blue-200/35 shadow-lg shadow-blue-500/10"
           : "border border-white/40"
       }`}
@@ -109,13 +129,13 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
       {/* Fondo suave (opacidad fija; el “respirar” va en el borde) */}
       <div
         className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${bono.color} ${
-          bono.popular ? "opacity-[0.08]" : "opacity-[0.05]"
+          showPopularLook ? "opacity-[0.08]" : "opacity-[0.05]"
         }`}
         aria-hidden
       />
 
-      {/* Borde animado solo en el bono popular (no altera el tamaño del card) */}
-      {bono.popular ? (
+      {/* Borde animado (popular o todos en carrusel móvil) */}
+      {showPopularLook ? (
         <motion.div
           aria-hidden
           className="pointer-events-none absolute inset-0 z-[5] rounded-3xl"
@@ -197,9 +217,9 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
           {bono.features.map((feature, i) => (
             <motion.li
               key={feature}
-              initial={{ opacity: 0, x: -20 }}
-              animate={isInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ delay: 0.3 + i * 0.1 }}
+              initial={variant === "carousel" ? false : { opacity: 0, x: -20 }}
+              animate={variant === "carousel" || isInView ? { opacity: 1, x: 0 } : {}}
+              transition={variant === "carousel" ? { duration: 0 } : { delay: 0.3 + i * 0.1 }}
               className="flex items-start gap-3"
             >
               <motion.div
@@ -220,7 +240,7 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
             type="button"
             onClick={() => onBuy(bono)}
             className={`w-full py-6 text-lg font-semibold rounded-2xl transition-all duration-300 ${
-              bono.popular
+              showPopularLook
                 ? `bg-gradient-to-r ${bono.color} text-white shadow-lg ${bono.shadowColor} hover:shadow-xl hover:shadow-blue-500/40`
                 : "glass-extreme border-2 border-blue-500/20 text-blue-600 hover:bg-blue-50/50 hover:border-blue-500/40"
             }`}
@@ -231,8 +251,8 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
         </motion.div>
       </div>
 
-      {/* Línea inferior solo en no-popular; el popular ya tiene el acento en el borde */}
-      {!bono.popular && (
+      {/* Línea inferior solo en no-popular; el look “destacado” ya lleva el borde */}
+      {!showPopularLook && (
         <motion.div
           animate={{ opacity: isHovered ? 1 : 0.5, scaleX: isHovered ? 1 : 0.5 }}
           transition={{ duration: 0.3 }}
@@ -245,12 +265,20 @@ function PricingCard({ bono, index, onBuy }: { bono: Bono; index: number; onBuy:
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 80, rotateX: 15 }}
-      animate={isInView ? { opacity: 1, y: 0, rotateX: 0 } : {}}
-      transition={{ duration: 0.8, delay: index * 0.15, type: "spring", stiffness: 100 }}
+      initial={
+        variant === "carousel"
+          ? { opacity: 1, y: 0, rotateX: 0 }
+          : { opacity: 0, y: 80, rotateX: 15 }
+      }
+      animate={variant === "carousel" || isInView ? { opacity: 1, y: 0, rotateX: 0 } : {}}
+      transition={
+        variant === "carousel"
+          ? { duration: 0 }
+          : { duration: 0.8, delay: index * 0.15, type: "spring", stiffness: 100 }
+      }
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative group ${bono.popular ? "z-10" : ""}`}
+      className={cn("relative group", showPopularLook ? "z-10" : "")}
     >
       {cardBody}
     </motion.div>
@@ -282,6 +310,8 @@ export function Pricing() {
   const [isCheckingReuse, setIsCheckingReuse] = useState(false)
   const [leadError, setLeadError] = useState("")
   const [currentBonoIndex, setCurrentBonoIndex] = useState(0)
+  /** 1 = al siguiente bono (slide hacia la izquierda), -1 = al anterior (slide hacia la derecha) */
+  const [bonoSlideDirection, setBonoSlideDirection] = useState(1)
   const touchStartXRef = useRef<number | null>(null)
   const bonoAutoplayResumeAtRef = useRef(0)
   const mobileBonoCarouselRef = useRef<HTMLDivElement | null>(null)
@@ -299,6 +329,7 @@ export function Pricing() {
   )
 
   const tickNextBono = useCallback(() => {
+    setBonoSlideDirection(1)
     setCurrentBonoIndex((prev) => (prev + 1) % bonos.length)
   }, [])
 
@@ -434,10 +465,12 @@ export function Pricing() {
   }
 
   const goToNextBono = () => {
+    setBonoSlideDirection(1)
     setCurrentBonoIndex((prev) => (prev + 1) % bonos.length)
   }
 
   const goToPrevBono = () => {
+    setBonoSlideDirection(-1)
     setCurrentBonoIndex((prev) => (prev - 1 + bonos.length) % bonos.length)
   }
 
@@ -553,15 +586,37 @@ export function Pricing() {
               aria-hidden
               className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white/80 to-transparent"
             />
-            <AnimatePresence mode="wait" initial={false}>
+            <AnimatePresence custom={bonoSlideDirection} initial={false}>
               <motion.div
                 key={bonos[currentBonoIndex].sessions}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -40 }}
-                transition={{ duration: 0.28, ease: "easeOut" }}
+                className="w-full"
+                custom={bonoSlideDirection}
+                variants={{
+                  enter: (d: number) =>
+                    reduceMotion
+                      ? { x: 0, opacity: 0 }
+                      : { x: d > 0 ? "100%" : "-100%", opacity: 0.5 },
+                  center: { x: 0, opacity: 1 },
+                  exit: (d: number) =>
+                    reduceMotion
+                      ? { x: 0, opacity: 0 }
+                      : { x: d > 0 ? "-100%" : "100%", opacity: 0.5 },
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  type: "tween",
+                  duration: reduceMotion ? 0.15 : 0.32,
+                  ease: [0.32, 0.72, 0, 1],
+                }}
               >
-                <PricingCard bono={bonos[currentBonoIndex]} index={0} onBuy={openPurchaseModal} />
+                <PricingCard
+                  variant="carousel"
+                  bono={bonos[currentBonoIndex]}
+                  index={0}
+                  onBuy={openPurchaseModal}
+                />
               </motion.div>
             </AnimatePresence>
           </div>
@@ -572,7 +627,9 @@ export function Pricing() {
                 key={bono.sessions}
                 type="button"
                 onClick={() => {
+                  if (idx === currentBonoIndex) return
                   pauseBonoAutoplay()
+                  setBonoSlideDirection(bonoStepDirection(currentBonoIndex, idx, bonos.length))
                   setCurrentBonoIndex(idx)
                 }}
                 className={cn(

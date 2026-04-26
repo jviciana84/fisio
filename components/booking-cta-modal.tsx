@@ -205,17 +205,34 @@ export const BookingCtaLink = forwardRef<HTMLAnchorElement | HTMLButtonElement, 
           href={href}
           className={className}
           onClick={(e) => {
-            onClick?.(e);
             e.preventDefault();
+            onClick?.(e);
             const id = href.slice(1);
-            const el = document.getElementById(id);
-            if (el) {
-              el.scrollIntoView({ behavior: "smooth", block: "start" });
-              window.history.replaceState(null, "", href);
-            } else {
-              // Si estamos fuera de la home, redirigimos al ancla de la landing pública.
-              window.location.assign(`/${href}`);
+            const go = () => {
+              const el = document.getElementById(id);
+              if (el) {
+                const reduce =
+                  typeof window !== "undefined" &&
+                  window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+                el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                try {
+                  window.history.replaceState(null, "", href);
+                } catch {
+                  // ignore
+                }
+              } else {
+                // Si estamos fuera de la home, redirigimos al ancla de la landing pública.
+                window.location.assign(`/${href}`);
+              }
+            };
+            // Cerrar el menú móvil en el mismo tick dispara re-layout; en Safari/Chrome móvil
+            // el scroll al fragmento a menudo falla si se hace síncrono tras preventDefault.
+            if (typeof window === "undefined") {
+              return;
             }
+            const isNarrow = window.matchMedia("(max-width: 1023px)").matches;
+            // Un frame extra en vista estrecha mejora la fiabilidad del scroll.
+            window.setTimeout(go, isNarrow ? 32 : 0);
           }}
           {...rest}
         >
