@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "clean": "node scripts/clean-next.mjs",
     "verify:fiscal-route": "node scripts/verify-fiscal-summary-route.mjs",
     "build": "node scripts/verify-fiscal-summary-route.mjs && next build",
     "start": "next start",
