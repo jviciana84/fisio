@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Borrador / versión antigua (no mantenida con el mismo criterio de lint)
+    "V0/**",
   ]),
 ]);
 

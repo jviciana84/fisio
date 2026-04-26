@@ -378,7 +378,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    let ins = await insertClient();
+    const ins = await insertClient();
 
     if (!ins.error) {
       const newId = (ins.data as { id?: string } | null)?.id;

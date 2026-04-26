@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, startTransition, useState } from "react";
 import { DASHBOARD_INPUT_CLASS } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,9 @@ export function PendingLeadAlarmSettingsForm() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setS(loadPendingLeadAlarmSettings());
+    startTransition(() => {
+      setS(loadPendingLeadAlarmSettings());
+    });
   }, []);
 
   const update = useCallback(<K extends keyof PendingLeadAlarmSettings>(key: K, value: PendingLeadAlarmSettings[K]) => {

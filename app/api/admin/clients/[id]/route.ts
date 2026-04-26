@@ -166,7 +166,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }>;
 
   const ticketIds = rows.map((r) => r.id);
-  let itemsByTicket: Record<
+  const itemsByTicket: Record<
     string,
     Array<{ id: string; concept: string; quantity: number; unit_price_cents: number; line_total_cents: number }>
   > = {};
@@ -425,7 +425,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const supabase = createSupabaseAdminClient();
 
-  let payload: Record<string, unknown> = { ...patch };
+  const payload: Record<string, unknown> = { ...patch };
   let lastError: PostgrestError | null = null;
 
   for (let attempt = 0; attempt < 8; attempt++) {

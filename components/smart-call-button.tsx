@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 import { Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -54,16 +54,18 @@ function prefersDialer(): boolean {
   return narrow && coarse
 }
 
+const noopSub = () => () => {}
+
 type SmartCallButtonProps = {
   className?: string
 }
 
 export function SmartCallButton({ className }: SmartCallButtonProps) {
-  const [useTel, setUseTel] = useState(false)
-
-  useEffect(() => {
-    setUseTel(prefersDialer())
-  }, [])
+  const useTel = useSyncExternalStore(
+    noopSub,
+    () => prefersDialer(),
+    () => false,
+  )
 
   const href = useTel ? PHONE_TEL : PHONE_WHATSAPP
   const label = useTel ? "Llamar" : "WhatsApp"

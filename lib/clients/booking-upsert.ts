@@ -126,7 +126,7 @@ export async function upsertClientFromBooking(params: UpsertParams): Promise<{ o
   }
 
   const insertVariants = buildBookingInsertVariants(fullName, email, phone, block);
-  let ins = await insertWithVariants(supabase, insertVariants);
+  const ins = await insertWithVariants(supabase, insertVariants);
 
   if (!ins.error) {
     return { ok: true };

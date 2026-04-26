@@ -156,7 +156,7 @@ export async function PATCH(
     }
 
     if (body.deductiblePercent !== undefined) {
-      let p = Math.round(Number(body.deductiblePercent));
+      const p = Math.round(Number(body.deductiblePercent));
       if (!Number.isFinite(p) || p < 0 || p > 100) {
         return NextResponse.json({ ok: false, message: "Porcentaje deducible inválido" }, { status: 400 });
       }

@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { getGoogleBusinessRating } from "@/lib/google-business-rating";
+import { CookieConsentBar } from "@/components/cookie-consent-bar";
+import { GtmNoscript } from "@/components/gtm-noscript";
+import { GoogleAnalyticsConsent } from "@/components/google-analytics-consent";
 import {
   HOME_DESCRIPTION,
   HOME_KEYWORDS,
@@ -79,7 +83,12 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        <GtmNoscript />
         {children}
+        <Suspense fallback={null}>
+          <GoogleAnalyticsConsent />
+        </Suspense>
+        <CookieConsentBar />
       </body>
     </html>
   );

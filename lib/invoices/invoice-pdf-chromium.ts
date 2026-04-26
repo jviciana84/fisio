@@ -54,7 +54,7 @@ function tryLinuxChrome(): string | null {
   return null;
 }
 
-function useServerlessChromiumBundle(): boolean {
+function shouldUseServerlessChromiumBundle(): boolean {
   return (
     process.env.VERCEL === "1" ||
     Boolean(process.env.VERCEL_ENV) ||
@@ -142,7 +142,7 @@ async function launchChromium(): Promise<LaunchResult> {
     });
     return { browser, close: () => browser.close() };
   }
-  if (useServerlessChromiumBundle()) {
+  if (shouldUseServerlessChromiumBundle()) {
     try {
       const mod = (await import("@sparticuz/chromium")).default;
       const executablePath = await mod.executablePath();

@@ -2,20 +2,18 @@
 
 import { UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
 import { AltaUsuarioForm } from "@/components/dashboard/AltaUsuarioForm";
 import { Button } from "@/components/ui/button";
 
+const clientSub = () => () => {};
+
 export function StaffAltaUsuarioModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const isClient = useSyncExternalStore(clientSub, () => true, () => false);
 
   const onSuccess = useCallback(() => {
     setOpen(false);
@@ -45,7 +43,7 @@ export function StaffAltaUsuarioModal() {
         className="shrink-0"
       />
 
-      {mounted && open
+      {isClient && open
         ? createPortal(
             <div
               className="fixed inset-0 z-[10050] flex items-center justify-center p-4"

@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence, useInView } from "framer-motion"
-import { useRef, useState, useEffect, useCallback, type ComponentType, type SVGProps } from "react"
+import { useRef, useState, useEffect, useCallback, useSyncExternalStore, type ComponentType, type SVGProps } from "react"
 import { createPortal } from "react-dom"
 import {
   Activity,
@@ -310,11 +310,10 @@ function MoreServicesTeaserCard({ index, onOpen }: { index: number; onOpen: () =
   )
 }
 
+const portalClientSub = () => () => {}
+
 function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [portalReady, setPortalReady] = useState(false)
-  useEffect(() => {
-    setPortalReady(true)
-  }, [])
+  const portalReady = useSyncExternalStore(portalClientSub, () => true, () => false)
 
   useEffect(() => {
     if (!open) return
