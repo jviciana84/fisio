@@ -212,6 +212,9 @@ export const BookingCtaLink = forwardRef<HTMLAnchorElement | HTMLButtonElement, 
             if (el) {
               el.scrollIntoView({ behavior: "smooth", block: "start" });
               window.history.replaceState(null, "", href);
+            } else {
+              // Si estamos fuera de la home, redirigimos al ancla de la landing pública.
+              window.location.assign(`/${href}`);
             }
           }}
           {...rest}

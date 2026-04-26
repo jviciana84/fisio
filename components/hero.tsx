@@ -49,7 +49,12 @@ export function Hero({ googleRating, publicStaff }: HeroProps) {
         : `Valoración de ${rating.toFixed(2)} sobre 5 estrellas`
 
   return (
-    <section id="inicio" className="relative min-h-screen flex items-center justify-center overflow-hidden" aria-labelledby="hero-title" role="banner">
+    <section
+      id="inicio"
+      className="relative min-h-screen scroll-mt-24 sm:scroll-mt-28 flex items-center justify-center overflow-hidden"
+      aria-labelledby="hero-title"
+      role="banner"
+    >
       {/* Fondo: mesh estático (sin animación CSS infinita en toda la pantalla) */}
       <div className="absolute inset-0 gradient-mesh" />
 
@@ -261,14 +266,14 @@ export function Hero({ googleRating, publicStaff }: HeroProps) {
                         <Button
                           type="button"
                           onClick={openStaff}
-                          className="h-8 min-w-0 flex-1 gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-[11px] font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:px-2.5 sm:text-xs"
+                          className="h-10 min-w-0 flex-1 gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-3 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:h-8 sm:gap-1 sm:px-2.5 sm:text-xs"
                         >
                           <span className="min-w-0 truncate">Conoce nuestro Staff</span>
-                          <Users className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                          <Users className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
                         </Button>
                       ) : null}
                       <SmartCallButton
-                        className={`h-8 shrink-0 rounded-full border-white/50 bg-white/60 px-2 text-[11px] text-slate-700 hover:bg-white/80 sm:px-2.5 sm:text-xs ${publicStaff.length === 0 ? "flex-1 sm:flex-none" : ""}`}
+                        className={`h-10 min-h-10 shrink-0 rounded-full border-white/50 bg-white/60 px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-white/80 sm:h-8 sm:min-h-8 sm:px-2.5 sm:text-xs ${publicStaff.length === 0 ? "flex-1 sm:flex-none" : ""}`}
                       />
                     </div>
                     </div>

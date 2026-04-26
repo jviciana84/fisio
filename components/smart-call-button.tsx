@@ -83,9 +83,9 @@ export function SmartCallButton({ className }: SmartCallButtonProps) {
         }
       >
         {useTel ? (
-          <Phone className="mr-2 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+          <Phone className="mr-2 h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
         ) : (
-          <WhatsAppGlyph className="mr-1.5 h-3.5 w-3.5 shrink-0 text-emerald-600 sm:mr-2 sm:h-4 sm:w-4" />
+          <WhatsAppGlyph className="mr-1.5 h-4 w-4 shrink-0 text-emerald-600 sm:mr-2 sm:h-3.5 sm:w-3.5" />
         )}
         {label}
       </a>

@@ -1,9 +1,9 @@
 "use client"
 
 import { motion, useInView, useReducedMotion } from "framer-motion"
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence } from "framer-motion"
-import { Check, Sparkles, Clock, Gift, Zap, Crown, Star, X } from "lucide-react"
+import { Check, Sparkles, Clock, Gift, Zap, Crown, Star, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { BonoSignaturePad, type BonoSignaturePadHandle } from "@/components/bono-signature-pad"
 import { bonosWebRequireSignature } from "@/lib/bonos/web-signature-flag"
 import { Button } from "@/components/ui/button"
@@ -281,6 +281,38 @@ export function Pricing() {
   const [isRegisteringLead, setIsRegisteringLead] = useState(false)
   const [isCheckingReuse, setIsCheckingReuse] = useState(false)
   const [leadError, setLeadError] = useState("")
+  const [currentBonoIndex, setCurrentBonoIndex] = useState(0)
+  const touchStartXRef = useRef<number | null>(null)
+  const bonoAutoplayResumeAtRef = useRef(0)
+  const mobileBonoCarouselRef = useRef<HTMLDivElement | null>(null)
+  const bonoCarouselInView = useInView(mobileBonoCarouselRef, { amount: 0.3, once: false })
+  const reduceMotion = useReducedMotion()
+
+  const BONO_AUTOPLAY_MS = 5500
+  const BONO_AUTOPLAY_USER_PAUSE_MS = 22000
+
+  const pauseBonoAutoplay = useCallback(
+    (ms: number = BONO_AUTOPLAY_USER_PAUSE_MS) => {
+      bonoAutoplayResumeAtRef.current = Date.now() + ms
+    },
+    [BONO_AUTOPLAY_USER_PAUSE_MS],
+  )
+
+  const tickNextBono = useCallback(() => {
+    setCurrentBonoIndex((prev) => (prev + 1) % bonos.length)
+  }, [])
+
+  useEffect(() => {
+    if (reduceMotion) return
+    if (selectedBono) return
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      if (!bonoCarouselInView) return
+      if (Date.now() < bonoAutoplayResumeAtRef.current) return
+      tickNextBono()
+    }, BONO_AUTOPLAY_MS)
+    return () => window.clearInterval(id)
+  }, [BONO_AUTOPLAY_MS, bonoCarouselInView, reduceMotion, selectedBono, tickNextBono])
 
   const isPurchaseFormComplete =
     purchaseForm.name.trim() &&
@@ -401,8 +433,47 @@ export function Pricing() {
     }
   }
 
+  const goToNextBono = () => {
+    setCurrentBonoIndex((prev) => (prev + 1) % bonos.length)
+  }
+
+  const goToPrevBono = () => {
+    setCurrentBonoIndex((prev) => (prev - 1 + bonos.length) % bonos.length)
+  }
+
+  const userGoNextBono = () => {
+    pauseBonoAutoplay()
+    goToNextBono()
+  }
+
+  const userGoPrevBono = () => {
+    pauseBonoAutoplay()
+    goToPrevBono()
+  }
+
+  const handleCarouselTouchStart = (clientX: number) => {
+    touchStartXRef.current = clientX
+    pauseBonoAutoplay()
+  }
+
+  const handleCarouselTouchEnd = (clientX: number) => {
+    if (touchStartXRef.current === null) return
+    const delta = clientX - touchStartXRef.current
+    const swipeThreshold = 40
+    if (delta > swipeThreshold) {
+      goToPrevBono()
+    } else if (delta < -swipeThreshold) {
+      goToNextBono()
+    }
+    touchStartXRef.current = null
+  }
+
   return (
-    <section id="bonos" className="py-14 relative overflow-hidden sm:py-16" aria-labelledby="bonos-title">
+    <section
+      id="bonos"
+      className="scroll-mt-24 sm:scroll-mt-28 py-14 relative overflow-hidden sm:py-16"
+      aria-labelledby="bonos-title"
+    >
       {/* Fondo decorativo estático (sin animación continua) */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
         <div className="absolute top-1/4 -left-20 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/5 blur-3xl" />
@@ -445,8 +516,78 @@ export function Pricing() {
           </p>
         </motion.div>
 
-        {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto items-start">
+        {/* Pricing Cards mobile: carrusel horizontal infinito */}
+        <div ref={mobileBonoCarouselRef} className="md:hidden mx-auto max-w-xl">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/50 bg-white/60 px-4 py-2.5 backdrop-blur-sm">
+            <p className="text-xs font-medium text-slate-600">Desliza para ver m&aacute;s bonos</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={userGoPrevBono}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50"
+                aria-label="Ver bono anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={userGoNextBono}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50"
+                aria-label="Ver siguiente bono"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="relative overflow-hidden"
+            onTouchStart={(e) => handleCarouselTouchStart(e.touches[0].clientX)}
+            onTouchEnd={(e) => handleCarouselTouchEnd(e.changedTouches[0].clientX)}
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white/80 to-transparent"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white/80 to-transparent"
+            />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={bonos[currentBonoIndex].sessions}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+              >
+                <PricingCard bono={bonos[currentBonoIndex]} index={0} onBuy={openPurchaseModal} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-4 flex items-center justify-center gap-2" aria-label="Indicador de bonos">
+            {bonos.map((bono, idx) => (
+              <button
+                key={bono.sessions}
+                type="button"
+                onClick={() => {
+                  pauseBonoAutoplay()
+                  setCurrentBonoIndex(idx)
+                }}
+                className={cn(
+                  "h-2.5 rounded-full transition-all",
+                  idx === currentBonoIndex ? "w-6 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400",
+                )}
+                aria-label={`Ir al bono ${bono.sessions} sesiones`}
+                aria-current={idx === currentBonoIndex ? "true" : undefined}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Pricing Cards desktop */}
+        <div className="hidden md:grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto items-start">
           {bonos.map((bono, index) => (
             <PricingCard key={bono.sessions} bono={bono} index={index} onBuy={openPurchaseModal} />
           ))}

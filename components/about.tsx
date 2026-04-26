@@ -20,7 +20,7 @@ export function About() {
   const { openStaff } = useHomeStaff()
 
   return (
-    <section id="nosotros" className="py-14 relative overflow-hidden sm:py-16">
+    <section id="nosotros" className="scroll-mt-24 sm:scroll-mt-28 py-14 relative overflow-hidden sm:py-16">
       {/* Animated Background */}
       <div className="absolute inset-0 gradient-mesh opacity-50" />
       
@@ -141,12 +141,12 @@ export function About() {
               <Button
                 type="button"
                 onClick={openStaff}
-                className="h-8 min-w-0 flex-1 gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2 text-[11px] font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:px-2.5 sm:text-xs"
+                className="h-10 min-w-0 flex-1 gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-3 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 sm:h-8 sm:gap-1 sm:px-2.5 sm:text-xs"
               >
                 <span className="min-w-0 truncate">Conoce nuestro Staff</span>
-                <Users className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                <Users className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
               </Button>
-              <SmartCallButton className="h-8 shrink-0 rounded-full border-white/50 bg-white/60 px-2 text-[11px] text-slate-700 shadow-sm hover:bg-white/80 sm:px-2.5 sm:text-xs" />
+              <SmartCallButton className="h-10 min-h-10 shrink-0 rounded-full border-white/50 bg-white/60 px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-white/80 sm:h-8 sm:min-h-8 sm:px-2.5 sm:text-xs" />
             </div>
           </motion.div>
         </div>

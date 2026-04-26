@@ -207,37 +207,32 @@ export function Header() {
                 transition={{ delay: 0.3 }}
                 className="mt-4 pt-4 border-t border-white/20 flex flex-col gap-3"
               >
-                <Link
-                  href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-white/50 rounded-xl transition-all"
-                >
-                  <LogIn className="w-4 h-4 shrink-0" aria-hidden />
-                  Acceder a la intranet
-                </Link>
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-stretch justify-center gap-2.5">
                   <motion.a
                     href={WHATSAPP_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     whileTap={{ scale: 0.98 }}
-                    className="glass-extreme p-3 rounded-full flex items-center justify-center text-emerald-600 hover:text-emerald-700 transition-colors"
+                    className="glass-extreme flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-emerald-600 transition-colors hover:text-emerald-700"
                     aria-label="Escribir por WhatsApp"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <WhatsAppIcon className="w-5 h-5" />
+                    <WhatsAppIcon className="h-5 w-5" />
                   </motion.a>
                   <motion.a
                     href="tel:938085056"
                     whileTap={{ scale: 0.98 }}
-                    className="glass-extreme flex-1 px-4 py-2.5 rounded-full flex items-center justify-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors"
+                    className="glass-extreme flex h-12 min-w-0 flex-1 items-center justify-center gap-2.5 rounded-full px-4 text-base font-medium text-slate-700 transition-colors hover:text-blue-600"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <Phone className="w-4 h-4 shrink-0" />
-                    938 08 50 56
+                    <Phone className="h-5 w-5 shrink-0" aria-hidden />
+                    <span className="min-w-0 truncate tracking-tight">938 08 50 56</span>
                   </motion.a>
                 </div>
-                <Button asChild className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl">
+                <Button
+                  asChild
+                  className="h-12 w-full min-h-12 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-base font-semibold text-white hover:from-blue-700 hover:to-cyan-600"
+                >
                   <BookingCtaLink href="/reservar" onClick={() => setIsMobileMenuOpen(false)}>
                     Pedir cita
                   </BookingCtaLink>

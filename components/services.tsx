@@ -99,7 +99,11 @@ export function Services() {
   const isInView = useInView(titleRef, { once: true })
 
   return (
-    <section id="servicios" className="py-14 relative overflow-hidden sm:py-16" aria-labelledby="servicios-title">
+    <section
+      id="servicios"
+      className="scroll-mt-24 sm:scroll-mt-28 py-14 relative overflow-hidden sm:py-16"
+      aria-labelledby="servicios-title"
+    >
       {/* Fondo decorativo estático */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/10 blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" aria-hidden />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-cyan-400/10 to-blue-500/10 blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" aria-hidden />

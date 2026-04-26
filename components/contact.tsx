@@ -130,7 +130,7 @@ export function Contact() {
   }
 
   return (
-    <section id="contacto" className="py-14 relative overflow-hidden sm:py-16">
+    <section id="contacto" className="scroll-mt-24 sm:scroll-mt-28 py-14 relative overflow-hidden sm:py-16">
       {/* Animated Background */}
       <div className="absolute inset-0 gradient-mesh opacity-30" />
       
@@ -169,15 +169,14 @@ export function Contact() {
           </p>
         </motion.div>
 
-        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
-          {/* Contact Info */}
+        <div className="mx-auto grid max-w-6xl items-stretch gap-8 lg:grid-cols-2">
+          {/* Contact Info: en lg, misma altura que el form (min-h) y tarjetas reparten el espacio */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="space-y-4"
+            className="flex h-full min-h-0 flex-col gap-4 lg:min-h-[34rem] lg:gap-6"
           >
-            <div className="space-y-4">
             {contactInfo.map((info, index) => (
               <motion.a
                 key={info.label}
@@ -188,28 +187,29 @@ export function Contact() {
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.3 + index * 0.1 }}
                 whileHover={{ scale: 1.02, y: -5 }}
-                className="glass-extreme rounded-2xl p-6 flex items-start gap-4 group block relative overflow-hidden"
+                className="glass-extreme group relative flex w-full min-h-0 items-start gap-4 overflow-hidden rounded-2xl p-6 lg:min-h-0 lg:flex-1 lg:basis-0 lg:items-center lg:py-7 lg:pl-7 lg:pr-8"
               >
                 {/* Hover effect */}
-                <div className={`absolute inset-0 bg-gradient-to-r ${info.color} opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-10`} />
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r ${info.color} opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-10`}
+                />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-20" />
 
                 <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${info.color} flex items-center justify-center shrink-0 relative z-10`}
+                  className={`relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${info.color}`}
                 >
-                  <info.icon className="w-6 h-6 text-white" />
+                  <info.icon className="h-6 w-6 text-white" />
                 </div>
 
-                <div className="relative z-10">
-                  <div className="text-sm text-slate-500 mb-1">{info.label}</div>
-                  <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                <div className="relative z-10 min-w-0 flex-1">
+                  <div className="mb-1 text-sm text-slate-500">{info.label}</div>
+                  <div className="font-semibold text-slate-900 transition-colors group-hover:text-blue-600">
                     {info.value}
                   </div>
                   <div className="text-sm text-slate-500">{info.subvalue}</div>
                 </div>
               </motion.a>
             ))}
-            </div>
 
             {/* Map Button */}
             <motion.a
@@ -220,10 +220,10 @@ export function Contact() {
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.6 }}
               whileHover={{ scale: 1.02 }}
-              className="glass-extreme rounded-2xl p-6 flex items-center justify-center gap-3 group cursor-pointer"
+              className="glass-extreme group flex w-full min-h-0 cursor-pointer items-center justify-center gap-3 rounded-2xl p-6 lg:min-h-0 lg:flex-1 lg:basis-0 lg:px-7 lg:py-7"
             >
-              <Navigation className="w-5 h-5 text-blue-600 group-hover:animate-bounce" />
-              <span className="font-medium text-slate-700 group-hover:text-blue-600 transition-colors">
+              <Navigation className="h-5 w-5 text-blue-600 group-hover:animate-bounce" />
+              <span className="font-medium text-slate-700 transition-colors group-hover:text-blue-600">
                 Cómo llegar
               </span>
             </motion.a>
@@ -236,21 +236,21 @@ export function Contact() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="h-full self-stretch w-full"
           >
-            <div className="h-full min-h-0 [perspective:1400px]">
+            <div className="h-full min-h-0 [perspective:1400px] [touch-action:manipulation]">
               <motion.div
                 animate={{ rotateY: submitStatus === "idle" ? 0 : 180 }}
                 transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
                 style={{ transformStyle: "preserve-3d" }}
-                className="relative h-full w-full min-h-[440px] sm:min-h-[460px]"
+                className="relative h-full w-full min-h-[42rem] sm:min-h-[38rem] lg:min-h-[34rem]"
               >
                 <form
                   onSubmit={handleSubmit}
-                  className="glass-extreme absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden rounded-3xl [backface-visibility:hidden]"
+                  className="glass-extreme absolute inset-0 flex min-h-0 flex-col overflow-hidden rounded-3xl [backface-visibility:hidden] [touch-action:manipulation]"
                 >
                   {/* Shimmer */}
                   <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-20" />
 
-                  <div className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-7 sm:py-3.5">
+                  <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-visible px-5 py-4 sm:px-7 sm:py-4">
                     <h3 className="mb-2.5 text-lg font-bold leading-tight text-slate-900 sm:text-2xl">Envíanos un mensaje</h3>
 
                     <div className="space-y-2.5 sm:space-y-3">
