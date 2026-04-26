@@ -4,11 +4,15 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { Phone, Mail, MapPin } from "lucide-react"
 import { BookingCtaLink } from "@/components/booking-cta-modal"
+import { cn } from "@/lib/cn"
 
 const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg"
 
 const INSTAGRAM_URL = "https://www.instagram.com/fisioterapia.rocblanc/"
 const WHATSAPP_URL = "https://wa.me/34687549732"
+
+/** Mismo cuerpo de lista que en Servicios (tamaño + interlineado). */
+const footerListBodyClass = "text-xs leading-snug sm:text-[0.8125rem]"
 
 function InstagramGlyph({ className }: { className?: string }) {
   return (
@@ -51,8 +55,34 @@ const quickLinks = [
   { label: "Servicios", href: "#servicios" },
   { label: "Nosotros", href: "#nosotros" },
   { label: "Horario", href: "#horarios" },
-  { label: "Reservar cita online", href: "/reservar" },
   { label: "Contacto", href: "#contacto" },
+  { label: "Reservar cita online", href: "/reservar" },
+]
+
+/** Mismos títulos y orden que en el modal ampliado de servicios (`allServicesForModal` en `components/services.tsx`). */
+const footerServicesColumns: [string[], string[], string[]] = [
+  [
+    "Fisioterapia Deportiva",
+    "Traumatología",
+    "Neurorehabilitación",
+    "Fisioterapia Cardíaca",
+    "Electroterapia",
+    "Suelo pélvico",
+  ],
+  [
+    "Nutrición",
+    "Psicología deportiva",
+    "Readaptación deportiva",
+    "Fisioterapia funcional",
+    "Fisioterapia vestibular",
+  ],
+  [
+    "Entrenamiento",
+    "Acupuntura",
+    "Fisioterapia Geriátrica",
+    "Terapia manual",
+    "Drenaje linfático manual",
+  ],
 ]
 
 export function Footer() {
@@ -64,14 +94,14 @@ export function Footer() {
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Main Footer */}
-        <div className="grid gap-10 py-12 sm:grid-cols-2 sm:py-14 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-10 py-12 sm:grid-cols-2 sm:py-14 lg:grid-cols-[minmax(0,1.15fr)_max-content_minmax(0,1.8fr)_minmax(0,1.05fr)] lg:items-start lg:gap-x-5 lg:gap-y-10">
           {/* Brand */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="sm:col-span-2 lg:col-span-1"
+            className="min-w-0 sm:col-span-2 lg:col-span-1"
           >
             <Link href="/" className="mb-4 flex items-center gap-3 group" aria-label="Inicio - Fisioterapia Roc Blanc">
               <motion.div
@@ -130,14 +160,18 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
+            className="min-w-0"
           >
             <h4 className="font-bold text-slate-900 mb-4">Enlaces Rápidos</h4>
-            <ul className="space-y-3">
+            <ul className="space-y-2.5">
               {quickLinks.map((link) => (
                 <li key={link.label}>
                   <BookingCtaLink
                     href={link.href}
-                    className="text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-2 group"
+                    className={cn(
+                      footerListBodyClass,
+                      "text-slate-600 transition-colors flex items-center gap-2 group hover:text-blue-600",
+                    )}
                   >
                     <span className="w-0 h-0.5 bg-blue-600 group-hover:w-3 transition-all" />
                     {link.label}
@@ -153,18 +187,31 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
+            className="min-w-0 w-full"
           >
             <h4 className="font-bold text-slate-900 mb-4">Servicios</h4>
-            <ul className="space-y-3">
-              {["Fisioterapia Deportiva", "Traumatología", "Neurorehabilitación", "Electroterapia"].map((service) => (
-                <li key={service}>
-                  <span className="text-slate-600 flex items-center gap-2 group cursor-default">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500" />
-                    {service}
-                  </span>
-                </li>
+            <div className="grid w-full min-w-0 grid-cols-1 justify-items-stretch gap-x-2 gap-y-2.5 sm:grid-cols-3 sm:gap-x-2.5 sm:gap-y-0 lg:gap-x-2">
+              {footerServicesColumns.map((column, colIdx) => (
+                <ul
+                  key={`footer-services-col-${colIdx}`}
+                  className="min-w-0 max-w-full list-none space-y-2 p-0"
+                >
+                  {column.map((service) => (
+                    <li key={service} className="text-left text-slate-600">
+                      <span className="flex items-start gap-1.5 sm:gap-2">
+                        <span
+                          className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 shadow-sm shadow-blue-500/30"
+                          aria-hidden
+                        />
+                        <span className={cn(footerListBodyClass, "min-w-0 flex-1 break-words")}>
+                          {service}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               ))}
-            </ul>
+            </div>
           </motion.div>
 
           {/* Contact Info */}
@@ -173,25 +220,41 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
+            className="min-w-0"
           >
             <h4 className="font-bold text-slate-900 mb-4">Contacto</h4>
-            <ul className="space-y-4">
+            <ul className="space-y-3.5">
               <li>
-                <a href="https://maps.google.com/?q=Carrer+de+Pablo+Iglesias+24+Terrassa" target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 text-slate-600 hover:text-blue-600 transition-colors">
-                  <MapPin className="w-5 h-5 mt-0.5 text-blue-600 shrink-0" />
-                  <span>Carrer de Pablo Iglesias, 24<br />08224 Terrassa, Barcelona</span>
+                <a
+                  href="https://maps.google.com/?q=Carrer+de+Pablo+Iglesias+24+Terrassa"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(footerListBodyClass, "flex items-start gap-2.5 text-slate-600 transition-colors hover:text-blue-600")}
+                >
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                  <span>
+                    Carrer de Pablo Iglesias, 24
+                    <br />
+                    08224 Terrassa, Barcelona
+                  </span>
                 </a>
               </li>
               <li>
-                <a href="tel:938085056" className="flex items-center gap-3 text-slate-600 hover:text-blue-600 transition-colors">
-                  <Phone className="w-5 h-5 text-blue-600" />
+                <a
+                  href="tel:938085056"
+                  className={cn(footerListBodyClass, "flex items-center gap-2.5 text-slate-600 transition-colors hover:text-blue-600")}
+                >
+                  <Phone className="h-4 w-4 shrink-0 text-blue-600" />
                   <span>938 08 50 56</span>
                 </a>
               </li>
               <li>
-                <a href="mailto:fisioterapia.rocblanc@gmail.com" className="flex items-center gap-3 text-slate-600 hover:text-blue-600 transition-colors">
-                  <Mail className="w-5 h-5 text-blue-600" />
-                  <span>fisioterapia.rocblanc@gmail.com</span>
+                <a
+                  href="mailto:fisioterapia.rocblanc@gmail.com"
+                  className={cn(footerListBodyClass, "flex min-w-0 items-center gap-2.5 text-slate-600 transition-colors hover:text-blue-600")}
+                >
+                  <Mail className="h-4 w-4 shrink-0 text-blue-600" />
+                  <span className="min-w-0 break-words">fisioterapia.rocblanc@gmail.com</span>
                 </a>
               </li>
             </ul>

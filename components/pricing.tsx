@@ -262,23 +262,31 @@ function PricingCard({
     </motion.div>
   )
 
+  const rootClass = cn("relative w-full group", showPopularLook ? "z-10" : "")
+
+  /* Carrusel: sin motion envolvente (evita y/3D mezclado con el slide horizontal). */
+  if (variant === "carousel") {
+    return (
+      <div
+        ref={ref}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={rootClass}
+      >
+        {cardBody}
+      </div>
+    )
+  }
+
   return (
     <motion.div
       ref={ref}
-      initial={
-        variant === "carousel"
-          ? { opacity: 1, y: 0, rotateX: 0 }
-          : { opacity: 0, y: 80, rotateX: 15 }
-      }
-      animate={variant === "carousel" || isInView ? { opacity: 1, y: 0, rotateX: 0 } : {}}
-      transition={
-        variant === "carousel"
-          ? { duration: 0 }
-          : { duration: 0.8, delay: index * 0.15, type: "spring", stiffness: 100 }
-      }
+      initial={{ opacity: 0, y: 80, rotateX: 15 }}
+      animate={isInView ? { opacity: 1, y: 0, rotateX: 0 } : {}}
+      transition={{ duration: 0.8, delay: index * 0.15, type: "spring", stiffness: 100 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={cn("relative group", showPopularLook ? "z-10" : "")}
+      className={rootClass}
     >
       {cardBody}
     </motion.div>
@@ -574,7 +582,7 @@ export function Pricing() {
           </div>
 
           <div
-            className="relative overflow-hidden"
+            className="relative min-h-[30rem] w-full overflow-hidden sm:min-h-[32rem]"
             onTouchStart={(e) => handleCarouselTouchStart(e.touches[0].clientX)}
             onTouchEnd={(e) => handleCarouselTouchEnd(e.changedTouches[0].clientX)}
           >
@@ -586,29 +594,39 @@ export function Pricing() {
               aria-hidden
               className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white/80 to-transparent"
             />
-            <AnimatePresence custom={bonoSlideDirection} initial={false}>
+            {/*
+              mode="wait": un slide termina (sale en horizontal) y luego entra el otro; evita
+              apilar vertical y la sensación de “entra por abajo”. Solo eje x + opacidad limpia.
+            */}
+            <AnimatePresence custom={bonoSlideDirection} initial={false} mode="wait">
               <motion.div
                 key={bonos[currentBonoIndex].sessions}
-                className="w-full"
+                className="w-full will-change-transform"
                 custom={bonoSlideDirection}
                 variants={{
                   enter: (d: number) =>
                     reduceMotion
                       ? { x: 0, opacity: 0 }
-                      : { x: d > 0 ? "100%" : "-100%", opacity: 0.5 },
+                      : {
+                          x: d > 0 ? "100%" : "-100%",
+                          opacity: 1,
+                        },
                   center: { x: 0, opacity: 1 },
                   exit: (d: number) =>
                     reduceMotion
                       ? { x: 0, opacity: 0 }
-                      : { x: d > 0 ? "-100%" : "100%", opacity: 0.5 },
+                      : {
+                          x: d > 0 ? "-100%" : "100%",
+                          opacity: 1,
+                        },
                 }}
                 initial="enter"
                 animate="center"
                 exit="exit"
                 transition={{
                   type: "tween",
-                  duration: reduceMotion ? 0.15 : 0.32,
-                  ease: [0.32, 0.72, 0, 1],
+                  duration: reduceMotion ? 0.12 : 0.28,
+                  ease: [0.25, 0.1, 0.25, 1],
                 }}
               >
                 <PricingCard
