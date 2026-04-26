@@ -227,6 +227,83 @@ export function quarterForDate(d: Date): QuarterSlice {
   };
 }
 
+export type FiscalTicketDataIndex = {
+  monthKeySet: Set<MonthKey>;
+  /** Años con al menos un ticket (descendente). */
+  years: number[];
+  /** Trimestres con al menos un ticket en ese año (ordenados). */
+  quartersByYear: Map<number, (1 | 2 | 3 | 4)[]>;
+};
+
+/**
+ * Años y trimestres “reales” según `created_at` de tickets (misma lógica de mes que getYearMonthKey en JS).
+ */
+export function buildFiscalTicketDataIndex(createdAts: string[]): FiscalTicketDataIndex {
+  const monthKeySet = new Set<MonthKey>();
+  for (const iso of createdAts) {
+    monthKeySet.add(getYearMonthKey(new Date(iso)));
+  }
+  const yearToQ = new Map<number, Set<1 | 2 | 3 | 4>>();
+  for (const mk of monthKeySet) {
+    const y = parseInt(mk.slice(0, 4), 10);
+    const mo = parseInt(mk.slice(5, 7), 10);
+    const q = (Math.floor((mo - 1) / 3) + 1) as 1 | 2 | 3 | 4;
+    if (!yearToQ.has(y)) yearToQ.set(y, new Set());
+    yearToQ.get(y)!.add(q);
+  }
+  const years = [...yearToQ.keys()].sort((a, b) => b - a);
+  const quartersByYear = new Map<number, (1 | 2 | 3 | 4)[]>();
+  for (const [y, set] of yearToQ) {
+    quartersByYear.set(y, [...set].sort((a, b) => a - b));
+  }
+  return { monthKeySet, years, quartersByYear };
+}
+
+/**
+ * Período por defecto: trimestre actual del año en curso si hay datos; si no, el trimestre con datos más reciente.
+ */
+export function defaultFiscalPeriodWithData(
+  index: FiscalTicketDataIndex,
+  now: Date,
+): { year: number; quarter: 1 | 2 | 3 | 4 } | null {
+  if (index.years.length === 0) return null;
+  const yNow = now.getFullYear();
+  const qNow = quarterForDate(now).quarter;
+  const thisYearQuarters = index.quartersByYear.get(yNow);
+  if (thisYearQuarters?.includes(qNow)) {
+    return { year: yNow, quarter: qNow };
+  }
+  for (const y of index.years) {
+    const qs = index.quartersByYear.get(y) ?? [];
+    if (qs.length === 0) continue;
+    return { year: y, quarter: qs[qs.length - 1]! };
+  }
+  return null;
+}
+
+/**
+ * Año y trimestre cuya simulación se devuelve (parámetros URL o criterio por defecto).
+ * Extraída a función pura: evita `const` sin inicializar en rutas (SWC / Turbopack).
+ */
+export function resolveActiveFiscalPeriod(args: {
+  hasTargetQuarter: boolean;
+  targetYear: number;
+  targetQuarter: number;
+  pickDefault: { year: number; quarter: 1 | 2 | 3 | 4 } | null;
+  now: Date;
+}): { activeY: number; activeQ: 1 | 2 | 3 | 4 } {
+  if (args.hasTargetQuarter) {
+    return {
+      activeY: args.targetYear,
+      activeQ: args.targetQuarter as 1 | 2 | 3 | 4,
+    };
+  }
+  if (args.pickDefault) {
+    return { activeY: args.pickDefault.year, activeQ: args.pickDefault.quarter };
+  }
+  return { activeY: args.now.getFullYear(), activeQ: quarterForDate(args.now).quarter };
+}
+
 export type FiscalSimulationResult = {
   declareCashPercent: number;
   /** Total cobrado en el periodo (real). */

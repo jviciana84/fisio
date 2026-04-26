@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
+  buildFiscalTicketDataIndex,
+  defaultFiscalPeriodWithData,
+  resolveActiveFiscalPeriod,
   deductibleQuarterExtractTotalCents,
   eurosFromCents,
   getYearMonthKey,
@@ -104,18 +107,47 @@ export async function GET(request: Request) {
     targetQuarter >= 1 &&
     targetQuarter <= 4;
 
+  const { data: allDateRows, error: allDatesError } = await supabase
+    .from("cash_tickets")
+    .select("created_at");
+  if (allDatesError) {
+    return NextResponse.json(
+      { ok: false, message: "No se pudieron leer fechas de tickets para el simulador" },
+      { status: 500 },
+    );
+  }
+  const ticketDataIndex = buildFiscalTicketDataIndex(
+    (allDateRows ?? []).map((r) => String((r as { created_at: string }).created_at)),
+  );
+  const hasTicketData = ticketDataIndex.years.length > 0;
+
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const twelveMonthsBack = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   const sinceDefault = new Date(Math.min(yearStart.getTime(), twelveMonthsBack.getTime()));
   sinceDefault.setHours(0, 0, 0, 0);
 
-  const since = hasTargetQuarter
-    ? (() => {
-        const d = new Date(targetYear, 0, 1);
-        d.setHours(0, 0, 0, 0);
-        return d;
-      })()
-    : sinceDefault;
+  const pickDefault = defaultFiscalPeriodWithData(ticketDataIndex, now);
+  const { activeY, activeQ } = resolveActiveFiscalPeriod({
+    hasTargetQuarter,
+    targetYear,
+    targetQuarter,
+    pickDefault,
+    now,
+  });
+
+  const since = (() => {
+    if (hasTargetQuarter) {
+      const d = new Date(targetYear, 0, 1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (hasTicketData) {
+      const d = new Date(activeY, 0, 1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    return sinceDefault;
+  })();
 
   const { data: tickets, error: tErr } = await supabase
     .from("cash_tickets")
@@ -233,18 +265,20 @@ export async function GET(request: Request) {
     };
   });
 
-  const q = hasTargetQuarter
-    ? { quarter: targetQuarter as 1 | 2 | 3 | 4, label: `T${targetQuarter} ${targetYear}`, monthKeys: quarterMonthKeys(targetYear, targetQuarter as 1 | 2 | 3 | 4) }
-    : quarterForDate(new Date());
+  const q = {
+    quarter: activeQ,
+    label: `T${activeQ} ${activeY}`,
+    monthKeys: quarterMonthKeys(activeY, activeQ),
+  };
 
   const referenceDate = (() => {
-    if (!hasTargetQuarter) return now;
-    const lastMonthIndex = (targetQuarter - 1) * 3 + 2;
-    const endOfQuarter = new Date(targetYear, lastMonthIndex + 1, 0, 23, 59, 59, 999);
+    if (!hasTicketData) return now;
+    const lastMonthIndex = (activeQ - 1) * 3 + 2;
+    const endOfQuarter = new Date(activeY, lastMonthIndex + 1, 0, 23, 59, 59, 999);
     return now.getTime() < endOfQuarter.getTime() ? now : endOfQuarter;
   })();
 
-  let qTotals = { cashCents: 0, bizumCents: 0, cardCents: 0 };
+  const qTotals = { cashCents: 0, bizumCents: 0, cardCents: 0 };
   for (const mk of q.monthKeys) {
     const b = monthMap.get(mk);
     if (!b) continue;
@@ -312,7 +346,7 @@ export async function GET(request: Request) {
   }
   const quarterCashFreeCents = Math.max(0, quarterCashTotalCents - quarterCashInvoicedCents);
 
-  const calendarYear = hasTargetQuarter ? targetYear : now.getFullYear();
+  const calendarYear = activeY;
   const currentQ = quarterForDate(referenceDate).quarter;
 
   const quarterlyYear = ([1, 2, 3, 4] as const).map((qi) => {
@@ -367,10 +401,26 @@ export async function GET(request: Request) {
     annualTotal += row.totalTaxesEuros;
   }
 
+  const yearOptions = new Set(ticketDataIndex.years);
+  if (hasTargetQuarter) yearOptions.add(targetYear);
+  const fiscalYears = [...yearOptions].sort((a, b) => b - a);
+  const fiscalQuartersByYear: Record<string, number[]> = {};
+  for (const y of fiscalYears) {
+    const s = new Set(ticketDataIndex.quartersByYear.get(y) ?? []);
+    if (y === activeY) s.add(activeQ);
+    if (hasTargetQuarter && y === targetYear) s.add(targetQuarter as 1 | 2 | 3 | 4);
+    fiscalQuartersByYear[String(y)] = [...s].sort((a, b) => a - b);
+  }
+  const fiscalPeriodOptions =
+    fiscalYears.length > 0
+      ? { years: fiscalYears, quartersByYear: fiscalQuartersByYear }
+      : { years: [now.getFullYear()], quartersByYear: { [String(now.getFullYear())]: [1, 2, 3, 4] } };
+
   return NextResponse.json({
     ok: true,
     calendarYear,
     currentQuarter: currentQ,
+    fiscalPeriodOptions,
     yearProgress: {
       quarterly: quarterlyYear,
       yearToDate: {

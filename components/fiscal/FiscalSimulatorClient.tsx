@@ -121,6 +121,11 @@ type FiscalSnapshotRow = {
   created_at: string;
 };
 
+type FiscalPeriodOptions = {
+  years: number[];
+  quartersByYear: Record<string, number[]>;
+};
+
 export function FiscalSimulatorClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -146,6 +151,7 @@ export function FiscalSimulatorClient() {
   const [snapshotsErr, setSnapshotsErr] = useState<string | null>(null);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
+  const [fiscalPeriodOptions, setFiscalPeriodOptions] = useState<FiscalPeriodOptions | null>(null);
 
   const applySummaryPayload = useCallback((data: {
     quarter?: string;
@@ -154,6 +160,7 @@ export function FiscalSimulatorClient() {
     settings?: Settings;
     calendarYear?: number;
     currentQuarter?: number;
+    fiscalPeriodOptions?: FiscalPeriodOptions;
     yearProgress?: YearProgress;
     payrollPreview?: PayrollPreview;
     modelWarnings?: ModelWarning[];
@@ -165,6 +172,15 @@ export function FiscalSimulatorClient() {
     setSettings(data.settings ?? null);
     setCalendarYear(data.calendarYear ?? null);
     setCurrentQuarter(data.currentQuarter ?? null);
+    if (data.fiscalPeriodOptions && data.fiscalPeriodOptions.years.length > 0) {
+      setFiscalPeriodOptions(data.fiscalPeriodOptions);
+    } else {
+      const y = data.calendarYear ?? new Date().getFullYear();
+      setFiscalPeriodOptions({
+        years: [y],
+        quartersByYear: { [String(y)]: [1, 2, 3, 4] },
+      });
+    }
     setYearProgress(data.yearProgress ?? null);
     setPayrollPreview(data.payrollPreview ?? null);
     setModelWarnings(data.modelWarnings ?? []);
@@ -192,6 +208,7 @@ export function FiscalSimulatorClient() {
         settings?: Settings;
         calendarYear?: number;
         currentQuarter?: number;
+        fiscalPeriodOptions?: FiscalPeriodOptions;
         yearProgress?: YearProgress;
         payrollPreview?: PayrollPreview;
         modelWarnings?: ModelWarning[];
@@ -312,6 +329,18 @@ export function FiscalSimulatorClient() {
       setSaving(false);
     }
   }, [load, calendarYear, currentQuarter]);
+
+  const yearOptions = fiscalPeriodOptions?.years ?? [];
+  const quarterOptionsForSelect = useMemo((): number[] => {
+    if (calendarYear == null) return [1, 2, 3, 4];
+    return fiscalPeriodOptions?.quartersByYear[String(calendarYear)] ?? [1, 2, 3, 4];
+  }, [fiscalPeriodOptions, calendarYear]);
+
+  const quarterSelectValue = useMemo(() => {
+    if (currentQuarter == null) return "";
+    if (quarterOptionsForSelect.includes(currentQuarter)) return String(currentQuarter);
+    return String(quarterOptionsForSelect[0] ?? 1);
+  }, [currentQuarter, quarterOptionsForSelect]);
 
   const maxBar = useMemo(() => {
     let m = 1;
@@ -610,14 +639,16 @@ export function FiscalSimulatorClient() {
               <select
                 className="rounded-md border border-slate-200/80 bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-800"
                 value={calendarYear ?? ""}
-                disabled={calendarYear == null}
+                disabled={calendarYear == null || yearOptions.length === 0}
                 onChange={(e) => {
                   const y = Number(e.target.value);
                   if (!Number.isFinite(y) || currentQuarter == null) return;
-                  void load({ year: y, quarter: currentQuarter });
+                  const qList = fiscalPeriodOptions?.quartersByYear[String(y)] ?? [1, 2, 3, 4];
+                  const nextQ = qList.includes(currentQuarter) ? currentQuarter : Math.max(...qList);
+                  void load({ year: y, quarter: nextQ });
                 }}
               >
-                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                {yearOptions.map((y) => (
                   <option key={y} value={y}>
                     {y}
                   </option>
@@ -628,7 +659,7 @@ export function FiscalSimulatorClient() {
               <span className="font-semibold text-slate-500">T</span>
               <select
                 className="rounded-md border border-slate-200/80 bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-800"
-                value={currentQuarter ?? ""}
+                value={quarterSelectValue}
                 disabled={currentQuarter == null || calendarYear == null}
                 onChange={(e) => {
                   const q = Number(e.target.value);
@@ -636,7 +667,7 @@ export function FiscalSimulatorClient() {
                   void load({ year: calendarYear, quarter: q });
                 }}
               >
-                {[1, 2, 3, 4].map((q) => (
+                {quarterOptionsForSelect.map((q) => (
                   <option key={q} value={q}>
                     {q}
                   </option>
