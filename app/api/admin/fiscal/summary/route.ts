@@ -34,10 +34,19 @@ type ExpenseDb = {
 };
 
 type StaffCompensationRow = {
+  id: string;
   full_name: string | null;
   is_active: boolean | null;
   compensation_type: string | null;
   monthly_salary_cents: number | null;
+  employment_start_date: string | null;
+  employment_end_date: string | null;
+};
+
+type EmploymentPeriodRow = {
+  staff_id: string;
+  start_date: string;
+  end_date: string | null;
 };
 
 type ModelWarning = {
@@ -183,7 +192,7 @@ export async function GET(request: Request) {
 
   const { data: staffRows, error: staffErr } = await supabase
     .from("staff_access")
-    .select("full_name, is_active, compensation_type, monthly_salary_cents");
+    .select("id, full_name, is_active, compensation_type, monthly_salary_cents, employment_start_date, employment_end_date");
 
   if (staffErr) {
     return NextResponse.json({ ok: false, message: "No se pudieron cargar perfiles de personal" }, { status: 500 });
@@ -217,9 +226,23 @@ export async function GET(request: Request) {
   });
 
   const months = [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const staffIds = ((staffRows ?? []) as StaffCompensationRow[]).map((row) => row.id);
+  const { data: employmentPeriodsRows } =
+    staffIds.length > 0
+      ? await supabase
+          .from("staff_employment_periods")
+          .select("staff_id, start_date, end_date")
+          .in("staff_id", staffIds)
+      : { data: [] as EmploymentPeriodRow[] };
+  const periodsByStaff = new Map<string, EmploymentPeriodRow[]>();
+  for (const period of (employmentPeriodsRows ?? []) as EmploymentPeriodRow[]) {
+    const list = periodsByStaff.get(period.staff_id) ?? [];
+    list.push(period);
+    periodsByStaff.set(period.staff_id, list);
+  }
 
   const allSalariedProfiles = ((staffRows ?? []) as StaffCompensationRow[]).filter(
-    (row) => row.is_active !== false && row.compensation_type === "salaried",
+    (row) => row.compensation_type === "salaried",
   );
   const salariedProfiles = allSalariedProfiles.filter(
     (row) => Number(row.monthly_salary_cents ?? 0) > 0,
@@ -228,10 +251,67 @@ export async function GET(request: Request) {
     (row) => Number(row.monthly_salary_cents ?? 0) <= 0,
   );
 
-  const salariedAnnualGrossCents = salariedProfiles.reduce(
-    (acc, row) => acc + Number(row.monthly_salary_cents ?? 0),
-    0,
-  );
+  const overlapDaysInclusive = (startIso: string, endIso: string, qStart: Date, qEnd: Date) => {
+    const start = new Date(`${startIso}T00:00:00.000Z`);
+    const end = new Date(`${endIso}T00:00:00.000Z`);
+    const s = start.getTime() > qStart.getTime() ? start : qStart;
+    const e = end.getTime() < qEnd.getTime() ? end : qEnd;
+    if (e.getTime() < s.getTime()) return 0;
+    return Math.floor((e.getTime() - s.getTime()) / 86_400_000) + 1;
+  };
+  const quarterStartDate = new Date(activeY, (activeQ - 1) * 3, 1);
+  const quarterEndDate = new Date(activeY, activeQ * 3, 0);
+  const yearStartDate = new Date(activeY, 0, 1);
+  const yearEndDate = new Date(activeY, 11, 31);
+  const daysInYear = Math.floor((yearEndDate.getTime() - yearStartDate.getTime()) / 86_400_000) + 1;
+
+  const salariedRowsWithPeriod = salariedProfiles.map((row) => {
+    const annualGrossCents = Number(row.monthly_salary_cents ?? 0);
+    const fallbackPeriods: EmploymentPeriodRow[] = [
+      {
+        staff_id: row.id,
+        start_date: row.employment_start_date ?? `${activeY}-01-01`,
+        end_date: row.employment_end_date,
+      },
+    ];
+    const staffPeriods = periodsByStaff.get(row.id);
+    const periods = staffPeriods && staffPeriods.length > 0 ? staffPeriods : fallbackPeriods;
+    const quarterDays = periods.reduce(
+      (acc, period) =>
+        acc +
+        overlapDaysInclusive(
+          period.start_date,
+          period.end_date ?? `${activeY}-12-31`,
+          quarterStartDate,
+          quarterEndDate,
+        ),
+      0,
+    );
+    const yearDays = periods.reduce(
+      (acc, period) =>
+        acc +
+        overlapDaysInclusive(
+          period.start_date,
+          period.end_date ?? `${activeY}-12-31`,
+          yearStartDate,
+          yearEndDate,
+        ),
+      0,
+    );
+    const quarterGrossCents = Math.round((annualGrossCents * quarterDays) / daysInYear);
+    const yearGrossCents = Math.round((annualGrossCents * yearDays) / daysInYear);
+    return {
+      row,
+      annualGrossCents,
+      periods,
+      quarterGrossCents,
+      yearGrossCents,
+    };
+  });
+
+  const quarterGrossPayrollCents = salariedRowsWithPeriod.reduce((acc, item) => acc + item.quarterGrossCents, 0);
+  const proratedYearGrossCents = salariedRowsWithPeriod.reduce((acc, item) => acc + item.yearGrossCents, 0);
+  const salariedAnnualGrossCents = salariedRowsWithPeriod.reduce((acc, item) => acc + item.annualGrossCents, 0);
 
   const PAYROLL = {
     employeeIrpfRetentionPercent: Number(settingsData.employee_irpf_retention_percent ?? 15),
@@ -240,15 +320,15 @@ export async function GET(request: Request) {
   };
 
   const employeeIrpfRetentionQuarterCents = Math.round(
-    ((salariedAnnualGrossCents / 4) * PAYROLL.employeeIrpfRetentionPercent) / 100,
+    (quarterGrossPayrollCents * PAYROLL.employeeIrpfRetentionPercent) / 100,
   );
   const employeeSocialSecurityQuarterCents = Math.round(
-    ((salariedAnnualGrossCents / 4) * PAYROLL.employeeSocialSecurityPercent) / 100,
+    (quarterGrossPayrollCents * PAYROLL.employeeSocialSecurityPercent) / 100,
   );
   const employerSocialSecurityQuarterCents = Math.round(
-    ((salariedAnnualGrossCents / 4) * PAYROLL.employerSocialSecurityPercent) / 100,
+    (quarterGrossPayrollCents * PAYROLL.employerSocialSecurityPercent) / 100,
   );
-  const grossPayrollQuarterCents = Math.round(salariedAnnualGrossCents / 4);
+  const grossPayrollQuarterCents = quarterGrossPayrollCents;
   const netPayrollQuarterCents =
     grossPayrollQuarterCents - employeeIrpfRetentionQuarterCents - employeeSocialSecurityQuarterCents;
   const employerPayrollCostQuarterCents = grossPayrollQuarterCents + employerSocialSecurityQuarterCents;
@@ -481,10 +561,13 @@ export async function GET(request: Request) {
         employeeSocialSecurityPercent: PAYROLL.employeeSocialSecurityPercent,
         employerSocialSecurityPercent: PAYROLL.employerSocialSecurityPercent,
       },
-      salariedProfiles: salariedProfiles.map((p) => ({
-        name: p.full_name ?? "Sin nombre",
-        annualGrossEuros: eurosFromCents(Number(p.monthly_salary_cents ?? 0)),
-        monthlyEquivalentEuros: eurosFromCents(Math.round(Number(p.monthly_salary_cents ?? 0) / 12)),
+      salariedProfiles: salariedRowsWithPeriod.map((p) => ({
+        name: p.row.full_name ?? "Sin nombre",
+        annualGrossEuros: eurosFromCents(p.annualGrossCents),
+        monthlyEquivalentEuros: eurosFromCents(Math.round(p.annualGrossCents / 12)),
+        quarterGrossEuros: eurosFromCents(p.quarterGrossCents),
+        employmentStartDate: p.periods[0]?.start_date ?? null,
+        employmentEndDate: p.periods[0]?.end_date ?? null,
       })),
       totals: {
         salariedCount: salariedProfiles.length,
@@ -498,7 +581,7 @@ export async function GET(request: Request) {
         quarterEmployerSocialSecurityEuros: eurosFromCents(employerSocialSecurityQuarterCents),
         model111QuarterEuros: eurosFromCents(employeeIrpfRetentionQuarterCents),
         model190YearEuros: eurosFromCents(
-          Math.round((salariedAnnualGrossCents * PAYROLL.employeeIrpfRetentionPercent) / 100),
+          Math.round((proratedYearGrossCents * PAYROLL.employeeIrpfRetentionPercent) / 100),
         ),
       },
     },

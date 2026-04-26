@@ -25,6 +25,8 @@ type StaffDbRow = {
   hourly_tariffs: unknown;
   compensation_type?: string | null;
   monthly_salary_cents?: number | null;
+  employment_start_date?: string | null;
+  employment_end_date?: string | null;
 };
 
 type TicketRow = {
@@ -38,6 +40,11 @@ type WorkLogRow = {
   worked_minutes: number;
 };
 
+type EmploymentPeriodDbRow = {
+  staff_id: string;
+  start_date: string;
+};
+
 type MetricAcc = {
   salesCount: number;
   totalSalesEuros: number;
@@ -47,9 +54,9 @@ type MetricAcc = {
 };
 
 const STAFF_SELECT_WITH_TARIFFS =
-  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path, hourly_tariffs, compensation_type, monthly_salary_cents";
+  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path, hourly_tariffs, compensation_type, monthly_salary_cents, employment_start_date, employment_end_date";
 const STAFF_SELECT_NO_TARIFFS =
-  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path";
+  "id, full_name, email, phone, role, employee_code, is_active, public_profile, public_specialty, public_bio, public_avatar_path, employment_start_date, employment_end_date";
 
 export default async function StaffDashboardPage() {
   const supabase = createSupabaseAdminClient();
@@ -57,7 +64,6 @@ export default async function StaffDashboardPage() {
   const staffRes = await supabase
     .from("staff_access")
     .select(STAFF_SELECT_WITH_TARIFFS)
-    .eq("is_active", true)
     .order("full_name", { ascending: true });
 
   const needsTariffFallback =
@@ -72,7 +78,6 @@ export default async function StaffDashboardPage() {
         await supabase
           .from("staff_access")
           .select(STAFF_SELECT_NO_TARIFFS)
-          .eq("is_active", true)
           .order("full_name", { ascending: true })
       ).data ?? []
     : (staffRes.data ?? []);
@@ -81,7 +86,7 @@ export default async function StaffDashboardPage() {
   const workDateBounds = madridCurrentMonthWorkDateBounds();
   const metricsPeriodLabel = formatMadridMonthYearLabel();
 
-  const [ticketsRes, logsRes] = await Promise.all([
+  const [ticketsRes, logsRes, periodsRes] = await Promise.all([
     supabase
       .from("cash_tickets")
       .select("total_cents, payment_method, created_by_staff_id")
@@ -92,6 +97,10 @@ export default async function StaffDashboardPage() {
       .select("staff_id, worked_minutes")
       .gte("work_date", workDateBounds.start)
       .lte("work_date", workDateBounds.end),
+    supabase
+      .from("staff_employment_periods")
+      .select("staff_id, start_date")
+      .order("start_date", { ascending: true }),
   ]);
 
   const staffList: StaffDbRow[] = staffRowsRaw.map((row) => {
@@ -101,10 +110,19 @@ export default async function StaffDashboardPage() {
       hourly_tariffs: s.hourly_tariffs ?? [],
       compensation_type: s.compensation_type ?? "self_employed",
       monthly_salary_cents: s.monthly_salary_cents ?? null,
+      employment_start_date: s.employment_start_date ?? null,
+      employment_end_date: s.employment_end_date ?? null,
     };
   });
   const tickets = (ticketsRes.data ?? []) as TicketRow[];
   const logs = (logsRes.data ?? []) as WorkLogRow[];
+  const periods = (periodsRes.data ?? []) as EmploymentPeriodDbRow[];
+  const periodsByStaff = new Map<string, EmploymentPeriodDbRow[]>();
+  for (const period of periods) {
+    const list = periodsByStaff.get(period.staff_id) ?? [];
+    list.push(period);
+    periodsByStaff.set(period.staff_id, list);
+  }
 
   const metrics = new Map<string, MetricAcc>();
   for (const s of staffList) {
@@ -142,6 +160,7 @@ export default async function StaffDashboardPage() {
       cashEuros: 0,
       workedHours: 0,
     };
+    const staffPeriods = periodsByStaff.get(s.id) ?? [];
     return {
       id: s.id,
       name: s.full_name,
@@ -163,6 +182,11 @@ export default async function StaffDashboardPage() {
         | "salaried"
         | "self_employed",
       monthly_salary_cents: s.monthly_salary_cents ?? null,
+      is_active: s.is_active,
+      employment_start_date: s.employment_start_date ?? null,
+      employment_end_date: s.employment_end_date ?? null,
+      employment_periods_count: staffPeriods.length,
+      first_employment_start_date: staffPeriods[0]?.start_date ?? s.employment_start_date ?? null,
     };
   });
 

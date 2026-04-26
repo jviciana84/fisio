@@ -18,6 +18,10 @@ create table if not exists public.staff_access (
   hourly_tariffs jsonb not null default '[]'::jsonb,
   compensation_type text not null default 'self_employed' check (compensation_type in ('salaried', 'self_employed')),
   monthly_salary_cents integer,
+  employment_start_date date not null default current_date,
+  employment_end_date date,
+  constraint staff_access_employment_dates_chk
+    check (employment_end_date is null or employment_end_date >= employment_start_date),
   created_at timestamptz not null default now()
 );
 
@@ -31,6 +35,23 @@ create index if not exists idx_staff_access_active
 create unique index if not exists staff_access_email_uidx
   on public.staff_access (lower(email))
   where email is not null;
+
+create table if not exists public.staff_employment_periods (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references public.staff_access(id) on delete cascade,
+  start_date date not null,
+  end_date date,
+  annual_salary_cents integer,
+  created_at timestamptz not null default now(),
+  check (end_date is null or end_date >= start_date)
+);
+
+create index if not exists staff_employment_periods_staff_start_idx
+  on public.staff_employment_periods (staff_id, start_date desc);
+
+create unique index if not exists staff_employment_periods_single_open_idx
+  on public.staff_employment_periods (staff_id)
+  where end_date is null;
 
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),

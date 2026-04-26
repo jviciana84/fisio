@@ -40,6 +40,19 @@ function hashPin(pin: string, salt: string) {
   return createHash("sha256").update(`${salt}:${pin}`).digest("hex");
 }
 
+function parseDateOnly(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return raw;
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 async function ensureStaffPublicBucket(supabase: SupabaseClient) {
   const { data: buckets } = await supabase.storage.listBuckets();
   if (buckets?.some((b) => b.name === STAFF_PUBLIC_BUCKET)) return;
@@ -79,6 +92,9 @@ export async function PATCH(
     let role: "admin" | "staff" = "staff";
     let newPin = "";
     let avatarFile: File | null = null;
+    let isActive = true;
+    let employmentStartDate: string | null = null;
+    let employmentEndDate: string | null = null;
 
     if (contentType.includes("multipart/form-data")) {
       const fd = await request.formData();
@@ -109,6 +125,9 @@ export async function PATCH(
         : [];
       compensationType = normalizeCompensationType(fd.get("compensationType"));
       monthlySalaryRaw = String(fd.get("monthlySalary") ?? "").trim();
+      isActive = !["0", "false"].includes(String(fd.get("isActive") ?? "1"));
+      employmentStartDate = parseDateOnly(String(fd.get("employmentStartDate") ?? ""));
+      employmentEndDate = parseDateOnly(String(fd.get("employmentEndDate") ?? ""));
     } else {
       const j = (await request.json()) as {
         fullName?: string;
@@ -122,6 +141,9 @@ export async function PATCH(
         newPin?: string;
         compensationType?: string;
         monthlySalary?: string;
+        isActive?: boolean;
+        employmentStartDate?: string | null;
+        employmentEndDate?: string | null;
       };
       fullName = j.fullName?.trim() ?? "";
       email = j.email?.trim().toLowerCase() ?? "";
@@ -137,7 +159,23 @@ export async function PATCH(
       newPin = String(j.newPin ?? "").trim();
       compensationType = normalizeCompensationType(j.compensationType);
       monthlySalaryRaw = String(j.monthlySalary ?? "").trim();
+      isActive = j.isActive !== false;
+      employmentStartDate = parseDateOnly(j.employmentStartDate ?? "");
+      employmentEndDate = parseDateOnly(j.employmentEndDate ?? "");
     }
+    if (!employmentStartDate) {
+      return NextResponse.json(
+        { ok: false, message: "La fecha de alta es obligatoria y debe tener formato válido." },
+        { status: 400 },
+      );
+    }
+    if (employmentEndDate && employmentEndDate < employmentStartDate) {
+      return NextResponse.json(
+        { ok: false, message: "La fecha de baja no puede ser anterior a la fecha de alta." },
+        { status: 400 },
+      );
+    }
+
 
     if (!fullName) {
       return NextResponse.json({ ok: false, message: "El nombre es obligatorio" }, { status: 400 });
@@ -190,22 +228,36 @@ export async function PATCH(
     }
 
     const supabase = createSupabaseAdminClient();
+    const { data: currentStaff } = await supabase
+      .from("staff_access")
+      .select("is_active, employment_start_date, employment_end_date, monthly_salary_cents")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!currentStaff) {
+      return NextResponse.json({ ok: false, message: "Usuario no encontrado" }, { status: 404 });
+    }
 
     const pinSalt = newPin ? randomBytes(16).toString("hex") : null;
     const pinHash = newPin && pinSalt ? hashPin(newPin, pinSalt) : null;
+
+    const effectivePublicProfile = isActive ? publicProfile : false;
 
     const updatePayload: Record<string, unknown> = {
       full_name: fullName,
       email,
       phone,
       role,
-      public_profile: publicProfile,
-      public_specialty: publicProfile ? publicSpecialty : null,
-      public_bio: publicProfile ? publicBio : null,
+      public_profile: effectivePublicProfile,
+      public_specialty: effectivePublicProfile ? publicSpecialty : null,
+      public_bio: effectivePublicProfile ? publicBio : null,
       hourly_tariffs: tariffsJson,
       compensation_type: compensationType,
       monthly_salary_cents,
-      ...(publicProfile ? {} : { public_avatar_path: null }),
+      is_active: isActive,
+      employment_start_date: employmentStartDate,
+      employment_end_date: employmentEndDate,
+      ...(effectivePublicProfile ? {} : { public_avatar_path: null }),
       ...(pinHash && pinSalt ? { pin_hash: pinHash, pin_salt: pinSalt } : {}),
     };
 
@@ -215,17 +267,24 @@ export async function PATCH(
     let { error: updErr } = await supabase
       .from("staff_access")
       .update(updatePayload)
-      .eq("id", id)
-      .eq("is_active", true);
+      .eq("id", id);
 
     if (
       updErr &&
       (updErr.code === "42703" ||
         String(updErr.message ?? "").includes("compensation_type") ||
-        String(updErr.message ?? "").includes("monthly_salary"))
+        String(updErr.message ?? "").includes("monthly_salary") ||
+        String(updErr.message ?? "").includes("employment_start_date") ||
+        String(updErr.message ?? "").includes("employment_end_date"))
     ) {
-      const { compensation_type: _c, monthly_salary_cents: _m, ...rest } = updatePayload;
-      const retry = await supabase.from("staff_access").update(rest).eq("id", id).eq("is_active", true);
+      const {
+        compensation_type: _c,
+        monthly_salary_cents: _m,
+        employment_start_date: _es,
+        employment_end_date: _ee,
+        ...rest
+      } = updatePayload;
+      const retry = await supabase.from("staff_access").update(rest).eq("id", id);
       updErr = retry.error;
       if (!updErr) saveStrategy = "no_compensation_columns";
     }
@@ -240,7 +299,7 @@ export async function PATCH(
         monthly_salary_cents: _m2,
         ...restNoTariffs
       } = updatePayload;
-      const retry2 = await supabase.from("staff_access").update(restNoTariffs).eq("id", id).eq("is_active", true);
+      const retry2 = await supabase.from("staff_access").update(restNoTariffs).eq("id", id);
       updErr = retry2.error;
       if (!updErr) saveStrategy = "no_tariff_columns";
     }
@@ -270,8 +329,79 @@ export async function PATCH(
       );
     }
 
+    const previousActive = Boolean(currentStaff.is_active);
+    const nextActive = isActive;
+    const nextStartDate = employmentStartDate;
+    const nextEndDate = nextActive ? null : employmentEndDate ?? todayIsoDate();
+
+    if (!previousActive && nextActive) {
+      await supabase
+        .from("staff_employment_periods")
+        .insert({
+          staff_id: id,
+          start_date: nextStartDate,
+          end_date: null,
+          annual_salary_cents: monthly_salary_cents,
+        });
+    } else if (previousActive && !nextActive) {
+      const { data: openPeriod } = await supabase
+        .from("staff_employment_periods")
+        .select("id")
+        .eq("staff_id", id)
+        .is("end_date", null)
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (openPeriod?.id) {
+        await supabase
+          .from("staff_employment_periods")
+          .update({
+            start_date: nextStartDate,
+            end_date: nextEndDate,
+            annual_salary_cents: monthly_salary_cents,
+          })
+          .eq("id", openPeriod.id);
+      } else {
+        await supabase
+          .from("staff_employment_periods")
+          .insert({
+            staff_id: id,
+            start_date: nextStartDate,
+            end_date: nextEndDate,
+            annual_salary_cents: monthly_salary_cents,
+          });
+      }
+    } else if (nextActive) {
+      const { data: openPeriod } = await supabase
+        .from("staff_employment_periods")
+        .select("id")
+        .eq("staff_id", id)
+        .is("end_date", null)
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (openPeriod?.id) {
+        await supabase
+          .from("staff_employment_periods")
+          .update({
+            start_date: nextStartDate,
+            annual_salary_cents: monthly_salary_cents,
+          })
+          .eq("id", openPeriod.id);
+      } else {
+        await supabase
+          .from("staff_employment_periods")
+          .insert({
+            staff_id: id,
+            start_date: nextStartDate,
+            end_date: null,
+            annual_salary_cents: monthly_salary_cents,
+          });
+      }
+    }
+
     let avatarWarning: string | undefined;
-    if (avatarFile && publicProfile) {
+    if (avatarFile && effectivePublicProfile) {
       if (avatarFile.size > MAX_AVATAR_BYTES) {
         avatarWarning = "La imagen supera 2 MB; se guardaron el resto de datos sin foto.";
       } else if (!AVATAR_TYPES.has(avatarFile.type)) {

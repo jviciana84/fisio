@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CircleHelp, Save, ShieldAlert, Wallet, TrendingUp } from "lucide-react";
+import { AlertTriangle, CircleHelp, Loader2, Save, ShieldAlert, Wallet, TrendingUp } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { formatEuroEsTwoDecimals, formatEuroEsWhole, parseSpanishDecimalInput } from "@/lib/format-es";
 
@@ -125,6 +126,197 @@ type FiscalPeriodOptions = {
   years: number[];
   quartersByYear: Record<string, number[]>;
 };
+
+const TAX_MODEL_LEGEND: Array<{
+  model: ModelWarning["model"];
+  title: string;
+  description: string;
+}> = [
+  {
+    model: "303",
+    title: "Modelo 303",
+    description: "Declaración trimestral de IVA repercutido menos IVA soportado deducible.",
+  },
+  {
+    model: "130",
+    title: "Modelo 130",
+    description: "Pago fraccionado trimestral de IRPF sobre el beneficio estimado de la actividad.",
+  },
+  {
+    model: "115",
+    title: "Modelo 115",
+    description: "Ingreso trimestral de retenciones practicadas por alquiler de local de negocio.",
+  },
+  {
+    model: "111",
+    title: "Modelo 111",
+    description: "Ingreso trimestral de retenciones de IRPF practicadas en nóminas.",
+  },
+  {
+    model: "190",
+    title: "Modelo 190",
+    description: "Resumen anual informativo de retenciones de trabajo declaradas en los 111.",
+  },
+];
+
+function TaxModelHelpIcon({
+  model,
+  iconClassName = "text-slate-500",
+}: {
+  model: ModelWarning["model"];
+  iconClassName?: string;
+}) {
+  const item = TAX_MODEL_LEGEND.find((m) => m.model === model);
+  if (!item) return null;
+  return (
+    <details className="inline-block max-w-full align-middle">
+      <summary
+        className={cn(
+          "inline-flex list-none cursor-pointer items-center rounded p-0.5 hover:bg-black/[0.04] [&::-webkit-details-marker]:hidden",
+          iconClassName,
+        )}
+      >
+        <CircleHelp className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span className="sr-only">Explicación: {item.title}</span>
+      </summary>
+      <p className="mt-1.5 text-[10px] font-normal normal-case leading-snug tracking-normal text-slate-700">
+        {item.description}
+      </p>
+    </details>
+  );
+}
+
+type PayrollLegendBadge = "empresa" | "trabajador" | "informativo";
+
+const PAYROLL_BADGE_SHORT: Record<PayrollLegendBadge, string> = {
+  empresa: "Emp.",
+  trabajador: "Trab.",
+  informativo: "Info",
+};
+
+/** Leyenda: título + chip; una frase en el (?) */
+const PAYROLL_COST_LEGEND: Array<{
+  title: string;
+  badge: PayrollLegendBadge;
+  description: string;
+  cargaNegocio?: boolean;
+}> = [
+  {
+    title: "Bruto nómina",
+    badge: "empresa",
+    cargaNegocio: true,
+    description: "Nóminas en bruto del trimestre. Misma cifra que el recuadro azul arriba a la izquierda.",
+  },
+  {
+    title: "SS empresa",
+    badge: "empresa",
+    cargaNegocio: true,
+    description: "Lo que pone el negocio a la SS. Mismo número que el recuadro violeta al lado del azul.",
+  },
+  {
+    title: "SS del trabajador",
+    badge: "trabajador",
+    description: "Lo que al trabajador se le quita y va a la SS. Sale del su bruto.",
+  },
+  {
+    title: "IRPF en nómina",
+    badge: "trabajador",
+    description: "Dinero retenido al empleado; luego tú lo ingresas. Lo estima el % de ajustes.",
+  },
+  {
+    title: "Neto al trabajador",
+    badge: "trabajador",
+    description: "Aprox.: bruto − su SS − IRPF, trimestre. Revisa la línea «Neto nóminas…» bajo 111/190.",
+  },
+  {
+    title: "Modelo 111",
+    badge: "trabajador",
+    description: "IRPF retenido que ingresas a Hacienda. La cifra es la de la caja 111 de encima, no otra suma rara.",
+  },
+  {
+    title: "Modelo 190",
+    badge: "informativo",
+    description: "Solo informativo al año, no un pago de más. La cifra es la de la caja 190 de encima.",
+  },
+  {
+    title: "Total coste negocio",
+    badge: "empresa",
+    cargaNegocio: true,
+    description: "Suma: bruto + SS empresa. Es el recuadro verde «= Coste empresa trim.»; lo mismo que arriba a la izquierda.",
+  },
+];
+
+/** Una fila compacta: título + chip (Emp./Trab./Info) + ?; el texto largo solo al abrir. */
+function PayrollCostLegendItem({
+  title,
+  badge,
+  description,
+  cargaNegocio,
+}: {
+  title: string;
+  badge: PayrollLegendBadge;
+  description: string;
+  cargaNegocio?: boolean;
+}) {
+  const chip = PAYROLL_BADGE_SHORT[badge];
+  return (
+    <div
+      className={cn(
+        "rounded-md border p-1.5",
+        cargaNegocio
+          ? "border-slate-400/55 bg-gradient-to-b from-slate-200/85 to-slate-100/80 shadow-inner ring-1 ring-slate-400/25"
+          : "border-slate-200/70 bg-white/75",
+      )}
+    >
+      <details className="w-full min-w-0">
+        <summary
+          className={cn(
+            "flex w-full list-none items-center gap-1.5 rounded py-0.5 pl-0.5",
+            "cursor-pointer text-left hover:bg-white/30",
+            cargaNegocio && "hover:bg-slate-200/40",
+            "[&::-webkit-details-marker]:hidden",
+          )}
+        >
+          <span className="sr-only">Ampliar explicación de {title}</span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 text-left text-xs font-semibold leading-tight",
+              cargaNegocio ? "text-slate-900" : "text-slate-500",
+            )}
+          >
+            {title}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold tabular-nums leading-none tracking-wide",
+              badge === "empresa" && "border-slate-500/30 bg-slate-500/15 text-slate-700",
+              badge === "trabajador" && "border-slate-300/60 bg-slate-100/90 text-slate-600",
+              badge === "informativo" && "border-slate-300/50 bg-slate-200/50 text-slate-600",
+            )}
+            title={
+              badge === "empresa"
+                ? "Carga o trámite a cargo del negocio (autónomo)"
+                : badge === "trabajador"
+                  ? "Importe a cargo o del trabajador"
+                  : "Solo informativo / sin ingreso añadido en sentido nómina"
+            }
+          >
+            {chip}
+          </span>
+          <span
+            className={cn("shrink-0 p-0.5", cargaNegocio ? "text-slate-500" : "text-slate-400")}
+            aria-hidden
+          >
+            <CircleHelp className="h-3.5 w-3.5" />
+          </span>
+        </summary>
+        <p className="mt-1.5 border-t border-slate-200/60 pt-1.5 text-[10px] font-normal normal-case leading-snug text-slate-700">
+          {description}
+        </p>
+      </details>
+    </div>
+  );
+}
 
 export function FiscalSimulatorClient() {
   const [loading, setLoading] = useState(true);
@@ -446,38 +638,24 @@ export function FiscalSimulatorClient() {
     void persistSlider(nextPct);
   }, [declaredCashInput, quarterCash?.freeEuros, quarterTotals.cashEuros, declaredCashEuros, persistSlider]);
 
-  const modelDescriptions: Array<{ model: ModelWarning["model"]; title: string; description: string }> = [
-    {
-      model: "303",
-      title: "Modelo 303",
-      description: "Declaración trimestral de IVA repercutido menos IVA soportado deducible.",
-    },
-    {
-      model: "130",
-      title: "Modelo 130",
-      description: "Pago fraccionado trimestral de IRPF sobre el beneficio estimado de la actividad.",
-    },
-    {
-      model: "115",
-      title: "Modelo 115",
-      description: "Ingreso trimestral de retenciones practicadas por alquiler de local de negocio.",
-    },
-    {
-      model: "111",
-      title: "Modelo 111",
-      description: "Ingreso trimestral de retenciones de IRPF practicadas en nóminas.",
-    },
-    {
-      model: "190",
-      title: "Modelo 190",
-      description: "Resumen anual informativo de retenciones de trabajo declaradas en los 111.",
-    },
-  ];
-
   if (loading && !sim) {
     return (
-      <main className="p-6 md:p-8">
-        <p className="text-slate-600">Cargando simulador…</p>
+      <main className="flex min-h-[min(28rem,calc(100dvh-12rem))] w-full min-w-0 items-center justify-center overflow-x-clip p-6 md:min-h-[min(32rem,calc(100dvh-10rem))] md:p-8">
+        <div
+          className="glass-panel-strong glass-tint-blue flex w-full max-w-sm flex-col items-center gap-5 rounded-2xl px-8 py-10 text-center shadow-lg md:max-w-md md:px-10 md:py-12"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/50 bg-white/30 shadow-inner">
+            <Loader2 className="h-7 w-7 animate-spin text-blue-600" aria-hidden />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Hacienda · Simulación</p>
+            <p className="mt-2 text-base font-semibold text-slate-900">Cargando simulador</p>
+            <p className="mt-1.5 text-sm text-slate-600">Unimos tickets de caja, gastos y ajustes…</p>
+          </div>
+        </div>
       </main>
     );
   }
@@ -491,8 +669,8 @@ export function FiscalSimulatorClient() {
   }
 
   return (
-    <main className="p-6 md:p-8">
-      <div className="mx-auto max-w-[1200px] space-y-6">
+    <main className="w-full min-w-0 max-w-full overflow-x-clip p-6 md:p-8">
+      <div className="mx-auto max-w-[1200px] min-w-0 space-y-6">
         <header>
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Hacienda · Simulación</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
@@ -508,31 +686,46 @@ export function FiscalSimulatorClient() {
           </p>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/70 pb-3">
-          <button
-            type="button"
-            onClick={() => setMainTab("actual")}
-            className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-semibold transition",
-              mainTab === "actual" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100",
-            )}
+        <div className="w-full min-w-0">
+          <div
+            className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden !rounded-2xl glass-panel-strong glass-tint-blue"
           >
-            Actual
-          </button>
-          <button
-            type="button"
-            onClick={() => setMainTab("historico")}
-            className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-semibold transition",
-              mainTab === "historico" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100",
-            )}
-          >
-            Histórico
-          </button>
-        </div>
+            <div
+              className="flex w-full min-w-0 shrink-0 items-stretch overflow-x-clip border-b border-white/40 bg-gradient-to-b from-slate-900/[0.04] to-transparent px-0.5 pt-1.5"
+              role="tablist"
+              aria-label="Sección simulación"
+            >
+              {(
+                [
+                  { id: "actual" as const, label: "Actual" },
+                  { id: "historico" as const, label: "Histórico" },
+                ] as const
+              ).map((tab) => {
+                const active = mainTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setMainTab(tab.id)}
+                    className={cn(
+                      "relative -mb-px min-h-[2.25rem] min-w-[5.5rem] shrink-0 select-none border px-3 py-2 text-left text-sm transition-all sm:min-w-[6.5rem] sm:px-4",
+                      "rounded-t-md",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-blue-500",
+                      active
+                        ? "z-10 -mb-px border border-white/50 border-b-transparent bg-white/35 font-semibold text-slate-900 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]"
+                        : "z-0 border border-transparent text-slate-500 hover:bg-white/15 hover:text-slate-800",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
         {mainTab === "historico" ? (
-          <section className="glass-panel-strong glass-tint-blue grid gap-4 p-5 md:grid-cols-2 md:p-6">
+          <div className="grid min-h-0 min-w-0 gap-4 p-5 md:grid-cols-2 md:p-6">
             <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Trimestres guardados</p>
               <p className="mt-1 text-sm text-slate-600">
@@ -603,9 +796,22 @@ export function FiscalSimulatorClient() {
                 );
               })()}
             </div>
-          </section>
+        </div>
         ) : (
-        <section className="glass-panel-strong glass-tint-blue grid gap-4 p-5 md:grid-cols-[30fr_50fr_20fr] md:p-6">
+        <div className="grid min-h-0 min-w-0 gap-4 p-5 md:grid-cols-[30fr_50fr_20fr] md:p-6">
+          {sim?.liquidityAlert ? (
+            <div
+              role="alert"
+              className="glass-inner md:col-span-3 rounded-lg border border-rose-300/60 bg-gradient-to-br from-rose-100/90 to-rose-50/70 px-5 py-4 text-sm text-rose-900 ring-1 ring-rose-200/50"
+            >
+              <p className="font-semibold">Atención: liquidez</p>
+              <p className="mt-1">
+                Los impuestos previstos superan el saldo orientativo en cuenta oficial (
+                {formatEuroEsWhole(settings?.officialLiquidityEuros ?? 0)}). Falta aprox. {formatEuroEsWhole(sim.liquidityGapEuros)} para cubrir
+                el pago sin entrar en descubierto, o bien reduce gastos / anticipa ingresos declarados.
+              </p>
+            </div>
+          ) : null}
           <div className="md:col-span-3 flex flex-wrap items-center justify-start gap-x-3 gap-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Vista del trimestre</p>
             <div className="inline-flex shrink-0 rounded-lg border border-slate-200/80 bg-white/80 p-0.5">
@@ -674,14 +880,17 @@ export function FiscalSimulatorClient() {
                 ))}
               </select>
             </label>
-            <button
+            <Button
               type="button"
+              variant="gradient"
+              size="sm"
               onClick={() => void saveQuarterSnapshot()}
               disabled={snapshotSaving || calendarYear == null || currentQuarter == null || !sim}
-              className="ml-auto rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ml-auto h-8 gap-1.5 rounded-xl px-3.5 text-[11px] font-semibold"
             >
+              <Save className="h-3.5 w-3.5 shrink-0" aria-hidden />
               {snapshotSaving ? "Guardando…" : "Guardar en histórico"}
-            </button>
+            </Button>
           </div>
           <div className="glass-inner p-4 ring-1 ring-white/55 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">La hucha de efectivo</p>
@@ -836,46 +1045,40 @@ export function FiscalSimulatorClient() {
               </div>
               <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                 <div className="rounded-lg border border-blue-200/70 bg-blue-50/70 p-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-800">IVA (303)</p>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue-800">
+                    <span>IVA (303)</span>
+                    <TaxModelHelpIcon model="303" iconClassName="text-blue-800/90" />
+                  </div>
                   <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-blue-900">{formatEuroEsTwoDecimals(sim.ivaToPayEuros)}</p>
                   <p className="mt-1 text-[10px] text-blue-900/80">
                     {formatEuroEsTwoDecimals(sim.ivaOutputEuros)} - {formatEuroEsTwoDecimals(sim.ivaInputEuros)}
                   </p>
-                  <details className="mt-1.5 text-[10px] text-blue-900/90">
-                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
-                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
-                    </summary>
-                    <p className="mt-1 leading-snug">
-                      Lo que cobras de IVA menos el IVA que pagas en gastos. Ejemplo: si cobras 500 y soportas 200, pagas
-                      300.
-                    </p>
-                  </details>
+                  <p className="mt-1.5 text-[10px] leading-snug text-blue-900/85">
+                    Lo que cobras de IVA menos el IVA que pagas en gastos. Ejemplo: 500 € cobrados y 200 € soportados → 300
+                    € a ingresar.
+                  </p>
                 </div>
                 <div className="rounded-lg border border-violet-200/70 bg-violet-50/70 p-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-800">IRPF (130)</p>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-800">
+                    <span>IRPF (130)</span>
+                    <TaxModelHelpIcon model="130" iconClassName="text-violet-800/90" />
+                  </div>
                   <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-violet-900">{formatEuroEsTwoDecimals(sim.irpfEuros)}</p>
                   <p className="mt-1 text-[10px] text-violet-900/80">20% sobre beneficio estimado</p>
-                  <details className="mt-1.5 text-[10px] text-violet-900/90">
-                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
-                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
-                    </summary>
-                    <p className="mt-1 leading-snug">
-                      Es un adelanto de tu IRPF. Ejemplo: beneficio 2.000, aprox. pagas 400 en este modelo.
-                    </p>
-                  </details>
+                  <p className="mt-1.5 text-[10px] leading-snug text-violet-900/85">
+                    Adelanto trimestral de IRPF: con beneficio estimado 2.000 €, aprox. 400 € en este modelo.
+                  </p>
                 </div>
                 <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 p-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Alquiler (115)</p>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                    <span>Alquiler (115)</span>
+                    <TaxModelHelpIcon model="115" iconClassName="text-amber-800/90" />
+                  </div>
                   <p className="mt-0.5 text-[1.65rem] font-bold leading-none text-amber-900">{formatEuroEsTwoDecimals(sim.model115Euros)}</p>
                   <p className="mt-1 text-[10px] text-amber-900/80">Solo si el local es alquilado</p>
-                  <details className="mt-1.5 text-[10px] text-amber-900/90">
-                    <summary className="flex cursor-pointer list-none items-center gap-1 font-medium">
-                      <CircleHelp className="h-3.5 w-3.5" /> Ver explicación fácil
-                    </summary>
-                    <p className="mt-1 leading-snug">
-                      Retención sobre alquiler del local (19%). Si no tienes alquiler, este importe es 0.
-                    </p>
-                  </details>
+                  <p className="mt-1.5 text-[10px] leading-snug text-amber-900/85">
+                    Retención sobre alquiler del local (típ. 19%). Sin alquiler, este importe es 0.
+                  </p>
                 </div>
               </div>
               <p className="mt-3 text-xs text-slate-600">
@@ -916,12 +1119,13 @@ export function FiscalSimulatorClient() {
             <div className="glass-inner p-3 ring-1 ring-white/55 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Leyenda de impuestos</p>
             <div className="mt-2.5 grid gap-1.5">
-              {modelDescriptions.map((m) => {
+              {TAX_MODEL_LEGEND.map((m) => {
                 const warning = warningByModel.get(m.model);
                 return (
                   <div key={m.model} className="rounded-lg border border-slate-200/70 bg-white/75 p-2">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
                       {m.title}
+                      <TaxModelHelpIcon model={m.model} />
                       {warning ? (
                         <span
                           title={warning}
@@ -931,22 +1135,16 @@ export function FiscalSimulatorClient() {
                           <AlertTriangle className="h-4 w-4" />
                         </span>
                       ) : null}
-                    </p>
-                    <details className="mt-0.5 text-[11px] text-slate-700">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-blue-800">
-                        <CircleHelp className="h-3.5 w-3.5" /> Qué es y ejemplo
-                      </summary>
-                      <p className="mt-1 leading-snug">
-                        {m.description}
-                      </p>
-                    </details>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        </section>
+        </div>
         )}
+          </div>
+        </div>
 
         {mainTab === "actual" ? (
         <>
@@ -954,18 +1152,10 @@ export function FiscalSimulatorClient() {
           <section className="glass-panel glass-tint-emerald p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                  Nóminas y modelos de asalariados
-                </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                  Impacto de perfiles marcados como asalariados
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                  Cálculo orientativo con tus perfiles activos salaried. El coste empresa trimestral se incluye como
-                  gasto deducible en el IRPF del simulador.
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Base salarial usada: bruto anual de cada asalariado (prorrateado a trimestre y mes equivalente).
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Nóminas (orientativo)</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">Qué cuesta y qué se retiene (asalariados)</h2>
+                <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
+                  Números del trimestre según el equipo. El verde de la izquierda entra en el cálculo de IRPF del simulador.
                 </p>
               </div>
               <div className="glass-inner border border-emerald-200/60 bg-white/70 px-4 py-3 text-sm">
@@ -974,115 +1164,159 @@ export function FiscalSimulatorClient() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="glass-inner border border-cyan-200/60 bg-cyan-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800">Suma nóminas bruto</p>
-                <p className="mt-2 text-xl font-bold text-cyan-900">
-                  {formatEuroEsWhole(payrollPreview.totals.quarterGrossEuros)}
-                </p>
-                <p className="mt-1 text-xs text-cyan-900/80">
-                  {formatEuroEsWhole(payrollPreview.totals.annualGrossEuros)} al año ·{" "}
-                  {formatEuroEsWhole(payrollPreview.totals.monthlyEquivalentEuros)} mes equivalente
-                </p>
+            <div className="mt-6 grid min-h-0 min-w-0 grid-cols-1 items-start gap-4 md:grid-cols-[30fr_30fr_40fr]">
+              <div className="min-w-0 space-y-4">
+                <div className="glass-inner border border-cyan-200/60 bg-cyan-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800">Suma nóminas bruto</p>
+                  <p className="mt-2 text-xl font-bold text-cyan-900">
+                    {formatEuroEsWhole(payrollPreview.totals.quarterGrossEuros)}
+                  </p>
+                  <p className="mt-1 text-xs text-cyan-900/80">
+                    {formatEuroEsWhole(payrollPreview.totals.annualGrossEuros)} al año ·{" "}
+                    {formatEuroEsWhole(payrollPreview.totals.monthlyEquivalentEuros)} mes equivalente
+                  </p>
+                </div>
+                <div className="glass-inner border border-violet-200/60 bg-violet-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-800">+ SS empresa</p>
+                  <p className="mt-2 text-xl font-bold text-violet-900">
+                    +{formatEuroEsWhole(payrollPreview.totals.quarterEmployerSocialSecurityEuros)}
+                  </p>
+                  <p className="mt-1 text-xs text-violet-900/80">
+                    {payrollPreview.assumptions.employerSocialSecurityPercent}% sobre bruto
+                  </p>
+                </div>
+                <div className="glass-inner border border-emerald-200/60 bg-emerald-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">= Coste empresa trim.</p>
+                  <p className="mt-2 text-xl font-bold text-emerald-900">
+                    {formatEuroEsWhole(payrollPreview.totals.quarterEmployerCostEuros)}
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-900/80">Se descuenta como gasto en IRPF</p>
+                </div>
               </div>
-              <div className="glass-inner border border-violet-200/60 bg-violet-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-violet-800">+ SS empresa</p>
-                <p className="mt-2 text-xl font-bold text-violet-900">
-                  +{formatEuroEsWhole(payrollPreview.totals.quarterEmployerSocialSecurityEuros)}
-                </p>
-                <p className="mt-1 text-xs text-violet-900/80">
-                  {payrollPreview.assumptions.employerSocialSecurityPercent}% sobre bruto
-                </p>
-              </div>
-              <div className="glass-inner border border-emerald-200/60 bg-emerald-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">= Coste empresa trim.</p>
-                <p className="mt-2 text-xl font-bold text-emerald-900">
-                  {formatEuroEsWhole(payrollPreview.totals.quarterEmployerCostEuros)}
-                </p>
-                <p className="mt-1 text-xs text-emerald-900/80">Se descuenta como gasto en IRPF</p>
-              </div>
-            </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="glass-inner border border-amber-200/60 bg-amber-50/70 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Modelo 111 (trimestral)</p>
-                <p className="mt-2 text-2xl font-bold text-amber-900">
-                  {formatEuroEsWhole(payrollPreview.totals.model111QuarterEuros)}
-                </p>
-                <p className="mt-1 text-xs text-amber-900/85">
-                  Retención IRPF de nómina ({payrollPreview.assumptions.employeeIrpfRetentionPercent}% estimado)
-                </p>
-              </div>
-              <div className="glass-inner border border-fuchsia-200/60 bg-fuchsia-50/70 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-fuchsia-800">Modelo 190 (anual)</p>
-                <p className="mt-2 text-2xl font-bold text-fuchsia-900">
-                  {formatEuroEsWhole(payrollPreview.totals.model190YearEuros)}
-                </p>
-                <p className="mt-1 text-xs text-fuchsia-900/85">Resumen anual de retenciones de trabajo</p>
-              </div>
-            </div>
+              <div className="min-w-0 space-y-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="glass-inner border border-amber-200/60 bg-amber-50/70 p-5">
+                    <details className="w-full min-w-0">
+                      <summary
+                        className={cn(
+                          "flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-md py-0.5 text-left text-xs font-semibold uppercase tracking-wide text-amber-800",
+                          "hover:bg-amber-100/25",
+                          "[&::-webkit-details-marker]:hidden",
+                        )}
+                      >
+                        <span className="sr-only">Más información sobre el modelo 111</span>
+                        <span className="min-w-0 flex-1 pr-1">Modelo 111 (trimestral)</span>
+                        <span className="shrink-0 text-amber-800/90" aria-hidden>
+                          <CircleHelp className="h-3.5 w-3.5" />
+                        </span>
+                      </summary>
+                      <p className="mt-1.5 border-b border-amber-200/50 pb-2 text-left text-[10px] font-normal normal-case leading-snug tracking-normal text-amber-950/85">
+                        Lo ingresas tú; es el IRPF retenido al empleado. La cifra es la de la caja de encima, no otra.
+                      </p>
+                    </details>
+                    <p className="mt-2 text-2xl font-bold text-amber-900">
+                      {formatEuroEsWhole(payrollPreview.totals.model111QuarterEuros)}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-900/85">
+                      Retención IRPF de nómina ({payrollPreview.assumptions.employeeIrpfRetentionPercent}% estimado)
+                    </p>
+                  </div>
+                  <div className="glass-inner border border-fuchsia-200/60 bg-fuchsia-50/70 p-5">
+                    <details className="w-full min-w-0">
+                      <summary
+                        className={cn(
+                          "flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-md py-0.5 text-left text-xs font-semibold uppercase tracking-wide text-fuchsia-800",
+                          "hover:bg-fuchsia-100/30",
+                          "[&::-webkit-details-marker]:hidden",
+                        )}
+                      >
+                        <span className="sr-only">Más información sobre el modelo 190</span>
+                        <span className="min-w-0 flex-1 pr-1">Modelo 190 (anual)</span>
+                        <span className="shrink-0 text-fuchsia-800/90" aria-hidden>
+                          <CircleHelp className="h-3.5 w-3.5" />
+                        </span>
+                      </summary>
+                      <p className="mt-1.5 border-b border-fuchsia-200/50 pb-2 text-left text-[10px] font-normal normal-case leading-snug tracking-normal text-fuchsia-950/85">
+                        Declaración informativa al año, no un cobro aparte. La cifra es la de esta caja.
+                      </p>
+                    </details>
+                    <p className="mt-2 text-2xl font-bold text-fuchsia-900">
+                      {formatEuroEsWhole(payrollPreview.totals.model190YearEuros)}
+                    </p>
+                    <p className="mt-1 text-xs text-fuchsia-900/85">Resumen anual de retenciones de trabajo</p>
+                  </div>
+                </div>
 
-            <div className="glass-inner mt-6 overflow-x-auto rounded-lg border border-slate-200/60 bg-white/55">
-              <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50/90 text-xs uppercase tracking-wide text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3">Perfil asalariado</th>
-                    <th className="px-4 py-3 text-right">Bruto anual</th>
-                    <th className="px-4 py-3 text-right">Equivalente mensual</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {payrollPreview.salariedProfiles.map((p) => (
-                    <tr key={p.name} className="text-slate-800">
-                      <td className="px-4 py-3 font-medium">{p.name}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                        {formatEuroEsWhole(p.annualGrossEuros)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                        {formatEuroEsWhole(p.monthlyEquivalentEuros)}
-                      </td>
-                    </tr>
+                <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+                  <span>
+                    SS trabajador estimada ({payrollPreview.assumptions.employeeSocialSecurityPercent}%):{" "}
+                    <span className="font-semibold text-slate-800">
+                      {formatEuroEsWhole(payrollPreview.totals.quarterEmployeeSocialSecurityEuros)}
+                    </span>
+                  </span>
+                  <span>
+                    Neto nóminas trimestre (aprox.):{" "}
+                    <span className="font-semibold text-slate-800">
+                      {formatEuroEsWhole(payrollPreview.totals.quarterNetPayrollEuros)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="glass-inner min-w-0 p-3 ring-1 ring-white/55 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Leyenda de costes de nómina</p>
+                <div className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-x-2 sm:gap-y-1.5">
+                  {PAYROLL_COST_LEGEND.map((row) => (
+                    <PayrollCostLegendItem
+                      key={row.title}
+                      title={row.title}
+                      badge={row.badge}
+                      description={row.description}
+                      cargaNegocio={row.cargaNegocio}
+                    />
                   ))}
-                  {payrollPreview.salariedProfiles.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-3 text-slate-500" colSpan={3}>
-                        No hay perfiles asalariados activos.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600">
-              <span>
-                SS trabajador estimada ({payrollPreview.assumptions.employeeSocialSecurityPercent}%):{" "}
-                <span className="font-semibold text-slate-800">
-                  {formatEuroEsWhole(payrollPreview.totals.quarterEmployeeSocialSecurityEuros)}
-                </span>
-              </span>
-              <span>
-                Neto nóminas trimestre (aprox.):{" "}
-                <span className="font-semibold text-slate-800">
-                  {formatEuroEsWhole(payrollPreview.totals.quarterNetPayrollEuros)}
-                </span>
-              </span>
+            <div className="mt-4 w-full min-w-0 md:mt-5">
+              <div className="glass-inner w-full max-w-full overflow-x-auto rounded-lg border border-slate-200/60 bg-white/55">
+                <p className="border-b border-slate-200/80 bg-slate-50/80 px-4 py-2.5 text-xs font-semibold text-slate-800">
+                  Perfiles asalariados (bruto de referencia)
+                </p>
+                <table className="w-full min-w-0 text-left text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50/90 text-xs uppercase tracking-wide text-slate-600">
+                    <tr>
+                      <th className="px-4 py-3">Nombre</th>
+                      <th className="px-4 py-3 text-right">Bruto anual</th>
+                      <th className="px-4 py-3 text-right">Al mes (equiv.)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {payrollPreview.salariedProfiles.map((p) => (
+                      <tr key={p.name} className="text-slate-800">
+                        <td className="px-4 py-3 font-medium">{p.name}</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                          {formatEuroEsWhole(p.annualGrossEuros)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                          {formatEuroEsWhole(p.monthlyEquivalentEuros)}
+                        </td>
+                      </tr>
+                    ))}
+                    {payrollPreview.salariedProfiles.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-3 text-slate-500" colSpan={3}>
+                          Ninguno marcado en equipo; los números de arriba salen en 0 o no aplica.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
-        ) : null}
-
-        {sim?.liquidityAlert ? (
-          <div
-            role="alert"
-            className="glass-inner rounded-lg border border-rose-300/60 bg-gradient-to-br from-rose-100/90 to-rose-50/70 px-5 py-4 text-sm text-rose-900 ring-1 ring-rose-200/50"
-          >
-            <p className="font-semibold">Atención: liquidez</p>
-            <p className="mt-1">
-              Los impuestos previstos superan el saldo orientativo en cuenta oficial (
-              {formatEuroEsWhole(settings?.officialLiquidityEuros ?? 0)}). Falta aprox. {formatEuroEsWhole(sim.liquidityGapEuros)} para cubrir el
-              pago sin entrar en descubierto, o bien reduce gastos / anticipa ingresos declarados.
-            </p>
-          </div>
         ) : null}
 
         {yearProgress && calendarYear != null && currentQuarter != null ? (
@@ -1186,14 +1420,25 @@ export function FiscalSimulatorClient() {
                   })}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-violet-500" /> IVA (303)
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-violet-500" />
+                  <span>IVA (303)</span>
+                  <TaxModelHelpIcon model="303" />
                 </span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-amber-500" /> IRPF (130)
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-amber-500" />
+                  <span>IRPF (130)</span>
+                  <TaxModelHelpIcon model="130" />
                 </span>
-                <span className="text-slate-500">Importe debajo = total trimestre (incl. 115)</span>
+                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 text-slate-500">
+                  <span>Importe debajo = total trimestre (incl.</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    115
+                    <TaxModelHelpIcon model="115" iconClassName="text-slate-500" />
+                  </span>
+                  <span>)</span>
+                </span>
               </div>
             </div>
 
@@ -1202,9 +1447,24 @@ export function FiscalSimulatorClient() {
                 <thead className="border-b border-slate-200 bg-slate-50/90 text-xs uppercase tracking-wide text-slate-600">
                   <tr>
                     <th className="px-4 py-3">Trimestre</th>
-                    <th className="px-4 py-3 text-right">IVA (303)</th>
-                    <th className="px-4 py-3 text-right">IRPF (130)</th>
-                    <th className="px-4 py-3 text-right">115 alquiler</th>
+                    <th className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <span>IVA (303)</span>
+                        <TaxModelHelpIcon model="303" />
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <span>IRPF (130)</span>
+                        <TaxModelHelpIcon model="130" />
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <span>115 alquiler</span>
+                        <TaxModelHelpIcon model="115" />
+                      </div>
+                    </th>
                     <th className="px-4 py-3 text-right">Total</th>
                   </tr>
                 </thead>

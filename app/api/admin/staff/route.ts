@@ -36,6 +36,11 @@ type Body = {
   compensationType?: string;
   /** Salario bruto anual en € (texto), solo si asalariado. */
   monthlySalary?: string;
+  employmentStartDate?: string;
+};
+
+type StaffInsertedRow = {
+  id: string;
 };
 
 const STAFF_PUBLIC_BUCKET = "staff-public";
@@ -61,16 +66,19 @@ function parseTruthy(v: unknown): boolean {
   return v === "1" || v === "true" || v === "on";
 }
 
-function parseAltaTariffSlot(item: unknown, index: 0 | 1): HourlyTariffSlot | null {
+function parseDateOnly(value: string | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return raw;
+}
+
+function parseAltaTariffSlot(item: unknown): HourlyTariffSlot | null {
   if (!item || typeof item !== "object") return null;
   const o = item as Record<string, unknown>;
   const label = typeof o.label === "string" ? o.label.trim() : "";
-  if (index === 0) {
-    if (o.kind === "percentage") return null;
-    const cents = Math.round(Number(o.cents_per_hour));
-    const c = Number.isFinite(cents) && cents >= 0 ? cents : 0;
-    return { label, kind: "hourly", cents_per_hour: c, percent_hundredths: 0 };
-  }
   const explicit = o.kind === "percentage" ? "percentage" : o.kind === "hourly" ? "hourly" : null;
   if (explicit === "percentage") {
     const ph = Math.round(Number(o.percent_hundredths));
@@ -92,13 +100,18 @@ function parseAltaTariffSlot(item: unknown, index: 0 | 1): HourlyTariffSlot | nu
   return { label, kind: "hourly", cents_per_hour: c, percent_hundredths: 0 };
 }
 
-/** 1ª obligatoria €/h; 2ª opcional €/h o %. */
+/** 1ª obligatoria (€/h o %); 2ª opcional €/h o %. */
 function validateAltaHourlyTariffsData(data: unknown): HourlyTariffSlot[] | null {
   if (!Array.isArray(data) || data.length < 1 || data.length > 2) return null;
-  const first = parseAltaTariffSlot(data[0], 0);
-  if (!first || first.kind !== "hourly" || first.cents_per_hour <= 0 || !first.label) return null;
+  const first = parseAltaTariffSlot(data[0]);
+  if (!first || !first.label) return null;
+  if (first.kind === "hourly") {
+    if (first.cents_per_hour <= 0) return null;
+  } else if (first.percent_hundredths <= 0) {
+    return null;
+  }
   if (data.length === 1) return [first];
-  const second = parseAltaTariffSlot(data[1], 1);
+  const second = parseAltaTariffSlot(data[1]);
   if (!second || !second.label) return null;
   if (second.kind === "hourly") {
     if (second.cents_per_hour <= 0) return null;
@@ -214,6 +227,7 @@ export async function POST(request: Request) {
         hourlyTariffs: hourlyTariffsParsed ?? [],
         compensationType: String(fd.get("compensationType") ?? "self_employed"),
         monthlySalary: String(fd.get("monthlySalary") ?? "").trim(),
+        employmentStartDate: String(fd.get("employmentStartDate") ?? "").trim(),
       };
     } else {
       body = (await request.json()) as Body;
@@ -270,6 +284,7 @@ export async function POST(request: Request) {
     }
 
     const compensationType = normalizeCompensationType(body.compensationType);
+    const employmentStartDate = parseDateOnly(body.employmentStartDate) ?? new Date().toISOString().slice(0, 10);
 
     let hourly_tariffs: HourlyTariffSlot[];
     let monthly_salary_cents: number | null = null;
@@ -281,7 +296,7 @@ export async function POST(request: Request) {
           {
             ok: false,
             message:
-              "Tarifas autónomo: primera obligatoria (nombre + €/h mayor que 0). Segunda opcional: €/h o porcentaje sobre venta (mayor que 0).",
+              "Tarifas autónomo: primera obligatoria (nombre + €/h o % mayor que 0). Segunda opcional: €/h o % sobre venta (mayor que 0).",
           },
           { status: 400 },
         );
@@ -363,14 +378,31 @@ export async function POST(request: Request) {
       hourly_tariffs,
       compensation_type: compensationType,
       monthly_salary_cents: monthly_salary_cents,
+      employment_start_date: employmentStartDate,
+      employment_end_date: null,
     };
 
-    let { data, error } = await supabase.from("staff_access").insert(insertPayload).select("id").single();
+    let { data, error } = await supabase
+      .from("staff_access")
+      .insert(insertPayload)
+      .select("id")
+      .single<StaffInsertedRow>();
 
     if (error && error.code === "42703") {
       const msg = String(error.message ?? "");
-      if (msg.includes("compensation_type") || msg.includes("monthly_salary")) {
-        const { compensation_type: _c, monthly_salary_cents: _m, ...rest } = insertPayload;
+      if (
+        msg.includes("compensation_type") ||
+        msg.includes("monthly_salary") ||
+        msg.includes("employment_start_date") ||
+        msg.includes("employment_end_date")
+      ) {
+        const {
+          compensation_type: _c,
+          monthly_salary_cents: _m,
+          employment_start_date: _es,
+          employment_end_date: _ee,
+          ...rest
+        } = insertPayload;
         insertPayload = rest;
         const retry = await supabase.from("staff_access").insert(insertPayload).select("id").single();
         data = retry.data;
@@ -408,6 +440,13 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+
+    await supabase.from("staff_employment_periods").insert({
+      staff_id: data.id,
+      start_date: employmentStartDate,
+      end_date: null,
+      annual_salary_cents: monthly_salary_cents,
+    });
 
     let avatarWarning: string | undefined;
 

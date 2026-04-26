@@ -24,26 +24,29 @@ export default async function DashboardGroupLayout({
     const supabase = createSupabaseAdminClient();
     const { data } = await supabase
       .from("staff_access")
-      .select("full_name")
+      .select("full_name, is_active")
       .eq("id", session.userId)
       .maybeSingle();
+    if (!data?.is_active) {
+      redirect("/login");
+    }
     displayName = data?.full_name?.trim() || displayName;
   } catch {
     // Fallback al nombre por rol si falla Supabase.
   }
 
   return (
-    <div className="app-shell-dashboard flex min-h-screen">
+    <div className="app-shell-dashboard flex min-h-screen w-full min-w-0">
       <DashboardSidebar isAdmin={isAdmin} />
       <AdminIdleSessionGuard enabled={isAdmin}>
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-auto">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-clip">
           {/* Misma marca de agua que Contacto, fija al viewport; el contenido hace scroll encima. */}
           <div
             className="pointer-events-none fixed inset-0 z-0 gradient-mesh opacity-[0.38] print:hidden"
             aria-hidden
           />
           <SectionWatermark align="right" fullViewport scaleFactor={1.05} />
-          <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-12 sm:pt-14 print:pt-0">
+          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col pt-12 sm:pt-14 print:pt-0">
             <div className="print:hidden">
               <DashboardTopStatus
                 userName={displayName}

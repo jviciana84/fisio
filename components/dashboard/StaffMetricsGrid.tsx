@@ -48,6 +48,11 @@ export type StaffGridRow = {
   hourly_tariffs: unknown;
   compensation_type: StaffCompensationType;
   monthly_salary_cents: number | null;
+  is_active: boolean;
+  employment_start_date: string | null;
+  employment_end_date: string | null;
+  employment_periods_count: number;
+  first_employment_start_date: string | null;
 };
 
 type StaffRole = "admin" | "staff";
@@ -65,6 +70,9 @@ type DraftState = {
   compensation_type: StaffCompensationType;
   /** Texto € para salario bruto anual (solo asalariado). */
   annualSalaryEuro: string;
+  is_active: boolean;
+  employment_start_date: string;
+  employment_end_date: string;
   tariffs: HourlyTariffSlot[];
 };
 
@@ -83,8 +91,19 @@ function draftFromRow(row: StaffGridRow): DraftState {
     compensation_type: ct,
     annualSalaryEuro:
       cents != null && cents > 0 ? formatEurosFieldFromNumber(cents / 100) : "",
+    is_active: row.is_active,
+    employment_start_date:
+      row.employment_start_date ?? new Date().toISOString().slice(0, 10),
+    employment_end_date: row.employment_end_date ?? "",
     tariffs: padHourlyTariffs(row.hourly_tariffs),
   };
+}
+
+function formatIsoDateEs(value: string | null): string {
+  if (!value) return "—";
+  const [y, m, d] = value.split("-");
+  if (!y || !m || !d) return value;
+  return `${d}/${m}/${y}`;
 }
 
 export function StaffMetricsGrid({
@@ -98,6 +117,7 @@ export function StaffMetricsGrid({
   /** Notifica cuando se abre o cierra la ficha expandida (p. ej. para compactar el panel de ranking). */
   onExpandedChange?: (staffId: string | null) => void;
 }) {
+  const todayIso = new Date().toISOString().slice(0, 10);
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -198,6 +218,9 @@ export function StaffMetricsGrid({
       fd.append("role", formDraft.role);
       fd.append("compensationType", formDraft.compensation_type);
       fd.append("monthlySalary", formDraft.annualSalaryEuro.trim());
+      fd.append("isActive", formDraft.is_active ? "1" : "0");
+      fd.append("employmentStartDate", formDraft.employment_start_date);
+      fd.append("employmentEndDate", formDraft.employment_end_date);
       if (formDraft.newPin.trim()) {
         fd.append("newPin", formDraft.newPin.trim());
       }
@@ -272,9 +295,16 @@ export function StaffMetricsGrid({
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-slate-900">{s.name}</p>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                    {s.role}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {!s.is_active ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                        no activo
+                      </span>
+                    ) : null}
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                      {s.role}
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg bg-blue-50 px-2 py-2">
@@ -478,10 +508,20 @@ export function StaffMetricsGrid({
                       </div>
 
                       <div className="grid min-w-0 grid-cols-1 gap-1 md:grid-cols-4 md:items-end">
-                        <div className="min-w-0 md:col-span-3">
+                        <div className="min-w-0 md:col-span-2">
                           <span className="block text-[10px] font-medium text-slate-600">
                             Bio (web)
                           </span>
+                        </div>
+                        <div className="min-w-0 md:col-span-1">
+                          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                            <span className="block text-[10px] font-medium text-slate-600">
+                              Fecha alta
+                            </span>
+                            <span className="block text-[10px] font-medium text-slate-600 sm:text-left">
+                              Fecha baja
+                            </span>
+                          </div>
                         </div>
                         <div className="flex min-w-0 gap-2 md:col-span-1">
                           <span className="block min-w-0 flex-1 text-[10px] font-medium text-slate-600">
@@ -494,7 +534,7 @@ export function StaffMetricsGrid({
                       </div>
                       <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-4 md:items-start">
                         {formDraft.public_profile ? (
-                          <div className="min-w-0 md:col-span-3">
+                          <div className="min-w-0 md:col-span-2">
                             <textarea
                               rows={3}
                               className={cn(
@@ -514,10 +554,93 @@ export function StaffMetricsGrid({
                           </div>
                         ) : (
                           <div
-                            className="hidden min-h-[3.75rem] md:col-span-3 md:block md:min-h-16"
+                            className="hidden min-h-[3.75rem] md:col-span-2 md:block md:min-h-16"
                             aria-hidden
                           />
                         )}
+                        <div className="min-w-0 md:col-span-1">
+                          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start sm:gap-2">
+                            <div className="min-w-0 sm:pt-0">
+                              <input
+                                type="date"
+                                className={cn(inputCls, "w-full min-w-0 px-1.5")}
+                                aria-label="Fecha de alta"
+                                value={formDraft.employment_start_date}
+                                onChange={(e) =>
+                                  setDraft((d) => {
+                                    const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                    if (!base) return d;
+                                    return { ...base, employment_start_date: e.target.value };
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="min-w-0 sm:pt-0">
+                              <input
+                                type="date"
+                                className={cn(inputCls, "w-full min-w-0 px-1.5")}
+                                aria-label="Fecha de baja"
+                                value={formDraft.employment_end_date}
+                                onChange={(e) =>
+                                  setDraft((d) => {
+                                    const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                    if (!base) return d;
+                                    return { ...base, employment_end_date: e.target.value };
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                              <p className="min-w-0 text-center text-[10px] leading-tight text-slate-600 sm:min-h-6 sm:flex-1 sm:py-0 sm:text-left sm:leading-6">
+                                {expandedRow.employment_periods_count > 1
+                                  ? `Reingreso (${expandedRow.employment_periods_count}) · 1ª alta: ${formatIsoDateEs(expandedRow.first_employment_start_date)}`
+                                  : `1ª alta: ${formatIsoDateEs(expandedRow.first_employment_start_date)}`}
+                              </p>
+                              <div className="flex w-full min-w-0 shrink-0 items-center justify-center sm:w-auto sm:justify-start">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-medium text-slate-600">Activo</span>
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formDraft.is_active}
+                                    aria-label="Trabajador en plantilla (activo)"
+                                    className={cn(
+                                      "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                                      formDraft.is_active ? "bg-blue-600" : "bg-slate-300",
+                                    )}
+                                    onClick={() => {
+                                      setDraft((d) => {
+                                        const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                        if (!base) return d;
+                                        if (base.is_active) {
+                                          return {
+                                            ...base,
+                                            is_active: false,
+                                            employment_end_date: base.employment_end_date || todayIso,
+                                            public_profile: false,
+                                          };
+                                        }
+                                        return {
+                                          ...base,
+                                          is_active: true,
+                                          employment_start_date: todayIso,
+                                          employment_end_date: "",
+                                        };
+                                      });
+                                    }}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                        formDraft.is_active && "translate-x-5",
+                                      )}
+                                    />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex min-w-0 flex-col gap-2 md:col-span-1">
                           <div className="flex min-w-0 gap-2">
                             <input
@@ -549,80 +672,80 @@ export function StaffMetricsGrid({
                               aria-label="Código usuario (solo lectura)"
                             />
                           </div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-medium text-slate-600">Retribución</span>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <div className="flex flex-wrap items-center gap-1">
-                                <span
-                                  className={cn(
-                                    "text-[9px] font-medium leading-none",
-                                    formDraft.compensation_type === "self_employed"
-                                      ? "text-slate-900"
-                                      : "text-slate-400",
-                                  )}
-                                >
-                                  Autón.
-                                </span>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={formDraft.compensation_type === "salaried"}
-                                  aria-label="Asalariado: activado. Autónomo: desactivado."
-                                  className={cn(
-                                    "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
-                                    formDraft.compensation_type === "salaried"
-                                      ? "bg-blue-600"
-                                      : "bg-slate-300",
-                                  )}
-                                  onClick={() => {
-                                    setDraft((d) => {
-                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                                      if (!base) return d;
-                                      const next: typeof base.compensation_type =
-                                        base.compensation_type === "salaried"
-                                          ? "self_employed"
-                                          : "salaried";
-                                      return { ...base, compensation_type: next };
-                                    });
-                                  }}
-                                >
-                                  <span
-                                    className={cn(
-                                      "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                                      formDraft.compensation_type === "salaried" && "translate-x-5",
-                                    )}
-                                  />
-                                </button>
-                                <span
-                                  className={cn(
-                                    "text-[9px] font-medium leading-none",
-                                    formDraft.compensation_type === "salaried"
-                                      ? "text-slate-900"
-                                      : "text-slate-400",
-                                  )}
-                                >
-                                  Nómina
-                                </span>
-                              </div>
-                              <label
-                                htmlFor={`pp-${s.id}`}
-                                className="flex cursor-pointer items-center gap-1.5 text-[10px] leading-tight text-slate-700"
+                          <div className="mt-0.5 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:items-center sm:gap-2">
+                            <div className="flex items-center justify-center gap-1 sm:justify-center">
+                              <span
+                                className={cn(
+                                  "text-[9px] font-medium leading-none",
+                                  formDraft.compensation_type === "self_employed"
+                                    ? "text-slate-900"
+                                    : "text-slate-400",
+                                )}
                               >
-                                <input
-                                  id={`pp-${s.id}`}
-                                  type="checkbox"
-                                  checked={formDraft.public_profile}
-                                  onChange={(e) =>
-                                    setDraft((d) => {
-                                      const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
-                                      if (!base) return d;
-                                      return { ...base, public_profile: e.target.checked };
-                                    })
-                                  }
-                                  className="h-3.5 w-3.5 shrink-0 rounded border-slate-300"
+                                Autón.
+                              </span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={formDraft.compensation_type === "salaried"}
+                                aria-label="Asalariado: activado. Autónomo: desactivado."
+                                className={cn(
+                                  "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                                  formDraft.compensation_type === "salaried" ? "bg-blue-600" : "bg-slate-300",
+                                )}
+                                onClick={() => {
+                                  setDraft((d) => {
+                                    const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                    if (!base) return d;
+                                    const next: typeof base.compensation_type =
+                                      base.compensation_type === "salaried" ? "self_employed" : "salaried";
+                                    return { ...base, compensation_type: next };
+                                  });
+                                }}
+                              >
+                                <span
+                                  className={cn(
+                                    "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                    formDraft.compensation_type === "salaried" && "translate-x-5",
+                                  )}
                                 />
-                                <span className="whitespace-nowrap">Perfil público</span>
-                              </label>
+                              </button>
+                              <span
+                                className={cn(
+                                  "text-[9px] font-medium leading-none",
+                                  formDraft.compensation_type === "salaried" ? "text-slate-900" : "text-slate-400",
+                                )}
+                              >
+                                Nómina
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-center gap-1.5 sm:justify-center">
+                              <span className="text-[10px] font-medium text-slate-700">Público</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={formDraft.public_profile}
+                                aria-label="Perfil público visible en la web"
+                                className={cn(
+                                  "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1",
+                                  formDraft.public_profile ? "bg-blue-600" : "bg-slate-300",
+                                )}
+                                onClick={() =>
+                                  setDraft((d) => {
+                                    const base = d ?? (expandedRow ? draftFromRow(expandedRow) : null);
+                                    if (!base) return d;
+                                    if (!base.is_active) return base;
+                                    return { ...base, public_profile: !base.public_profile };
+                                  })
+                                }
+                              >
+                                <span
+                                  className={cn(
+                                    "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                    formDraft.public_profile && "translate-x-5",
+                                  )}
+                                />
+                              </button>
                             </div>
                           </div>
                         </div>

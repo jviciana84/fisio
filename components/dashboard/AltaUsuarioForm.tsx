@@ -57,6 +57,9 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [tariff1Name, setTariff1Name] = useState("");
   const [tariff1Euro, setTariff1Euro] = useState("");
+  /** Primera tarifa: €/h o % sobre venta. */
+  const [tariff1Kind, setTariff1Kind] = useState<"hourly" | "percentage">("hourly");
+  const [tariff1Percent, setTariff1Percent] = useState("");
   const [tariff2Name, setTariff2Name] = useState("");
   const [tariff2Euro, setTariff2Euro] = useState("");
   /** Segunda tarifa: €/h o % sobre venta. */
@@ -64,6 +67,9 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
   const [tariff2Percent, setTariff2Percent] = useState("");
   const [compensationType, setCompensationType] = useState<StaffCompensationType>("self_employed");
   const [annualSalaryEuro, setAnnualSalaryEuro] = useState("");
+  const [employmentStartDate, setEmploymentStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [loading, setLoading] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(
@@ -118,9 +124,14 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       const sc = parseEuroStringToCents(annualSalaryEuro);
       if (sc === null || sc <= 0) return false;
     } else {
-      const c1 = parseEuroToCents(tariff1Euro);
-      const t1Ok = tariff1Name.trim().length > 0 && c1 !== null && c1 > 0;
-      if (!t1Ok) return false;
+      if (!tariff1Name.trim()) return false;
+      if (tariff1Kind === "hourly") {
+        const c1 = parseEuroToCents(tariff1Euro);
+        if (c1 === null || c1 <= 0) return false;
+      } else {
+        const h = parsePercentStringToHundredths(tariff1Percent);
+        if (h === null || h <= 0) return false;
+      }
       const t2HasSomething =
         tariff2Name.trim().length > 0 ||
         tariff2Euro.trim().length > 0 ||
@@ -147,6 +158,8 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
     codeLoading,
     tariff1Name,
     tariff1Euro,
+    tariff1Kind,
+    tariff1Percent,
     tariff2Name,
     tariff2Euro,
     tariff2Kind,
@@ -203,17 +216,27 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
 
       fd.append("compensationType", compensationType);
       fd.append("monthlySalary", annualSalaryEuro.trim());
+      fd.append("employmentStartDate", employmentStartDate);
 
       if (compensationType === "self_employed") {
-        const c1 = parseEuroToCents(tariff1Euro)!;
-        const slots: HourlyTariffSlot[] = [
-          {
+        const slots: HourlyTariffSlot[] = [];
+        if (tariff1Kind === "hourly") {
+          const c1 = parseEuroToCents(tariff1Euro)!;
+          slots.push({
             label: tariff1Name.trim(),
             kind: "hourly",
             cents_per_hour: c1,
             percent_hundredths: 0,
-          },
-        ];
+          });
+        } else {
+          const h = parsePercentStringToHundredths(tariff1Percent)!;
+          slots.push({
+            label: tariff1Name.trim(),
+            kind: "percentage",
+            cents_per_hour: 0,
+            percent_hundredths: h,
+          });
+        }
         const t2Fill =
           tariff2Name.trim().length > 0 ||
           tariff2Euro.trim().length > 0 ||
@@ -285,12 +308,15 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
       setPublicBio("");
       setTariff1Name("");
       setTariff1Euro("");
+      setTariff1Kind("hourly");
+      setTariff1Percent("");
       setTariff2Name("");
       setTariff2Euro("");
       setTariff2Kind("percentage");
       setTariff2Percent("");
       setCompensationType("self_employed");
       setAnnualSalaryEuro("");
+      setEmploymentStartDate(new Date().toISOString().slice(0, 10));
       clearAvatar();
       await loadUserCode({ silent: true });
       onSuccess?.();
@@ -310,11 +336,18 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
 
   const showErr = attemptedSubmit;
   const c1Parsed = parseEuroToCents(tariff1Euro);
+  const p1Parsed = parsePercentStringToHundredths(tariff1Percent);
   const errTariff1Name = showErr && compensationType === "self_employed" && !tariff1Name.trim();
   const errTariff1Euro =
     showErr &&
     compensationType === "self_employed" &&
+    tariff1Kind === "hourly" &&
     (c1Parsed === null || c1Parsed <= 0);
+  const errTariff1Percent =
+    showErr &&
+    compensationType === "self_employed" &&
+    tariff1Kind === "percentage" &&
+    (p1Parsed === null || p1Parsed <= 0);
   const salaryParsed = parseEuroStringToCents(annualSalaryEuro);
   const errMonthlySalary =
     showErr && compensationType === "salaried" && (salaryParsed === null || salaryParsed <= 0);
@@ -596,63 +629,122 @@ export function AltaUsuarioForm({ onSuccess, className, layout = "stack" }: Alta
         <p className="mt-0.5 text-[10px] text-slate-600">
           {compensationType === "salaried"
             ? "Bruto anual (referencia interna)"
-            : "Primera tarifa €/h obligatoria. Segunda opcional: €/h o porcentaje sobre venta."}
+            : "Tarifa 1 obligatoria (€/h o %). Tarifa 2 opcional (€/h o %)."}
         </p>
       </div>
 
       {compensationType === "salaried" ? (
-        <div>
-          <label htmlFor={fid("monthlySalary")} className="mb-1 block text-xs font-medium text-slate-700">
-            Importe (€ bruto)
-          </label>
-          <input
-            id={fid("monthlySalary")}
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={annualSalaryEuro}
-            onChange={(e) => setAnnualSalaryEuro(e.target.value)}
-            className={cn(inputClass, "text-right tabular-nums", errMonthlySalary && errField)}
-            placeholder="0,00"
-            aria-label="Salario bruto anual en euros"
-          />
-        </div>
-      ) : (
-        <div
-          className={cn(
-            "flex flex-col gap-3",
-            wide && "sm:grid sm:grid-cols-2 sm:items-start sm:gap-3",
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">1</span>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor={fid("monthlySalary")} className="mb-1 block text-xs font-medium text-slate-700">
+              Importe (€ bruto)
+            </label>
             <input
-              id={fid("tariff-name-0")}
-              value={tariff1Name}
-              onChange={(e) => setTariff1Name(e.target.value)}
-              className={cn(inputClass, "min-w-0 flex-1", errTariff1Name && errField)}
-              placeholder="Nombre"
-              autoComplete="off"
-              aria-label="Tarifa 1 nombre"
-            />
-            <input
-              id={fid("tariff-euro-0")}
+              id={fid("monthlySalary")}
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              value={tariff1Euro}
-              onChange={(e) => setTariff1Euro(e.target.value)}
-              className={cn(
-                inputClass,
-                "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
-                errTariff1Euro && errField,
-              )}
-              placeholder="€/h"
-              aria-label="Tarifa 1 euros por hora"
+              value={annualSalaryEuro}
+              onChange={(e) => setAnnualSalaryEuro(e.target.value)}
+              className={cn(inputClass, "text-right tabular-nums", errMonthlySalary && errField)}
+              placeholder="0,00"
+              aria-label="Salario bruto anual en euros"
             />
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
-            <div className="flex flex-wrap items-center gap-2 pl-6 sm:pl-0">
+          <div>
+            <label htmlFor={fid("employmentStartDate")} className="mb-1 block text-xs font-medium text-slate-700">
+              Fecha de alta
+            </label>
+            <input
+              id={fid("employmentStartDate")}
+              type="date"
+              value={employmentStartDate}
+              onChange={(e) => setEmploymentStartDate(e.target.value)}
+              className={inputClass}
+              aria-label="Fecha de alta del asalariado"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start sm:gap-4">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] font-medium text-slate-600">Tarifa 1</span>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
+                    tariff1Kind === "hourly"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                  onClick={() => setTariff1Kind("hourly")}
+                >
+                  €/h
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
+                    tariff1Kind === "percentage"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                  onClick={() => setTariff1Kind("percentage")}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-4 shrink-0 text-center text-[10px] font-bold text-slate-400">1</span>
+              <input
+                id={fid("tariff-name-0")}
+                value={tariff1Name}
+                onChange={(e) => setTariff1Name(e.target.value)}
+                className={cn(inputClass, "min-w-0 flex-1", errTariff1Name && errField)}
+                placeholder="Nombre"
+                autoComplete="off"
+                aria-label="Tarifa 1 nombre"
+              />
+              {tariff1Kind === "hourly" ? (
+                <input
+                  id={fid("tariff-euro-0")}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={tariff1Euro}
+                  onChange={(e) => setTariff1Euro(e.target.value)}
+                  className={cn(
+                    inputClass,
+                    "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
+                    errTariff1Euro && errField,
+                  )}
+                  placeholder="€/h"
+                  aria-label="Tarifa 1 euros por hora"
+                />
+              ) : (
+                <input
+                  id={fid("tariff-pct-0")}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={tariff1Percent}
+                  onChange={(e) => setTariff1Percent(e.target.value)}
+                  className={cn(
+                    inputClass,
+                    "w-[5.25rem] shrink-0 text-right tabular-nums sm:w-[5.5rem]",
+                    errTariff1Percent && errField,
+                  )}
+                  placeholder="%"
+                  aria-label="Tarifa 1 porcentaje sobre venta"
+                />
+              )}
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[10px] font-medium text-slate-600">Tarifa 2 (opcional)</span>
               <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
                 <button
