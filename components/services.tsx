@@ -371,15 +371,15 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
                   Tratamientos que te ayudarán a mejorar tu calidad de vida.
                 </p>
               </div>
-              <div className="flex flex-shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+              <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:gap-2">
                 <Button
                   asChild
-                  className="h-8 rounded-full border-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 sm:h-9 sm:px-4 sm:text-sm"
+                  className="h-11 min-h-11 rounded-full border-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 sm:h-9 sm:min-h-0 sm:px-4 sm:text-sm"
                 >
                   <BookingCtaLink
                     href="/reservar"
                     onClick={onClose}
-                    className="inline-flex cursor-pointer items-center justify-center"
+                    className="inline-flex min-h-11 cursor-pointer items-center justify-center sm:min-h-0"
                   >
                     Reservar cita
                   </BookingCtaLink>
@@ -387,15 +387,15 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
                 <button
                   type="button"
                   onClick={onClose}
-                  className="shrink-0 cursor-pointer rounded-lg border border-slate-200/90 bg-white p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 sm:rounded-xl sm:p-2"
+                  className="shrink-0 cursor-pointer rounded-xl border border-slate-200/90 bg-white p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 sm:rounded-xl sm:p-2"
                   aria-label="Cerrar"
                 >
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <X className="h-6 w-6 sm:h-4 sm:w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-2.5 py-2.5 sm:px-3 sm:py-3 lg:px-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-2.5 py-2.5 pb-24 sm:px-3 sm:py-3 sm:pb-2.5 lg:px-4">
               <ul
                 className="grid list-none grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 [&>li]:flex"
                 role="list"
@@ -432,6 +432,19 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
               </ul>
             </div>
           </motion.div>
+          <div
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 sm:hidden"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 text-slate-600 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/60 backdrop-blur-sm transition hover:bg-slate-50 hover:text-slate-900"
+              aria-label="Cerrar listado de servicios"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </motion.div>
       ) : null}
     </AnimatePresence>
