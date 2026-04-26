@@ -175,7 +175,7 @@ export function Contact() {
             initial={{ opacity: 0, x: -50 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="flex h-full min-h-0 flex-col gap-4 lg:min-h-[34rem] lg:gap-6"
+            className="flex h-full min-h-0 flex-col gap-4 lg:min-h-[30rem] lg:gap-6"
           >
             {contactInfo.map((info, index) => (
               <motion.a
@@ -241,7 +241,7 @@ export function Contact() {
                 animate={{ rotateY: submitStatus === "idle" ? 0 : 180 }}
                 transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
                 style={{ transformStyle: "preserve-3d" }}
-                className="relative h-full w-full min-h-[42rem] sm:min-h-[38rem] lg:min-h-[34rem]"
+                className="relative h-full w-full min-h-[30rem]"
               >
                 <form
                   onSubmit={handleSubmit}
