@@ -127,6 +127,7 @@ export async function GET(request: Request) {
   sinceDefault.setHours(0, 0, 0, 0);
 
   const pickDefault = defaultFiscalPeriodWithData(ticketDataIndex, now);
+  // Nunca declarar const sin = y rellenar luego con if: inválido en JS y rompe Turbopack. Usar siempre resolveActiveFiscalPeriod.
   const { activeY, activeQ } = resolveActiveFiscalPeriod({
     hasTargetQuarter,
     targetYear,

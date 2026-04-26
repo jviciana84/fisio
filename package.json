@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "verify:fiscal-route": "node scripts/verify-fiscal-summary-route.mjs",
+    "build": "node scripts/verify-fiscal-summary-route.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "verify:supabase": "node scripts/verify-supabase.mjs",
