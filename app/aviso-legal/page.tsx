@@ -38,8 +38,7 @@ export default function AvisoLegalPage() {
           </a>
         </li>
         <li>
-          <strong>Datos profesionales:</strong> Fisioterapeuta colegiado nº {L.collegiateNumber} por el Colegio de
-          Fisioterapeutas de {L.collegiateRegion}.
+          <strong>Datos profesionales:</strong> {L.professionalAttestation}
         </li>
       </ul>
       <p>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { AnimatePresence, motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, Star } from "lucide-react"
@@ -18,6 +18,8 @@ type HeroCardCarouselProps = {
 export function HeroCardCarousel({ className, fillHeight }: HeroCardCarouselProps) {
   const [index, setIndex] = useState(0)
   const n = HERO_CARD_CAROUSEL_SLIDES.length
+  const touchStartXRef = useRef<number | null>(null)
+  const touchDeltaXRef = useRef(0)
 
   const go = useCallback((dir: -1 | 1) => {
     setIndex((i) => (i + dir + n) % n)
@@ -29,6 +31,7 @@ export function HeroCardCarousel({ className, fillHeight }: HeroCardCarouselProp
   }, [n])
 
   const slide = HERO_CARD_CAROUSEL_SLIDES[index]
+  const SWIPE_THRESHOLD_PX = 40
 
   return (
     <div
@@ -37,6 +40,23 @@ export function HeroCardCarousel({ className, fillHeight }: HeroCardCarouselProp
         fillHeight && "h-full min-h-0 flex-1",
         className,
       )}
+      onTouchStart={(e) => {
+        touchStartXRef.current = e.changedTouches[0]?.clientX ?? null
+        touchDeltaXRef.current = 0
+      }}
+      onTouchMove={(e) => {
+        if (touchStartXRef.current == null) return
+        const currentX = e.changedTouches[0]?.clientX ?? touchStartXRef.current
+        touchDeltaXRef.current = currentX - touchStartXRef.current
+      }}
+      onTouchEnd={() => {
+        const delta = touchDeltaXRef.current
+        touchStartXRef.current = null
+        touchDeltaXRef.current = 0
+        if (Math.abs(delta) < SWIPE_THRESHOLD_PX) return
+        if (delta < 0) go(1)
+        if (delta > 0) go(-1)
+      }}
     >
       <AnimatePresence initial={false} mode="wait">
         <motion.div

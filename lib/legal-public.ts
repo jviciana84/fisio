@@ -1,6 +1,5 @@
 /**
  * Rutas y datos públicos para textos legales y enlaces en formularios.
- * Sustituye los campos marcados como pendientes cuando los tengas definitivos.
  */
 export const LEGAL_PATHS = {
   privacy: "/politica-privacidad",
@@ -16,14 +15,11 @@ export const PUBLIC_LEGAL_IDENTITY = {
   phoneTel: "938085056",
   addressLines: ["Carrer de Pablo Iglesias, 24", "08224 Terrassa (Roc Blanc), Barcelona"],
   mapsQueryUrl: "https://maps.google.com/?q=Carrer+de+Pablo+Iglesias+24+Terrassa",
-  /** Pendiente: nombre completo del titular responsable */
-  ownerFullName: "[Nombre y Apellidos del Responsable]",
-  /** Pendiente: DNI o CIF */
-  taxId: "[Tu DNI o CIF]",
-  /** Pendiente: número de colegiado */
-  collegiateNumber: "[Número]",
-  /** Pendiente: comunidad autónoma del colegio */
-  collegiateRegion: "[Comunidad Autónoma]",
-  /** Pendiente: número Bizum para pagos */
-  bizumNumber: "[Tu Número de Bizum]",
+  ownerFullName: "Ana Esther Catalán Calvo",
+  taxId: "46401182Q",
+  /** Texto breve para el aviso legal (colegiación; completar número de colegiado si se desea publicarlo). */
+  professionalAttestation:
+    "Fisioterapeuta colegiada, con ejercicio sujeto a la normativa profesional y sanitaria aplicable en Cataluña.",
+  /** Número de teléfono asociado a Bizum para pagos indicados en condiciones de reserva. */
+  bizumNumber: "687 54 97 32",
 } as const;

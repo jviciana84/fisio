@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X, Phone, LogIn } from "lucide-react"
+import { Menu, X, Phone } from "lucide-react"
 import { BookingCtaLink } from "@/components/booking-cta-modal"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/cn"
+import { BrandTitleStack } from "@/components/brand-title-stack"
 import { motion, AnimatePresence } from "framer-motion"
 
 /** Logo isotipo: `public/images/logo FRB3.svg` (degradado definido en el propio SVG). */
@@ -22,7 +23,6 @@ function WhatsAppIcon({ className }: { className?: string }) {
 }
 
 const navLinks = [
-  { href: "#inicio", label: "Inicio" },
   { href: "#servicios", label: "Servicios" },
   { href: "#bonos", label: "Bonos" },
   { href: "#nosotros", label: "Nosotros" },
@@ -76,14 +76,10 @@ export function Header() {
               fetchPriority="high"
             />
           </motion.div>
-          <div className="flex flex-col gap-0 leading-none">
-            <span className="text-sm sm:text-base font-bold tracking-wide uppercase leading-none text-slate-900 group-hover:text-blue-600 transition-colors">
-              Fisioterapia
-            </span>
-            <span className="text-sm sm:text-base font-bold tracking-wide uppercase leading-none text-slate-500">
-              Roc Blanc
-            </span>
-          </div>
+          <BrandTitleStack
+            firstLineClassName="whitespace-nowrap text-sm font-bold uppercase tracking-wide leading-none text-slate-900 transition-colors group-hover:text-blue-600 sm:text-base"
+            secondLineClassName="whitespace-nowrap text-sm font-bold uppercase leading-none text-slate-500 sm:text-base"
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -107,14 +103,6 @@ export function Header() {
         </nav>
 
         <div className="hidden lg:flex items-center gap-2">
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors rounded-full hover:bg-white/40"
-            aria-label="Acceder a la intranet"
-          >
-            <LogIn className="w-4 h-4 shrink-0" aria-hidden />
-            Acceder
-          </Link>
           <motion.a
             href={WHATSAPP_URL}
             target="_blank"

@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { Phone, Mail, MapPin } from "lucide-react"
 import { BookingCtaLink } from "@/components/booking-cta-modal"
+import { BrandTitleStack } from "@/components/brand-title-stack"
 import { cn } from "@/lib/cn"
 
 const LOGO_FRB3_SRC = "/images/logo%20FRB3.svg"
@@ -118,18 +119,27 @@ export function Footer() {
                   decoding="async"
                 />
               </motion.div>
-              <div className="flex flex-col gap-0 leading-none">
-                <span className="text-sm font-bold uppercase tracking-wide leading-none text-slate-900 transition-colors group-hover:text-blue-600 sm:text-base">
-                  Fisioterapia
-                </span>
-                <span className="text-sm font-bold uppercase tracking-wide leading-none text-slate-500 sm:text-base">
-                  Roc Blanc
-                </span>
-              </div>
+              <BrandTitleStack
+                firstLineClassName="whitespace-nowrap text-sm font-bold uppercase tracking-wide leading-none text-slate-900 transition-colors group-hover:text-blue-600 sm:text-base"
+                secondLineClassName="whitespace-nowrap text-sm font-bold uppercase leading-none text-slate-500 sm:text-base"
+              />
             </Link>
-            <p className="text-slate-600 mb-6 text-pretty">
-              Centro de fisioterapia profesional en Terrassa. Tu bienestar es nuestra prioridad.
-            </p>
+            <div className="mb-6 space-y-2 text-pretty text-sm leading-relaxed text-slate-600 sm:text-base">
+              <p>
+                Centro de fisioterapia profesional en{" "}
+                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text font-semibold text-transparent">
+                  Terrassa
+                </span>
+                .
+              </p>
+              <p>
+                Tu{" "}
+                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text font-semibold text-transparent">
+                  bienestar
+                </span>{" "}
+                es nuestra prioridad.
+              </p>
+            </div>
             
             {/* Social Links */}
             <div className="flex flex-wrap gap-3">
@@ -269,7 +279,7 @@ export function Footer() {
           className="py-6 border-t border-slate-300/50"
         >
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-            <p>© {new Date().getFullYear()} Fisioterapia Roc Blanc. Todos los derechos reservados.</p>
+            <p className="pl-16">© {new Date().getFullYear()} Fisioterapia Roc Blanc. Todos los derechos reservados.</p>
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 sm:justify-end">
               <Link href="/politica-privacidad" className="hover:text-blue-600 transition-colors">
                 Política de Privacidad

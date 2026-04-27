@@ -17,6 +17,21 @@ export default function PoliticaPrivacidadPage() {
         Reglamento (UE) 2016/679 (RGPD) y la normativa española de protección de datos.
       </p>
 
+      <h2>Responsable del tratamiento</h2>
+      <p>
+        <strong>{L.ownerFullName}</strong>, NIF/NIE <span className="tabular-nums">{L.taxId}</span>, en nombre de{" "}
+        <strong>{L.brand}</strong>. <strong>Dirección:</strong> {L.addressLines.join(", ")}.{" "}
+        <strong>Correo electrónico:</strong>{" "}
+        <a className="font-medium text-blue-700 hover:underline" href={`mailto:${L.email}`}>
+          {L.email}
+        </a>
+        . <strong>Teléfono:</strong>{" "}
+        <a className="font-medium text-blue-700 hover:underline" href={`tel:${L.phoneTel}`}>
+          {L.phoneDisplay}
+        </a>
+        .
+      </p>
+
       <h2>Tratamiento de datos de salud</h2>
       <p>
         Al ser un centro de fisioterapia, tratamos datos de salud con estricta confidencialidad bajo el deber de secreto

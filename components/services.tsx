@@ -312,8 +312,84 @@ function MoreServicesTeaserCard({ index, onOpen }: { index: number; onOpen: () =
 
 const portalClientSub = () => () => {}
 
+function ModalServiceCard({
+  service,
+  expanded,
+  onToggle,
+}: {
+  service: ServiceDef
+  expanded: boolean
+  onToggle: () => void
+}) {
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className={cn(
+        "group flex w-full cursor-pointer flex-col gap-1.5 rounded-2xl border border-slate-200/80 bg-white/80 p-2.5 text-left shadow-sm sm:p-2.5",
+        expanded ? "max-h-[min(52vh,28rem)]" : "",
+        "transition duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:border-blue-200/80 hover:bg-white hover:shadow-md hover:shadow-blue-500/10",
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-md",
+            "transition group-hover:scale-105 sm:h-9 sm:w-9 sm:rounded-lg",
+            service.color,
+          )}
+        >
+          <service.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </div>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+          <h3 className="text-sm font-bold leading-tight text-slate-900 sm:text-[0.95rem]">{service.title}</h3>
+
+          <div
+            className={cn(
+              "relative min-h-0",
+              expanded ? "max-h-[min(44vh,24rem)] overflow-y-auto overscroll-contain pr-0.5" : "",
+            )}
+          >
+            <p
+              className={cn(
+                "text-[13px] leading-snug text-slate-600 sm:text-sm sm:leading-snug",
+                expanded ? "" : "line-clamp-4",
+              )}
+              style={
+                expanded
+                  ? undefined
+                  : {
+                      WebkitMaskImage:
+                        "linear-gradient(to bottom, #000 0%, #000 55%, rgba(0,0,0,0.78) 78%, rgba(0,0,0,0.2) 92%, rgba(0,0,0,0) 100%)",
+                      maskImage:
+                        "linear-gradient(to bottom, #000 0%, #000 55%, rgba(0,0,0,0.78) 78%, rgba(0,0,0,0.2) 92%, rgba(0,0,0,0) 100%)",
+                      WebkitMaskSize: "100% 100%",
+                      maskSize: "100% 100%",
+                      WebkitMaskRepeat: "no-repeat",
+                      maskRepeat: "no-repeat",
+                    }
+              }
+            >
+              {service.description}
+            </p>
+          </div>
+
+          <span className="self-start text-[11px] font-semibold text-blue-600 transition-colors group-hover:text-cyan-700 sm:text-xs">
+            {expanded ? "Ver menos" : "Leer más"}
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
 function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const portalReady = useSyncExternalStore(portalClientSub, () => true, () => false)
+  const [expandedServiceIndex, setExpandedServiceIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -328,6 +404,10 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
       window.removeEventListener("keydown", onKey)
     }
   }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) setExpandedServiceIndex(null)
+  }, [open])
 
   const modal = (
     <AnimatePresence>
@@ -355,7 +435,8 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
             transition={{ type: "spring", stiffness: 380, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-shrink-0 flex-col gap-2 border-b border-slate-200/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5 lg:px-5">
+            <SectionWatermark align="right" />
+            <div className="relative z-[2] flex flex-shrink-0 flex-col gap-2 border-b border-slate-200/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5 lg:px-5">
               <div className="min-w-0 sm:pr-2">
                 <h2
                   id="services-modal-title"
@@ -371,15 +452,15 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
                   Tratamientos que te ayudarán a mejorar tu calidad de vida.
                 </p>
               </div>
-              <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:gap-2">
+              <div className="flex w-full min-w-0 flex-shrink-0 items-center gap-2 sm:w-auto sm:justify-end sm:gap-2">
                 <Button
                   asChild
-                  className="h-11 min-h-11 rounded-full border-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 sm:h-9 sm:min-h-0 sm:px-4 sm:text-sm"
+                  className="h-11 min-h-11 min-w-0 flex-1 rounded-full border-0 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 sm:h-9 sm:min-h-0 sm:flex-initial sm:px-4 sm:text-sm"
                 >
                   <BookingCtaLink
                     href="/reservar"
                     onClick={onClose}
-                    className="inline-flex min-h-11 cursor-pointer items-center justify-center sm:min-h-0"
+                    className="inline-flex min-h-11 w-full min-w-0 cursor-pointer items-center justify-center sm:min-h-0 sm:w-auto"
                   >
                     Reservar cita
                   </BookingCtaLink>
@@ -395,38 +476,20 @@ function ServicesDiscoveryModal({ open, onClose }: { open: boolean; onClose: () 
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-2.5 py-2.5 pb-24 sm:px-3 sm:py-3 sm:pb-2.5 lg:px-4">
+            <div className="relative z-[2] min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-2.5 py-2.5 pb-24 sm:px-3 sm:py-3 sm:pb-2.5 lg:px-4">
               <ul
-                className="grid list-none grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 [&>li]:flex"
+                className="grid list-none grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4"
                 role="list"
               >
-                {allServicesForModal.map((s) => (
-                  <li key={s.title} className="h-full min-h-0">
-                    <div
-                      className={cn(
-                        "group flex h-full min-h-[13.5rem] flex-col gap-2 rounded-2xl border border-slate-200/80 bg-white/80 p-2.5 shadow-sm sm:min-h-[12.5rem] sm:p-3",
-                        "transition duration-200 ease-out",
-                        "hover:-translate-y-0.5 hover:border-blue-200/80 hover:bg-white hover:shadow-md hover:shadow-blue-500/10",
-                      )}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-md",
-                            "transition group-hover:scale-105 sm:h-9 sm:w-9 sm:rounded-lg",
-                            s.color,
-                          )}
-                        >
-                          <s.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        </div>
-                        <h3 className="min-h-[2.5rem] text-sm font-bold leading-tight text-slate-900 sm:min-h-[2.75rem] sm:text-[0.95rem]">
-                          {s.title}
-                        </h3>
-                      </div>
-                      <p className="mt-auto min-h-[5.75rem] flex-1 text-xs leading-snug text-slate-600 sm:min-h-[6.25rem] sm:text-sm sm:leading-relaxed line-clamp-5">
-                        {s.description}
-                      </p>
-                    </div>
+                {allServicesForModal.map((s, idx) => (
+                  <li key={s.title}>
+                    <ModalServiceCard
+                      service={s}
+                      expanded={expandedServiceIndex === idx}
+                      onToggle={() =>
+                        setExpandedServiceIndex((prev) => (prev === idx ? null : idx))
+                      }
+                    />
                   </li>
                 ))}
               </ul>

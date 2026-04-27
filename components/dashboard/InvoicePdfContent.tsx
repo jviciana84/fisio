@@ -4,10 +4,6 @@ import { Leaf, Star } from "lucide-react";
 import { formatEuroFromCents } from "@/lib/format-es";
 import { PUBLIC_LEGAL_IDENTITY } from "@/lib/legal-public";
 
-/** Titular / datos en factura (NIF ficticio a sustituir si lo validáis con gestoría). */
-const INVOICE_TITULAR_NAME = "Anna-Esther Catalan Calvo";
-const INVOICE_TITULAR_NIF = "47283916X";
-
 const LOGO_SRC = "/images/logo-frb3-texto-oscuro.svg";
 /** Mismo activo que `Ficheros fisio/logo FRB3 TEXTO OSCURO.svg` (copia en repo: `public/images/watermark-logo-frb3-texto-oscuro.svg`). */
 const WATERMARK_SRC = "/images/watermark-logo-frb3-texto-oscuro.svg";
@@ -198,8 +194,8 @@ export function InvoicePdfContent({
               <h1 className="text-5xl font-black leading-none tracking-tight text-slate-950">FACTURA</h1>
               <div className="mt-2 max-w-[14.5rem] space-y-0.5 text-[8.5px] leading-tight text-slate-800">
                 <p className="font-bold uppercase tracking-wide text-slate-950">{PUBLIC_LEGAL_IDENTITY.brand}</p>
-                <p className="font-semibold text-slate-800">{INVOICE_TITULAR_NAME}</p>
-                <p className="font-bold tabular-nums text-slate-900">NIF: {INVOICE_TITULAR_NIF}</p>
+                <p className="font-semibold text-slate-800">{PUBLIC_LEGAL_IDENTITY.ownerFullName}</p>
+                <p className="font-bold tabular-nums text-slate-900">NIF/NIE: {PUBLIC_LEGAL_IDENTITY.taxId}</p>
                 {PUBLIC_LEGAL_IDENTITY.addressLines.map((line) => (
                   <p key={line}>{line}</p>
                 ))}

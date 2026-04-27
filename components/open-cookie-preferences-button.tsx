@@ -10,7 +10,6 @@ export function OpenCookiePreferencesButton({ className }: { className?: string 
       className={className}
       onClick={() => {
         window.dispatchEvent(new CustomEvent("frb:open-cookie-settings"));
-        window.scrollTo({ top: 0, behavior: "smooth" });
       }}
     >
       Cambiar preferencias de cookies

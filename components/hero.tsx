@@ -218,7 +218,7 @@ export function Hero({ googleRating, publicStaff }: HeroProps) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
                     transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative z-10 flex min-h-0 flex-col overflow-y-visible overscroll-y-auto p-4 pb-4 sm:p-5 lg:overflow-y-auto lg:overscroll-contain"
+                    className="relative z-10 flex min-h-0 flex-col overflow-y-visible overscroll-y-auto p-4 pb-4 sm:p-5 lg:overflow-y-visible lg:overscroll-auto"
                     style={{ touchAction: "pan-y" }}
                   >
                     <HeroCardCarousel className="mb-4 h-[15rem] shrink-0 sm:mb-5 sm:h-72" />
