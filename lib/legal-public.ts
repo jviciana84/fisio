@@ -17,9 +17,6 @@ export const PUBLIC_LEGAL_IDENTITY = {
   mapsQueryUrl: "https://maps.google.com/?q=Carrer+de+Pablo+Iglesias+24+Terrassa",
   ownerFullName: "Ana Esther Catalán Calvo",
   taxId: "46401182Q",
-  /** Texto breve para el aviso legal (colegiación; completar número de colegiado si se desea publicarlo). */
-  professionalAttestation:
-    "Fisioterapeuta colegiada, con ejercicio sujeto a la normativa profesional y sanitaria aplicable en Cataluña.",
   /** Número de teléfono asociado a Bizum para pagos indicados en condiciones de reserva. */
   bizumNumber: "687 54 97 32",
 } as const;

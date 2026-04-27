@@ -37,9 +37,6 @@ export default function AvisoLegalPage() {
             {L.phoneDisplay}
           </a>
         </li>
-        <li>
-          <strong>Datos profesionales:</strong> {L.professionalAttestation}
-        </li>
       </ul>
       <p>
         El uso de este sitio web atribuye la condición de usuario e implica la aceptación de todas las condiciones

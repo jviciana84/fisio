@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Menu, X, Phone } from "lucide-react"
 import { BookingCtaLink } from "@/components/booking-cta-modal"
 import { Button } from "@/components/ui/button"
@@ -32,8 +33,20 @@ const navLinks = [
 ]
 
 export function Header() {
+  const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const onLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    setIsMobileMenuOpen(false)
+    if (typeof window === "undefined") return
+    const isMobile = window.matchMedia("(max-width: 1023px)").matches
+    if (!isMobile) return
+    if (pathname === "/") {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -55,7 +68,12 @@ export function Header() {
       }`}
     >
       <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 group" aria-label="Inicio - Fisioterapia Roc Blanc">
+        <Link
+          href="/"
+          className="flex items-center gap-3 group"
+          aria-label="Inicio - Fisioterapia Roc Blanc"
+          onClick={onLogoClick}
+        >
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
