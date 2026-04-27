@@ -58,7 +58,9 @@ export function BrandTitleStack({ firstLineClassName, secondLineClassName, class
 
     const ro =
       typeof ResizeObserver !== "undefined" && wrap ? new ResizeObserver(() => schedule()) : null;
-    ro?.observe(wrap);
+    if (ro && wrap) {
+      ro.observe(wrap);
+    }
     window.addEventListener("resize", schedule);
     return () => {
       cancelled = true;
