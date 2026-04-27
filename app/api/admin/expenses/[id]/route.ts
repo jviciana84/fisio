@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { expenseRecurringGroupKey } from "@/lib/dashboard/expenseCanonical";
+import { normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { requireAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -36,6 +37,7 @@ type ExpenseRow = {
   deductibility: string;
   deductible_percent: number;
   structure_mode: string | null;
+  vat_rate_percent: number;
 };
 
 type PatchBody = {
@@ -48,6 +50,7 @@ type PatchBody = {
   deductibility?: "full" | "partial" | "none";
   deductiblePercent?: number;
   structureMode?: "strict" | "variable" | null;
+  vatRatePercent?: number;
   /**
    * Solo cargos recurrentes: actualiza todas las filas del mismo cargo (mismo concepto canónico,
    * categoría y periodicidad) con expense_date >= esta fecha. Las anteriores conservan importe y datos.
@@ -74,7 +77,7 @@ export async function PATCH(
     const { data: currentRows, error: fetchErr } = await supabase
       .from("expenses")
       .select(
-        "id, concept, category, recurrence, expense_date, amount_cents, notes, deductibility, deductible_percent, structure_mode",
+        "id, concept, category, recurrence, expense_date, amount_cents, notes, deductibility, deductible_percent, structure_mode, vat_rate_percent",
       )
       .eq("id", id)
       .limit(1);
@@ -169,6 +172,10 @@ export async function PATCH(
         return NextResponse.json({ ok: false, message: "Modo de estructura no válido" }, { status: 400 });
       }
       updates.structure_mode = sm;
+    }
+
+    if (body.vatRatePercent !== undefined) {
+      updates.vat_rate_percent = normalizeExpenseVatRatePercent(body.vatRatePercent);
     }
 
     const targetRecurrence = (updates.recurrence as string | undefined) ?? current.recurrence;

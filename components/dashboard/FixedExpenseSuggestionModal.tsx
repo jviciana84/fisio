@@ -10,6 +10,7 @@ import {
   matchFixedSuggestion,
 } from "@/lib/dashboard/fixedExpenseSuggestions";
 import { canonicalConceptForFixedKey } from "@/lib/dashboard/expenseCanonical";
+import { EXPENSE_VAT_RATE_OPTIONS, normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { DASHBOARD_INPUT_CLASS } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
@@ -74,6 +75,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
   const [expenseDate, setExpenseDate] = useState(todayIso);
   const [effectiveFrom, setEffectiveFrom] = useState(firstDayOfMonthIso);
   const [notes, setNotes] = useState("");
+  const [vatFormRate, setVatFormRate] = useState(21);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -116,6 +118,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
     setExpenseDate(todayIso());
     setEffectiveFrom(firstDayOfMonthIso());
     setNotes("");
+    setVatFormRate(21);
     setFormError(null);
   }, []);
 
@@ -198,6 +201,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
     setExpenseDate(row.expense_date?.slice(0, 10) || todayIso());
     setEffectiveFrom(firstDayOfMonthIso());
     setNotes(row.notes ?? "");
+    setVatFormRate(normalizeExpenseVatRatePercent(row.vat_rate_percent));
     setFormError(null);
     setPhase("form");
   }
@@ -222,6 +226,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
             deductibility,
             deductiblePercent: deductibility === "partial" ? deductiblePercent : undefined,
             structureMode: recurrence === "none" ? null : structureMode,
+            vatRatePercent: normalizeExpenseVatRatePercent(vatFormRate),
           }),
         });
         const data = (await res.json()) as { ok?: boolean; message?: string };
@@ -244,6 +249,7 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
         deductibility,
         deductiblePercent: deductibility === "partial" ? deductiblePercent : undefined,
         structureMode: recurrence === "none" ? null : structureMode,
+        vatRatePercent: normalizeExpenseVatRatePercent(vatFormRate),
       };
       if (recurrence !== "none") {
         body.effectiveFrom = effectiveFrom;
@@ -536,7 +542,23 @@ export function FixedExpenseSuggestionModal({ open, onClose, onSuccess, expenses
                   </div>
                 </div>
 
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <label className={labelFormCls}>% IVA (factura)</label>
+                    <select
+                      value={vatFormRate}
+                      onChange={(e) => setVatFormRate(Number(e.target.value))}
+                      className={inputCls}
+                      required
+                      title="0 si el importe no lleva IVA"
+                    >
+                      {EXPENSE_VAT_RATE_OPTIONS.map((pct) => (
+                        <option key={pct} value={pct}>
+                          {pct}&nbsp;%
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className={labelFormCls}>Importe (€)</label>
                     <input

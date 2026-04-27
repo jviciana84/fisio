@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { EXPENSE_VAT_RATE_OPTIONS, normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { hintForCategory } from "@/lib/fiscal/expenseHints";
 
 const CATEGORY_SEEDS = [
@@ -61,6 +62,7 @@ export default function AltaGastosPage() {
   const [deductibility, setDeductibility] = useState<"full" | "partial" | "none">("full");
   const [deductiblePercent, setDeductiblePercent] = useState(50);
   const [structureMode, setStructureMode] = useState<"strict" | "variable">("strict");
+  const [vatRatePercent, setVatRatePercent] = useState(21);
   const [mergeSourceCategory, setMergeSourceCategory] = useState("");
   const [mergeTargetCategory, setMergeTargetCategory] = useState("");
   const [mergeLoading, setMergeLoading] = useState(false);
@@ -129,6 +131,7 @@ export default function AltaGastosPage() {
           category: category.trim(),
           amountEuros: amountNum,
           recurrence,
+          vatRatePercent: normalizeExpenseVatRatePercent(vatRatePercent),
           deductibility,
           deductiblePercent: deductibility === "partial" ? deductiblePercent : undefined,
           structureMode: recurrence === "none" ? null : structureMode,
@@ -145,6 +148,7 @@ export default function AltaGastosPage() {
       setCategory("");
       setAmountEuros("");
       setRecurrence("monthly");
+      setVatRatePercent(21);
       await loadCategories();
     } catch {
       setMessage({ type: "err", text: "Error de red" });
@@ -284,7 +288,31 @@ export default function AltaGastosPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+                <div className="grid gap-4 sm:grid-cols-3 sm:items-start">
+                  <div>
+                    <label
+                      htmlFor="expense-vat-rate"
+                      className="mb-1.5 block text-sm font-medium text-slate-700"
+                    >
+                      % IVA en factura
+                    </label>
+                    <select
+                      id="expense-vat-rate"
+                      value={vatRatePercent}
+                      onChange={(e) => setVatRatePercent(Number(e.target.value))}
+                      className={inputClass}
+                      title="0 si el importe no lleva IVA (ej. cuota de autónomos)"
+                    >
+                      {EXPENSE_VAT_RATE_OPTIONS.map((pct) => (
+                        <option key={pct} value={pct}>
+                          {pct}&nbsp;% {pct === 0 ? "(sin IVA)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      Tipo de IVA incluido en el importe. Use 0&nbsp;% para cuotas o gastos sin IVA.
+                    </p>
+                  </div>
                   <div>
                     <label
                       htmlFor="expense-amount"

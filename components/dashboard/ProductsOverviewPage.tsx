@@ -145,6 +145,17 @@ export function ProductsOverviewPage() {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
+  /** Totales sobre todos los productos filtrados (todas las páginas). */
+  const productsTableFooter = useMemo(() => {
+    let totalSales = 0;
+    let totalRevenueEuros = 0;
+    for (const p of filtered) {
+      totalSales += p.salesCount;
+      totalRevenueEuros += p.revenueEuros;
+    }
+    return { count: filtered.length, totalSales, totalRevenueEuros };
+  }, [filtered]);
+
   const createPriceNum = useMemo(() => parseSpanishDecimalInput(createPrice), [createPrice]);
 
   const canSubmitCreate = useMemo(() => {
@@ -358,85 +369,114 @@ export function ProductsOverviewPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginated.map((p) => (
-                    <tr key={p.id} className="align-top">
-                      <td className="px-4 py-4 text-center">
-                        <button
-                          type="button"
-                          title={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
-                          aria-label={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
-                          disabled={favoriteSavingIds.includes(p.id)}
-                          onClick={() => void toggleFavorite(p.id, !p.isFavorite)}
-                          className={`inline-flex rounded-md p-1.5 transition ${
-                            p.isFavorite
-                              ? "text-amber-500 hover:bg-amber-50"
-                              : "text-slate-400 hover:bg-slate-100 hover:text-amber-500"
-                          } disabled:opacity-40`}
-                        >
-                          <Star className={`h-4 w-4 ${p.isFavorite ? "fill-current" : ""}`} aria-hidden />
-                        </button>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-slate-900">{p.name}</p>
-                        <p className="text-xs text-slate-500">Código {p.productCode}</p>
-                        {p.description ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{p.description}</p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-4 font-medium tabular-nums text-slate-900">
-                        {formatEuroEsTwoDecimals(p.priceEuros)}
-                      </td>
-                      <td className="px-4 py-4 font-medium text-slate-800">{formatIntegerEs(p.salesCount)}</td>
-                      <td className="px-4 py-4 font-medium text-slate-900">{formatEuroEsTwoDecimals(p.revenueEuros)}</td>
-                      <td className="px-4 py-4 text-slate-700">
-                        {p.lastSaleAt
-                          ? new Date(p.lastSaleAt).toLocaleString("es-ES", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          : "Sin ventas"}
-                      </td>
-                      <td className="px-4 py-4">
-                        {p.sellers.length ? (
-                          <div className="flex max-w-[220px] flex-wrap gap-1">
-                            {p.sellers.map((s) => (
-                              <span
-                                key={`${p.id}-${s}`}
-                                className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700"
-                              >
-                                {s}
-                              </span>
-                            ))}
+                  <>
+                    {paginated.map((p) => (
+                      <tr key={p.id} className="align-top">
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            type="button"
+                            title={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
+                            aria-label={p.isFavorite ? "Quitar favorito" : "Marcar favorito"}
+                            disabled={favoriteSavingIds.includes(p.id)}
+                            onClick={() => void toggleFavorite(p.id, !p.isFavorite)}
+                            className={`inline-flex rounded-md p-1.5 transition ${
+                              p.isFavorite
+                                ? "text-amber-500 hover:bg-amber-50"
+                                : "text-slate-400 hover:bg-slate-100 hover:text-amber-500"
+                            } disabled:opacity-40`}
+                          >
+                            <Star className={`h-4 w-4 ${p.isFavorite ? "fill-current" : ""}`} aria-hidden />
+                          </button>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="font-semibold text-slate-900">{p.name}</p>
+                          <p className="text-xs text-slate-500">Código {p.productCode}</p>
+                          {p.description ? (
+                            <p className="mt-1 line-clamp-2 text-xs text-slate-600">{p.description}</p>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4 font-medium tabular-nums text-slate-900">
+                          {formatEuroEsTwoDecimals(p.priceEuros)}
+                        </td>
+                        <td className="px-4 py-4 font-medium text-slate-800">{formatIntegerEs(p.salesCount)}</td>
+                        <td className="px-4 py-4 font-medium text-slate-900">{formatEuroEsTwoDecimals(p.revenueEuros)}</td>
+                        <td className="px-4 py-4 text-slate-700">
+                          {p.lastSaleAt
+                            ? new Date(p.lastSaleAt).toLocaleString("es-ES", {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              })
+                            : "Sin ventas"}
+                        </td>
+                        <td className="px-4 py-4">
+                          {p.sellers.length ? (
+                            <div className="flex max-w-[220px] flex-wrap gap-1">
+                              {p.sellers.map((s) => (
+                                <span
+                                  key={`${p.id}-${s}`}
+                                  className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500">Sin registro</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="inline-flex items-center justify-end gap-0.5">
+                            <button
+                              type="button"
+                              title="Editar"
+                              onClick={() => openEditModal(p)}
+                              className="inline-flex rounded-md p-2 text-slate-600 transition hover:bg-blue-50 hover:text-blue-800"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                              <span className="sr-only">Editar</span>
+                            </button>
+                            <button
+                              type="button"
+                              title="Eliminar"
+                              disabled={savingId === p.id}
+                              onClick={() => setDeleteTarget(p)}
+                              className="inline-flex rounded-md p-2 text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                              <span className="sr-only">Eliminar</span>
+                            </button>
                           </div>
-                        ) : (
-                          <span className="text-xs text-slate-500">Sin registro</span>
-                        )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr
+                      className="border-t-2 border-slate-200/90 bg-slate-50/95 text-slate-800"
+                      aria-label="Totales de todos los productos de la tabla (todas las páginas)"
+                    >
+                      <td colSpan={2} className="px-4 py-3 align-top">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Totales</span>
+                        <span className="mt-0.5 block text-[11px] font-normal leading-snug text-slate-500">
+                          {productsTableFooter.count}{" "}
+                          {productsTableFooter.count === 1 ? "producto" : "productos"}
+                          {totalPages > 1
+                            ? ` en ${totalPages} páginas · suma de todas las filas filtradas`
+                            : null}
+                        </span>
                       </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="inline-flex items-center justify-end gap-0.5">
-                          <button
-                            type="button"
-                            title="Editar"
-                            onClick={() => openEditModal(p)}
-                            className="inline-flex rounded-md p-2 text-slate-600 transition hover:bg-blue-50 hover:text-blue-800"
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden />
-                            <span className="sr-only">Editar</span>
-                          </button>
-                          <button
-                            type="button"
-                            title="Eliminar"
-                            disabled={savingId === p.id}
-                            onClick={() => setDeleteTarget(p)}
-                            className="inline-flex rounded-md p-2 text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden />
-                            <span className="sr-only">Eliminar</span>
-                          </button>
-                        </div>
+                      <td className="px-4 py-3 align-top text-sm font-medium tabular-nums text-slate-500">—</td>
+                      <td className="px-4 py-3 align-top text-sm font-bold tabular-nums text-slate-900">
+                        {productsTableFooter.count > 0 ? formatIntegerEs(productsTableFooter.totalSales) : "—"}
                       </td>
+                      <td className="px-4 py-3 align-top text-sm font-bold tabular-nums text-slate-900">
+                        {productsTableFooter.count > 0
+                          ? formatEuroEsTwoDecimals(productsTableFooter.totalRevenueEuros)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 align-top text-slate-500">—</td>
+                      <td className="px-4 py-3 align-top text-slate-500">—</td>
+                      <td className="px-4 py-3 align-top" aria-hidden />
                     </tr>
-                  ))
+                  </>
                 )}
               </tbody>
             </table>

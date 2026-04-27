@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin";
+import { normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -29,6 +30,8 @@ type Body = {
   deductiblePercent?: number;
   /** Obligatorio si recurrence !== none: strict = predecible, variable = margen 10 % en estructura. */
   structureMode?: "strict" | "variable" | null;
+  /** Tipo de IVA del importe TTC: 0, 4, 10 o 21. */
+  vatRatePercent?: number;
 };
 
 function isRecurrence(v: string): v is Recurrence {
@@ -109,6 +112,8 @@ export async function POST(request: Request) {
       deductiblePercent = deductibility === "full" ? 100 : 0;
     }
 
+    const vatRatePercent = normalizeExpenseVatRatePercent(body.vatRatePercent ?? 21);
+
     const supabase = createSupabaseAdminClient();
 
     const { data, error } = await supabase
@@ -123,6 +128,7 @@ export async function POST(request: Request) {
         deductibility,
         deductible_percent: deductiblePercent,
         structure_mode: structureMode,
+        vat_rate_percent: vatRatePercent,
       })
       .select("id")
       .single();

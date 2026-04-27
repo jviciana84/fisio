@@ -3,6 +3,11 @@
  * Los porcentajes son configurables: actualiza las constantes si cambia la normativa.
  */
 
+import {
+  expenseVatFractionFromRatePercent,
+  normalizeExpenseVatRatePercent,
+} from "@/lib/dashboard/expenseVat";
+
 /** IRPF pagos fraccionados (modelo 130): porcentaje sobre beneficio estimado del trimestre. */
 export const IRPF_QUARTERLY_FRACTION = 0.2;
 
@@ -49,6 +54,8 @@ export type ExpenseExtractRowInput = {
   deductiblePercent: number;
   /** Mes del apunte real (YYYY-MM). */
   expenseMonthKey: MonthKey;
+  /** Tipo de IVA del importe TTC (0, 4, 10, 21). Si falta, se asume 21. */
+  vatRatePercent?: number;
 };
 
 function monthlyEquivalentCents(cents: number, recurrence: string): number {
@@ -167,6 +174,30 @@ export function estimatedInputVatCents(
   const rf = Math.min(1, Math.max(0, recoverableFraction));
   const vatPart = Math.round(deductibleExpenseTtcCents * DEFAULT_EXPENSE_VAT_FRACTION * rf);
   return vatPart;
+}
+
+/**
+ * IVA soportado trimestral a partir de apuntes reales, usando el tipo de IVA de cada gasto.
+ */
+export function estimatedInputVatFromExtractRowsCents(
+  rows: ExpenseExtractRowInput[],
+  quarterMonthKeys: MonthKey[],
+  recoverableFraction: number,
+): number {
+  const rf = Math.min(1, Math.max(0, recoverableFraction));
+  let total = 0;
+  for (const e of rows) {
+    if (!quarterMonthKeys.includes(e.expenseMonthKey)) continue;
+    const rate = normalizeExpenseVatRatePercent(e.vatRatePercent);
+    const deductibleTtc = applyDeductibilityToAmount(
+      e.amountCents,
+      e.deductibility,
+      e.deductiblePercent,
+    );
+    const frac = expenseVatFractionFromRatePercent(rate);
+    total += Math.round(deductibleTtc * frac * rf);
+  }
+  return total;
 }
 
 export function vat303NetCents(params: {
@@ -340,12 +371,17 @@ export function simulateQuarter(params: {
   deductibleExpensesQuarterTtcCents: number;
   /** Gastos deducibles trimestrales sin IVA (p.ej. nóminas + SS empresa). */
   additionalNonVatDeductibleExpensesQuarterCents?: number;
+  /**
+   * IVA soportado del trimestre (céntimos). Si no se envía, se estima con tipo 21 % sobre el total deducible.
+   */
+  ivaSoportadoQuarterCents?: number;
 }): FiscalSimulationResult {
   const {
     settings,
     ticketTotals,
     deductibleExpensesQuarterTtcCents,
     additionalNonVatDeductibleExpensesQuarterCents = 0,
+    ivaSoportadoQuarterCents: ivaSoportadoOverride,
   } = params;
 
   const realTotalCents =
@@ -367,7 +403,10 @@ export function simulateQuarter(params: {
       ? 0
       : settings.expenseVatRecoverablePercent / 100;
 
-  const ivaSoportadoCents = estimatedInputVatCents(deductibleExpensesTtcCents, recoverable);
+  const ivaSoportadoCents =
+    ivaSoportadoOverride !== undefined
+      ? Math.max(0, Math.round(ivaSoportadoOverride))
+      : estimatedInputVatCents(deductibleExpensesTtcCents, recoverable);
 
   const iva303ToPayCents = Math.max(0, vat303NetCents({ outputVatCents: ivaRepercutidoCents, inputVatCents: ivaSoportadoCents }));
 

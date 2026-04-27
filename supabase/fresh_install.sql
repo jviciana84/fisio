@@ -117,6 +117,8 @@ create table if not exists public.expenses (
     check (deductibility in ('full', 'partial', 'none')),
   deductible_percent integer not null default 100
     check (deductible_percent >= 0 and deductible_percent <= 100),
+  vat_rate_percent integer not null default 21
+    check (vat_rate_percent in (0, 4, 10, 21)),
   created_at timestamptz not null default now()
 );
 

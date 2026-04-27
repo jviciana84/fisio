@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin";
+import { normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
   buildFiscalTicketDataIndex,
   defaultFiscalPeriodWithData,
   resolveActiveFiscalPeriod,
   deductibleQuarterExtractTotalCents,
+  estimatedInputVatFromExtractRowsCents,
   eurosFromCents,
   getYearMonthKey,
   officialSalesFromBreakdown,
@@ -31,6 +33,7 @@ type ExpenseDb = {
   expense_date?: string;
   deductibility?: string;
   deductible_percent?: number;
+  vat_rate_percent?: number | null;
 };
 
 type StaffCompensationRow = {
@@ -101,6 +104,11 @@ export async function GET(request: Request) {
     useVatOnSales: settingsData.use_vat_on_sales ?? false,
     expenseVatRecoverablePercent: settingsData.expense_vat_recoverable_percent ?? 100,
   };
+
+  const expenseVatRecoverableFr =
+    settings.expenseVatRecoverablePercent <= 0
+      ? 0
+      : settings.expenseVatRecoverablePercent / 100;
 
   const now = new Date();
   const url = new URL(request.url);
@@ -222,6 +230,7 @@ export async function GET(request: Request) {
       deductibility: (e.deductibility as "full" | "partial" | "none") ?? "full",
       deductiblePercent: e.deductible_percent ?? 100,
       expenseMonthKey,
+      vatRatePercent: normalizeExpenseVatRatePercent(e.vat_rate_percent),
     };
   });
 
@@ -369,6 +378,11 @@ export async function GET(request: Request) {
   }
 
   const deductibleQ = deductibleQuarterExtractTotalCents(expenseExtractRows, q.monthKeys);
+  const ivaSoportadoQ = estimatedInputVatFromExtractRowsCents(
+    expenseExtractRows,
+    q.monthKeys,
+    expenseVatRecoverableFr,
+  );
   const modelWarnings: ModelWarning[] = [];
   if (qTotals.cashCents + qTotals.bizumCents + qTotals.cardCents <= 0) {
     modelWarnings.push({
@@ -411,6 +425,7 @@ export async function GET(request: Request) {
     ticketTotals: qTotals,
     deductibleExpensesQuarterTtcCents: deductibleQ,
     additionalNonVatDeductibleExpensesQuarterCents: employerPayrollCostQuarterCents,
+    ivaSoportadoQuarterCents: ivaSoportadoQ,
   });
 
   let quarterCashTotalCents = 0;
@@ -443,11 +458,13 @@ export async function GET(request: Request) {
       cardCents += b.cardCents;
     }
     const ded = deductibleQuarterExtractTotalCents(expenseExtractRows, mks);
+    const ivaQi = estimatedInputVatFromExtractRowsCents(expenseExtractRows, mks, expenseVatRecoverableFr);
     const simQ = simulateQuarter({
       settings,
       ticketTotals: { cashCents, bizumCents, cardCents },
       deductibleExpensesQuarterTtcCents: ded,
       additionalNonVatDeductibleExpensesQuarterCents: employerPayrollCostQuarterCents,
+      ivaSoportadoQuarterCents: ivaQi,
     });
     return {
       quarter: qi,

@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { GastosPageClient } from "@/components/dashboard/GastosPageClient";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
+import { normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function GastosPage() {
   const { data, error } = await supabase
     .from("expenses")
     .select(
-      "id, concept, notes, category, amount_cents, expense_date, recurrence, created_at, deductibility, deductible_percent, structure_mode",
+      "id, concept, notes, category, amount_cents, expense_date, recurrence, created_at, deductibility, deductible_percent, structure_mode, vat_rate_percent",
     )
     .order("expense_date", { ascending: false });
 
@@ -36,6 +37,7 @@ export default async function GastosPage() {
       deductibility?: string;
       deductible_percent?: number;
       structure_mode?: string | null;
+      vat_rate_percent?: number | null;
     };
     const ded = r.deductibility === "partial" || r.deductibility === "none" ? r.deductibility : "full";
     const sm = r.structure_mode === "variable" ? "variable" : r.structure_mode === "strict" ? "strict" : null;
@@ -51,6 +53,7 @@ export default async function GastosPage() {
       deductibility: ded,
       deductible_percent: Math.min(100, Math.max(0, Number(r.deductible_percent ?? (ded === "full" ? 100 : ded === "none" ? 0 : 50)))),
       structure_mode: sm,
+      vat_rate_percent: normalizeExpenseVatRatePercent(r.vat_rate_percent),
     };
   });
 

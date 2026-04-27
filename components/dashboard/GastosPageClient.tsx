@@ -20,6 +20,7 @@ import {
 } from "@/lib/dashboard/trendChartData";
 import { canonicalConceptForFixedKey, expenseRecurringGroupKey } from "@/lib/dashboard/expenseCanonical";
 import type { ExpenseDetailRow } from "@/lib/dashboard/expenseTypes";
+import { EXPENSE_VAT_RATE_OPTIONS, normalizeExpenseVatRatePercent } from "@/lib/dashboard/expenseVat";
 import { computeStructureFromRecurringRows } from "@/lib/dashboard/structureCost";
 import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
 import { DashboardAddFabButton } from "@/components/dashboard/DashboardAddFabButton";
@@ -116,6 +117,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   const [editCategory, setEditCategory] = useState("");
   const [editRecurrence, setEditRecurrence] = useState("monthly");
   const [editAmountStr, setEditAmountStr] = useState("");
+  const [editFixedVatRate, setEditFixedVatRate] = useState("21");
   const [editApplyMode, setEditApplyMode] = useState<"single" | "fromDate" | "all">("fromDate");
   const [fixedActionError, setFixedActionError] = useState<string | null>(null);
   const [savingFixed, setSavingFixed] = useState(false);
@@ -127,7 +129,9 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
   const [editMainCategory, setEditMainCategory] = useState("");
   const [editMainRecurrence, setEditMainRecurrence] = useState("monthly");
   const [editMainAmountStr, setEditMainAmountStr] = useState("");
+  const [editMainVatRate, setEditMainVatRate] = useState("21");
   const [editMainDate, setEditMainDate] = useState("");
+  const [editMainApplyMode, setEditMainApplyMode] = useState<"single" | "fromDate" | "all">("fromDate");
   const [mainListError, setMainListError] = useState<string | null>(null);
   const [savingMain, setSavingMain] = useState(false);
   const [deleteMainId, setDeleteMainId] = useState<string | null>(null);
@@ -335,6 +339,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditCategory(row.category?.trim() || "");
     setEditRecurrence(row.recurrence || "monthly");
     setEditAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
+    setEditFixedVatRate(String(normalizeExpenseVatRatePercent(row.vat_rate_percent)));
     setEditApplyMode("fromDate");
     setFixedActionError(null);
   }
@@ -347,12 +352,15 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setEditMainCategory(row.category?.trim() || "");
     setEditMainRecurrence(row.recurrence || "monthly");
     setEditMainAmountStr(formatEurosFieldFromNumber(row.amount_cents / 100));
+    setEditMainVatRate(String(normalizeExpenseVatRatePercent(row.vat_rate_percent)));
     setEditMainDate(row.expense_date?.slice(0, 10) || "");
+    setEditMainApplyMode("fromDate");
     setMainListError(null);
   }
 
   function cancelEditMain() {
     setEditingMainId(null);
+    setEditMainApplyMode("fromDate");
     setMainListError(null);
   }
 
@@ -467,13 +475,30 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     setSavingMain(true);
     setMainListError(null);
     try {
+      const nextVat = normalizeExpenseVatRatePercent(Number(editMainVatRate));
       const payload: Record<string, unknown> = {
         concept,
-        expenseDate: editMainDate,
         category: editMainCategory.trim(),
         recurrence,
         amountEuros,
+        vatRatePercent: nextVat,
       };
+      const isRecurringSeries = prev.recurrence !== "none" && recurrence !== "none";
+      const bulkRecurring =
+        isRecurringSeries && (editMainApplyMode === "fromDate" || editMainApplyMode === "all");
+      if (!bulkRecurring) {
+        payload.expenseDate = editMainDate;
+      }
+      if (isRecurringSeries) {
+        if (editMainApplyMode === "all") {
+          payload.effectiveFrom = "1900-01-01";
+        } else if (editMainApplyMode === "fromDate") {
+          const anchor = prev.expense_date?.slice(0, 10);
+          if (anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+            payload.effectiveFrom = anchor;
+          }
+        }
+      }
       payload.deductibility = prev.deductibility;
       payload.deductiblePercent = prev.deductibility === "partial" ? prev.deductible_percent : undefined;
       if (recurrence !== "none") {
@@ -499,17 +524,19 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
       const touchedMain = new Set(
         Array.isArray(data.updatedIds) && data.updatedIds.length > 0 ? data.updatedIds : [id],
       );
+      const patchDate = !bulkRecurring;
       setExpenseList((list) =>
         list.map((e) =>
           touchedMain.has(e.id)
             ? {
                 ...e,
                 concept,
-                expense_date: editMainDate,
+                ...(patchDate ? { expense_date: editMainDate } : {}),
                 category: editMainCategory.trim(),
                 recurrence,
                 amount_cents: amountCents,
                 structure_mode: nextStructure,
+                vat_rate_percent: nextVat,
               }
             : e,
         ),
@@ -639,11 +666,13 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
     try {
       const effectiveFrom = row.expense_date?.slice(0, 10);
       const isCurrentRecurring = row.recurrence !== "none";
+      const nextVat = normalizeExpenseVatRatePercent(Number(editFixedVatRate));
       const payload: Record<string, unknown> = {
         concept,
         category: editCategory.trim(),
         recurrence,
         amountEuros,
+        vatRatePercent: nextVat,
         deductibility: row.deductibility,
         deductiblePercent: row.deductibility === "partial" ? row.deductible_percent : undefined,
       };
@@ -689,6 +718,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 recurrence,
                 amount_cents: amountCents,
                 structure_mode: nextStructure,
+                vat_rate_percent: nextVat,
               }
             : e,
         ),
@@ -1077,7 +1107,16 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     <th className="min-w-[6rem] px-2 py-2 md:px-3">Concepto</th>
                     <th className="whitespace-nowrap px-2 py-2 md:px-3">Categoría</th>
                     <th className="whitespace-nowrap px-2 py-2 md:px-3">Recurrencia</th>
+                    <th
+                      className="whitespace-nowrap px-2 py-2 text-right md:px-3"
+                      title="IVA incluido en el importe (0 = sin IVA)"
+                    >
+                      % IVA
+                    </th>
                     <th className="whitespace-nowrap px-2 py-2 text-right md:px-3">Importe</th>
+                    {editingMainId ? (
+                      <th className="whitespace-nowrap px-2 py-2 md:px-3">Aplicar cambios</th>
+                    ) : null}
                     <th
                       className="whitespace-nowrap px-2 py-2 text-right md:px-2"
                       title="Editar o eliminar este apunte."
@@ -1089,7 +1128,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 <tbody>
                   {sorted.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-slate-600">
+                      <td colSpan={editingMainId ? 8 : 7} className="px-3 py-6 text-center text-slate-600">
                         {filtered.length === 0
                           ? selectedDay
                             ? "No hay gastos en este día."
@@ -1227,6 +1266,32 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               }}
                             >
                               {isEditing ? (
+                                <select
+                                  className={`${inputCls} min-w-[4.5rem] text-right tabular-nums`}
+                                  value={editMainVatRate}
+                                  onChange={(e) => setEditMainVatRate(e.target.value)}
+                                  aria-label="Porcentaje de IVA"
+                                >
+                                  {EXPENSE_VAT_RATE_OPTIONS.map((pct) => (
+                                    <option key={pct} value={String(pct)}>
+                                      {pct}&nbsp;%
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="tabular-nums text-slate-800">{row.vat_rate_percent}%</span>
+                              )}
+                            </td>
+                            <td
+                              className="whitespace-nowrap px-2 py-1.5 text-right md:px-3 md:py-2"
+                              title="Clic para editar"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isEditing) return;
+                                startEditMain(row);
+                              }}
+                            >
+                              {isEditing ? (
                                 <input
                                   className={`${inputCls} text-right tabular-nums`}
                                   inputMode="decimal"
@@ -1240,6 +1305,29 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                                 </span>
                               )}
                             </td>
+                            {editingMainId ? (
+                              <td className="whitespace-nowrap px-2 py-1.5 md:px-3 md:py-2">
+                                {isEditing ? (
+                                  <select
+                                    value={editMainApplyMode}
+                                    onChange={(e) =>
+                                      setEditMainApplyMode(e.target.value as "single" | "fromDate" | "all")
+                                    }
+                                    disabled={row.recurrence === "none"}
+                                    className="w-full min-w-[14rem] rounded-md border border-slate-200/90 bg-white px-2 py-1 text-[11px] text-slate-700 shadow-sm focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                    aria-label="Aplicar cambios"
+                                    title="Alcance de los cambios (solo cargos recurrentes)"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <option value="single">Aplicar solo a este apunte</option>
+                                    <option value="fromDate">Aplicar a toda la serie desde esta fecha</option>
+                                    <option value="all">Aplicar a todos los registrados</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">—</span>
+                                )}
+                              </td>
+                            ) : null}
                             <td className="whitespace-nowrap px-1 py-1 text-right md:px-2 md:py-1.5">
                               <div className="inline-flex items-center gap-0.5">
                                 {isEditing ? (
@@ -1327,11 +1415,19 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                             </span>
                           ) : null}
                         </td>
+                        <td className="whitespace-nowrap px-2 py-2.5 text-right align-top text-sm tabular-nums text-slate-500 md:px-3 md:py-3">
+                          —
+                        </td>
                         <td className="whitespace-nowrap px-2 py-2.5 text-right align-top text-sm font-bold tabular-nums text-slate-900 md:px-3 md:py-3">
                           {periodTableFooter.count > 0
                             ? formatEuroEsTwoDecimals(periodTableFooter.totalCents / 100)
                             : "—"}
                         </td>
+                        {editingMainId ? (
+                          <td className="whitespace-nowrap px-2 py-2.5 align-top md:px-3 md:py-3" aria-hidden>
+                            <span className="text-[11px] text-slate-400">—</span>
+                          </td>
+                        ) : null}
                         <td className="px-1 py-2 align-top md:px-2 md:py-3" aria-hidden />
                       </tr>
                     </>
@@ -1488,6 +1584,12 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     <th className="min-w-[8rem] px-3 py-2.5 md:px-4">Concepto</th>
                     <th className="min-w-[7rem] px-3 py-2.5 md:px-4">Categoría</th>
                     <th className="whitespace-nowrap px-3 py-2.5 md:px-4">Periodicidad</th>
+                    <th
+                      className="whitespace-nowrap px-3 py-2.5 text-right md:px-4"
+                      title="IVA incluido en el importe (0 = sin IVA)"
+                    >
+                      % IVA
+                    </th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right md:px-4">Importe</th>
                     {editingFixedId ? (
                       <th className="whitespace-nowrap px-3 py-2.5 md:px-4">Aplicar cambios</th>
@@ -1504,7 +1606,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                 <tbody>
                   {fixedConfiguredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={editingFixedId ? 7 : 6} className="px-4 py-8 text-center text-slate-600">
+                      <td colSpan={editingFixedId ? 8 : 7} className="px-4 py-8 text-center text-slate-600">
                         No hay gastos recurrentes configurados.{" "}
                         <Link
                           href="/dashboard/configuracion/gastos"
@@ -1516,7 +1618,7 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                     </tr>
                   ) : fixedRowsForTable.length === 0 ? (
                     <tr>
-                      <td colSpan={editingFixedId ? 7 : 6} className="px-4 py-8 text-center text-slate-600">
+                      <td colSpan={editingFixedId ? 8 : 7} className="px-4 py-8 text-center text-slate-600">
                         Ningún gasto fijo en la categoría «{fixedCategoryFilter}».{" "}
                         <button
                           type="button"
@@ -1628,6 +1730,33 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                               <span className="block py-0.5 text-slate-700">
                                 {recurrenceLabel(row.recurrence)}
                               </span>
+                            )}
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-3 py-2 text-right md:px-4"
+                            title="Clic para editar"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isEditing) return;
+                              startEditFixed(row);
+                            }}
+                          >
+                            {isEditing ? (
+                              <select
+                                className={`${inputCls} min-w-[4.5rem] text-right tabular-nums`}
+                                value={editFixedVatRate}
+                                onChange={(e) => setEditFixedVatRate(e.target.value)}
+                                onKeyDown={(e) => handleFixedEditEnter(e, row.id)}
+                                aria-label="Porcentaje de IVA"
+                              >
+                                {EXPENSE_VAT_RATE_OPTIONS.map((pct) => (
+                                  <option key={pct} value={String(pct)}>
+                                    {pct}&nbsp;%
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="block py-0.5 tabular-nums text-slate-800">{row.vat_rate_percent}%</span>
                             )}
                           </td>
                           <td
@@ -1760,6 +1889,9 @@ export function GastosPageClient({ expenses }: { expenses: ExpenseDetailRow[] })
                             ? ` en ${fixedTotalPages} páginas · suma de todas las filas filtradas`
                             : null}
                         </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right align-top text-sm tabular-nums text-slate-500 md:px-4 md:py-3">
+                        —
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-right align-top text-sm font-bold tabular-nums text-slate-900 md:px-4 md:py-3">
                         {fixedTableFooter.count > 0
