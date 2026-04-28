@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getStaffSession } from "@/lib/auth/get-session";
 import { PendingLeadsGlobalAlert } from "@/components/dashboard/PendingLeadsGlobalAlert";
@@ -6,6 +7,10 @@ import { DashboardTopStatus } from "@/components/layout/DashboardTopStatus";
 import { SectionWatermark } from "@/components/section-watermark";
 import { AdminIdleSessionGuard } from "@/components/session/AdminIdleSessionGuard";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  manifest: "/manifest.json",
+};
 
 export default async function DashboardGroupLayout({
   children,

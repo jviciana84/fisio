@@ -76,7 +76,6 @@ export default async function RootLayout({
   return (
     <html lang="es" className="bg-background scroll-smooth" suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
