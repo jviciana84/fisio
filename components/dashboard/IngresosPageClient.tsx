@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Pencil, ScrollText, Trash2, X } from "lucide-react";
+import { Check, Pencil, QrCode, ScrollText, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { IngresosDayCalendar, localDayKeyFromIso } from "@/components/dashboard/IngresosDayCalendar";
@@ -21,6 +21,7 @@ import { IncomeTicketBreakdownModal } from "@/components/dashboard/IncomeTicketB
 import { formatEuroEsTwoDecimals, formatEurosFieldFromNumber, parseSpanishDecimalInput } from "@/lib/format-es";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { BonoCardWithToolbar, type BonoPrettyCardData } from "@/components/bonos/BonoPrettyCard";
 
 export type IncomeTicketRow = {
   id: string;
@@ -80,6 +81,10 @@ export function IngresosPageClient({
   const [deletingTicket, setDeletingTicket] = useState(false);
   const [deleteTicketModalError, setDeleteTicketModalError] = useState<string | null>(null);
   const [convertingToInvoiceId, setConvertingToInvoiceId] = useState<string | null>(null);
+  const [bonoModalTicket, setBonoModalTicket] = useState<IncomeTicketRow | null>(null);
+  const [bonosByTicket, setBonosByTicket] = useState<BonoPrettyCardData[]>([]);
+  const [bonosLoading, setBonosLoading] = useState(false);
+  const [bonosError, setBonosError] = useState<string | null>(null);
 
   const modalBreakdown = useMemo(() => {
     if (!modalTicket) return null;
@@ -302,6 +307,32 @@ export function IngresosPageClient({
       setIngresosActionError(msg);
     } finally {
       setDeletingTicket(false);
+    }
+  }
+
+  async function openBonosModalForTicket(row: IncomeTicketRow) {
+    setBonoModalTicket(row);
+    setBonosLoading(true);
+    setBonosError(null);
+    setBonosByTicket([]);
+    try {
+      const res = await fetch(`/api/admin/bonos/by-ticket/${encodeURIComponent(row.id)}`, {
+        credentials: "same-origin",
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        bonos?: BonoPrettyCardData[];
+      };
+      if (!res.ok || !data.ok) {
+        setBonosError(data.message ?? "No se pudieron cargar bonos de este ticket.");
+        return;
+      }
+      setBonosByTicket(Array.isArray(data.bonos) ? data.bonos : []);
+    } catch {
+      setBonosError("Error de red al cargar bonos del ticket.");
+    } finally {
+      setBonosLoading(false);
     }
   }
 
@@ -672,6 +703,18 @@ export function IngresosPageClient({
                           )}
                           <button
                             type="button"
+                            title="Ver / reimprimir bono QR"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void openBonosModalForTicket(row);
+                            }}
+                            className="inline-flex rounded-md p-1.5 text-slate-600 transition hover:bg-cyan-50 hover:text-cyan-800"
+                          >
+                            <QrCode className="h-4 w-4" aria-hidden />
+                            <span className="sr-only">Ver bono QR</span>
+                          </button>
+                          <button
+                            type="button"
                             title="Eliminar ticket"
                             disabled={savingTicket || deletingTicket}
                             onClick={(e) => {
@@ -893,6 +936,46 @@ export function IngresosPageClient({
         ticket={modalTicket}
         breakdown={modalBreakdown}
       />
+
+      {bonoModalTicket ? (
+        <div
+          className="fixed inset-0 z-[105] flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setBonoModalTicket(null)}
+        >
+          <div
+            className="w-full max-w-4xl min-w-0 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-700">Bonos del ticket</p>
+                <h3 className="text-lg font-semibold text-slate-900">{bonoModalTicket.ticket_number}</h3>
+                <p className="text-xs text-slate-600">
+                  {bonoModalTicket.client_name?.trim() || "Cliente sin asignar"} · {paymentLabel(bonoModalTicket.payment_method)}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setBonoModalTicket(null)}>
+                Cerrar
+              </Button>
+            </div>
+            {bonosLoading ? <p className="text-sm text-slate-600">Cargando bonos…</p> : null}
+            {bonosError ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{bonosError}</p> : null}
+            {!bonosLoading && !bonosError ? (
+              bonosByTicket.length === 0 ? (
+                <p className="text-sm text-slate-600">Este ticket no generó bonos.</p>
+              ) : (
+                <div className="space-y-5">
+                  {bonosByTicket.map((bono) => (
+                    <BonoCardWithToolbar key={bono.id} bono={bono} />
+                  ))}
+                </div>
+              )
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

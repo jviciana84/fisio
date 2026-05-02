@@ -12,6 +12,8 @@ type Body = {
   priceEuros: number;
   /** 4 cifras mostradas al abrir el formulario. */
   productCode?: string;
+  productKind?: "service" | "bono";
+  bonoSessions?: number | null;
 };
 
 function isProductCodeFormat(code: string): boolean {
@@ -67,6 +69,8 @@ export async function POST(request: Request) {
     const description = body.description?.trim() || null;
     const priceEuros = Number(body.priceEuros);
     const requestedCode = body.productCode?.trim();
+    const productKind = body.productKind === "bono" ? "bono" : "service";
+    const bonoSessionsRaw = body.bonoSessions;
 
     if (!name || name.length < 2) {
       return NextResponse.json(
@@ -85,6 +89,18 @@ export async function POST(request: Request) {
     const priceCents = Math.round(priceEuros * 100);
     if (priceCents > 999999999) {
       return NextResponse.json({ ok: false, message: "Precio demasiado alto" }, { status: 400 });
+    }
+
+    let bonoSessions: number | null = null;
+    if (productKind === "bono") {
+      const parsed = Math.round(Number(bonoSessionsRaw));
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return NextResponse.json(
+          { ok: false, message: "Para productos bono, indica sesiones > 0." },
+          { status: 400 },
+        );
+      }
+      bonoSessions = parsed;
     }
 
     const supabase = createSupabaseAdminClient();
@@ -124,6 +140,8 @@ export async function POST(request: Request) {
         description,
         product_code: productCode,
         price_cents: priceCents,
+        product_kind: productKind,
+        bono_sessions: bonoSessions,
         is_active: true,
       })
       .select("id")

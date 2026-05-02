@@ -217,7 +217,28 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     })),
   }));
 
-  return NextResponse.json({ ok: true, client: mapClient(client), tickets });
+  const { data: bonosRows } = await supabase
+    .from("client_bonos")
+    .select(
+      "id, ticket_id, unique_code, product_name, sessions_total, sessions_remaining, expires_at, qr_data_url, created_at",
+    )
+    .eq("client_id", id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const bonos = (bonosRows ?? []).map((b) => ({
+    id: b.id,
+    ticketId: b.ticket_id,
+    uniqueCode: b.unique_code,
+    productName: b.product_name,
+    sessionsTotal: b.sessions_total,
+    sessionsRemaining: b.sessions_remaining,
+    expiresAt: b.expires_at,
+    qrDataUrl: b.qr_data_url ?? null,
+    createdAt: b.created_at,
+  }));
+
+  return NextResponse.json({ ok: true, client: mapClient(client), tickets, bonos });
 }
 
 type PatchBody = {

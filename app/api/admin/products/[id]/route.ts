@@ -9,6 +9,8 @@ type PatchBody = {
   description?: string | null;
   priceEuros?: number;
   productCode?: string;
+  productKind?: "service" | "bono";
+  bonoSessions?: number | null;
 };
 
 function isProductCodeFormat(code: string): boolean {
@@ -90,6 +92,36 @@ export async function PATCH(
         );
       }
       updates.product_code = code;
+    }
+
+    if (body.productKind !== undefined) {
+      if (body.productKind !== "service" && body.productKind !== "bono") {
+        return NextResponse.json(
+          { ok: false, message: "Tipo de producto no válido" },
+          { status: 400 },
+        );
+      }
+      updates.product_kind = body.productKind;
+      if (body.productKind === "service") {
+        updates.bono_sessions = null;
+      }
+    }
+
+    if (body.bonoSessions !== undefined) {
+      if ((updates.product_kind ?? body.productKind) !== "bono") {
+        return NextResponse.json(
+          { ok: false, message: "Las sesiones solo aplican a productos tipo bono." },
+          { status: 400 },
+        );
+      }
+      const parsed = Math.round(Number(body.bonoSessions));
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return NextResponse.json(
+          { ok: false, message: "Sesiones del bono no válidas (debe ser > 0)." },
+          { status: 400 },
+        );
+      }
+      updates.bono_sessions = parsed;
     }
 
     if (Object.keys(updates).length === 0) {

@@ -6,6 +6,7 @@ import { DASHBOARD_INPUT_CLASS, DASHBOARD_INPUT_CLASS_FORM } from "@/components/
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { formatEuroFromCents } from "@/lib/format-es";
+import { BonoCardWithToolbar, type BonoPrettyCardData } from "@/components/bonos/BonoPrettyCard";
 
 export type ClientDetailModalProps = {
   clientId: string;
@@ -59,6 +60,11 @@ type ClientDetail = {
   bonoExpiresAt: string | null;
 };
 
+type ClientBono = BonoPrettyCardData & {
+  ticketId: string | null;
+  createdAt: string;
+};
+
 function paymentLabel(m: string) {
   switch (m) {
     case "cash":
@@ -96,6 +102,7 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [bonos, setBonos] = useState<ClientBono[]>([]);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -145,6 +152,7 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
         ok?: boolean;
         client?: ClientDetail;
         tickets?: TicketRow[];
+        bonos?: ClientBono[];
         message?: string;
       };
       if (!res.ok || !data.ok || !data.client) {
@@ -177,6 +185,7 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
       );
       setBonoExpires(c.bonoExpiresAt ?? "");
       setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+      setBonos(Array.isArray(data.bonos) ? data.bonos : []);
     } catch {
       setErr("Error de red");
     } finally {
@@ -497,6 +506,30 @@ export function ClientDetailModal({ clientId, onClose, onSaved }: ClientDetailMo
                             onChange={(e) => setBonoExpires(e.target.value)}
                           />
                         </div>
+                      </div>
+                    </section>
+
+                    <section className={MODAL_CARD_CLASS}>
+                      <h3 className={MODAL_CARD_HEADING}>
+                        Bonos emitidos <span className="tabular-nums font-semibold text-slate-600">({bonos.length})</span>
+                      </h3>
+                      <div className="mt-2 max-h-[15rem] min-w-0 space-y-2 overflow-y-auto overflow-x-hidden pr-0.5">
+                        {bonos.length === 0 ? (
+                          <p className="text-xs text-slate-600">No hay bonos emitidos para este cliente.</p>
+                        ) : (
+                          bonos.map((bono) => (
+                            <div key={bono.id}>
+                              <BonoCardWithToolbar
+                                bono={{
+                                  ...bono,
+                                  clientName: `${firstName} ${lastName}`.trim() || null,
+                                  clientEmail: email || null,
+                                  clientPhone: phone || null,
+                                }}
+                              />
+                            </div>
+                          ))
+                        )}
                       </div>
                     </section>
 

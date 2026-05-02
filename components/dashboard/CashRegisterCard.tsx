@@ -7,6 +7,8 @@ import { formatEuroEsTwoDecimals } from "@/lib/format-es";
 import { DASHBOARD_INPUT_CLASS_FORM } from "@/components/dashboard/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { ClientDetailModal } from "@/components/dashboard/ClientDetailModal";
+import { BonoConsumePanel } from "@/components/dashboard/BonoConsumePanel";
+import { BonoCardWithToolbar } from "@/components/bonos/BonoPrettyCard";
 
 type Client = {
   id: string;
@@ -46,6 +48,16 @@ type Receipt = {
   totalEuros: number;
   invoiceId?: string;
   invoiceNumber?: string;
+  bonosIssued?: Array<{
+    id: string;
+    uniqueCode: string;
+    productName: string;
+    sessionsTotal: number;
+    sessionsRemaining: number;
+    expiresAt: string;
+    qrDataUrl: string | null;
+  }>;
+  bonoEmailStatus?: "not_sent" | "sent" | "smtp_not_configured" | "failed";
 };
 
 export function CashRegisterCard() {
@@ -714,6 +726,8 @@ export function CashRegisterCard() {
         </div>
       ) : null}
 
+      <BonoConsumePanel />
+
       {message ? (
         <p
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
@@ -763,6 +777,40 @@ export function CashRegisterCard() {
                 Ver factura
               </Link>
             </p>
+          ) : null}
+          {receipt.bonosIssued?.length ? (
+            <div className="mt-4 min-w-0 rounded-xl border border-cyan-200 bg-cyan-50/70 p-3">
+              <p className="text-sm font-semibold text-cyan-900">Bonos emitidos ({receipt.bonosIssued.length})</p>
+              <p className="mt-1 text-xs text-cyan-800">
+                Email:{" "}
+                {receipt.bonoEmailStatus === "sent"
+                  ? "enviado a cliente y copia a clínica"
+                  : receipt.bonoEmailStatus === "smtp_not_configured"
+                    ? "no enviado (SMTP no configurado)"
+                    : receipt.bonoEmailStatus === "failed"
+                      ? "falló el envío (revisar SMTP)"
+                      : "no enviado"}
+              </p>
+              <div className="mt-3 space-y-4">
+                {receipt.bonosIssued.map((bono) => (
+                  <BonoCardWithToolbar
+                    key={bono.id}
+                    bono={{
+                      id: bono.id,
+                      uniqueCode: bono.uniqueCode,
+                      productName: bono.productName,
+                      sessionsTotal: bono.sessionsTotal,
+                      sessionsRemaining: bono.sessionsRemaining,
+                      expiresAt: bono.expiresAt,
+                      qrDataUrl: bono.qrDataUrl,
+                      clientName: selectedClient?.fullName ?? null,
+                      clientEmail: selectedClient?.email ?? null,
+                      clientPhone: selectedClient?.phone ?? null,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
       ) : null}

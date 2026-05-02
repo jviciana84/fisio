@@ -393,7 +393,7 @@ export function ClientsOverviewPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          fullName: name,
+          fullName: [firstName, lastName].filter(Boolean).join(" ").trim(),
           firstName,
           lastName,
           email: ccEmail.trim() || undefined,

@@ -10,6 +10,8 @@ type ProductRow = {
   description: string | null;
   product_code: string;
   price_cents: number;
+  product_kind: "service" | "bono" | null;
+  bono_sessions: number | null;
   is_active: boolean;
   created_at: string;
 };
@@ -33,7 +35,7 @@ export async function GET() {
   const [productsRes, itemsRes, favoritesRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, description, product_code, price_cents, is_active, created_at")
+      .select("id, name, description, product_code, price_cents, product_kind, bono_sessions, is_active, created_at")
       .order("name", { ascending: true }),
     supabase.from("cash_ticket_items").select(
       "product_id, line_total_cents, cash_tickets(created_at, staff_access(full_name))",
@@ -96,6 +98,8 @@ export async function GET() {
       description: p.description,
       productCode: p.product_code,
       priceEuros: p.price_cents / 100,
+      productKind: p.product_kind ?? "service",
+      bonoSessions: p.bono_sessions ?? null,
       isFavorite: favoriteIds.has(p.id),
       isActive: p.is_active,
       createdAt: p.created_at,

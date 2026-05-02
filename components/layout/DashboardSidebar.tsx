@@ -15,6 +15,7 @@ import {
   Package,
   ScrollText,
   ReceiptEuro,
+  QrCode,
   Settings,
   UserCircle,
   UserPlus,
@@ -255,6 +256,25 @@ export function DashboardSidebar({ isAdmin }: { isAdmin: boolean }) {
               <Package className={navIconClass} strokeWidth={2.25} aria-hidden />
             </span>
             <NavLabel expanded={expanded}>Productos</NavLabel>
+          </Link>
+        ) : null}
+
+        {isAdmin ? (
+          <Link
+            href="/dashboard/bonos"
+            className={cn(
+              itemBase,
+              pathname.startsWith("/dashboard/bonos")
+                ? "bg-white/70 text-slate-950 shadow-sm"
+                : "hover:bg-white/60",
+            )}
+            title={expanded ? undefined : "Bonos activos"}
+            aria-label={expanded ? undefined : "Bonos activos"}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/80 bg-cyan-100/80 text-cyan-900">
+              <QrCode className={navIconClass} strokeWidth={2.25} aria-hidden />
+            </span>
+            <NavLabel expanded={expanded}>Bonos activos</NavLabel>
           </Link>
         ) : null}
 

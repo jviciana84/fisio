@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
+import QRCode from "qrcode";
 import { requireStaffOrAdminApi } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -16,6 +18,8 @@ type ProductDb = {
   id: string;
   name: string;
   price_cents: number;
+  product_kind: string | null;
+  bono_sessions: number | null;
 };
 
 type TicketLineInsert = {
@@ -27,8 +31,24 @@ type TicketLineInsert = {
   line_total_cents: number;
 };
 
+type IssuedBono = {
+  id: string;
+  uniqueCode: string;
+  productName: string;
+  sessionsTotal: number;
+  sessionsRemaining: number;
+  expiresAt: string;
+  qrDataUrl: string | null;
+};
+
 function isPaymentMethod(v: string): v is PaymentMethod {
   return v === "cash" || v === "bizum" || v === "card";
+}
+
+function addOneYearIsoDate(fromDate: Date): string {
+  const d = new Date(fromDate);
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 async function generateTicketNumber() {
@@ -40,6 +60,98 @@ async function generateTicketNumber() {
     .toString()
     .padStart(4, "0");
   return `TK-${y}${m}${day}-${rnd}`;
+}
+
+function buildBonoUniqueCode() {
+  const now = new Date();
+  const y = String(now.getFullYear()).slice(-2);
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rnd = Math.floor(Math.random() * 1_000_000)
+    .toString()
+    .padStart(6, "0");
+  return `BONO-${y}${m}${d}-${rnd}`;
+}
+
+async function sendBonoIssuedEmail(params: {
+  clientName: string;
+  clientEmail: string;
+  bonos: IssuedBono[];
+}) {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT ?? "465");
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpSecure = (process.env.SMTP_SECURE ?? "true") === "true";
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    return { ok: false as const, reason: "smtp_not_configured" };
+  }
+
+  const clinicCopyEmail =
+    process.env.BONO_CLINIC_COPY_EMAIL ??
+    process.env.CONTACT_TO_EMAIL ??
+    "fisioterapia.rocblanc@gmail.com";
+  const extraCopy = process.env.BONO_EXTRA_COPY_EMAIL ?? process.env.CONTACT_CC_EMAIL ?? "";
+  const ccList = [clinicCopyEmail, extraCopy].filter(Boolean);
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+  });
+
+  const bonosHtml = params.bonos
+    .map(
+      (b) => `
+      <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin:0 0 12px 0">
+        <p style="margin:0 0 6px 0"><strong>${b.productName}</strong></p>
+        <p style="margin:0 0 6px 0">Código: <strong>${b.uniqueCode}</strong></p>
+        <p style="margin:0 0 6px 0">Sesiones: ${b.sessionsRemaining}/${b.sessionsTotal}</p>
+        <p style="margin:0 0 10px 0">Caduca: ${new Date(`${b.expiresAt}T12:00:00`).toLocaleDateString("es-ES")}</p>
+        ${
+          b.qrDataUrl
+            ? `<img src="${b.qrDataUrl}" alt="QR bono ${b.uniqueCode}" width="180" height="180" style="display:block;border:1px solid #cbd5e1;border-radius:10px" />`
+            : ""
+        }
+      </div>
+    `,
+    )
+    .join("");
+
+  await transporter.sendMail({
+    from: `"Clínica - Bonos" <${smtpUser}>`,
+    to: params.clientEmail,
+    cc: ccList.length > 0 ? ccList : undefined,
+    subject: "Tu bono de Fisioterapia Roc Blanc",
+    text: [
+      `Hola ${params.clientName},`,
+      "",
+      "Adjuntamos los datos de tu bono:",
+      ...params.bonos.flatMap((b) => [
+        `- ${b.productName}`,
+        `  Código: ${b.uniqueCode}`,
+        `  Sesiones: ${b.sessionsRemaining}/${b.sessionsTotal}`,
+        `  Caduca: ${b.expiresAt}`,
+      ]),
+      "",
+      "Puedes mostrar este email en recepción para validar tu bono.",
+    ].join("\n"),
+    html: `
+      <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5">
+        <p>Hola <strong>${params.clientName}</strong>,</p>
+        <p>Te enviamos la información de tu bono activo.</p>
+        ${bonosHtml}
+        <p>Puedes mostrar este email en recepción para validar tu bono.</p>
+      </div>
+    `,
+  });
+
+  return { ok: true as const };
 }
 
 export async function POST(request: Request) {
@@ -68,7 +180,7 @@ export async function POST(request: Request) {
 
     const { data: products, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents")
+      .select("id, name, price_cents, product_kind, bono_sessions")
       .in("id", productIds)
       .eq("is_active", true);
 
@@ -80,6 +192,16 @@ export async function POST(request: Request) {
     }
 
     const rows = (products ?? []) as ProductDb[];
+    const bonoProducts = rows.filter((p) => p.product_kind === "bono" && (p.bono_sessions ?? 0) > 0);
+    const bonoSessionsToAdd = bonoProducts.reduce((sum, p) => sum + (p.bono_sessions ?? 0), 0);
+
+    if (bonoSessionsToAdd > 0 && !body.clientId) {
+      return NextResponse.json(
+        { ok: false, message: "Para vender un bono debes seleccionar un cliente." },
+        { status: 400 },
+      );
+    }
+
     if (rows.length !== productIds.length) {
       const foundIds = new Set(rows.map((p) => p.id));
       const missingIds = productIds.filter((id) => !foundIds.has(id));
@@ -159,6 +281,117 @@ export async function POST(request: Request) {
       );
     }
 
+    const issuedBonos: IssuedBono[] = [];
+    let bonoEmailStatus: "not_sent" | "sent" | "smtp_not_configured" | "failed" = "not_sent";
+
+    if (bonoSessionsToAdd > 0 && body.clientId) {
+      const { data: clientBefore, error: clientBeforeError } = await supabase
+        .from("clients")
+        .select("full_name, email, bono_remaining_sessions")
+        .eq("id", body.clientId)
+        .maybeSingle();
+
+      if (clientBeforeError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Ticket grabado, pero no se pudo actualizar el bono del cliente.",
+          },
+          { status: 500 },
+        );
+      }
+
+      const nextRemaining =
+        Math.max(0, Number(clientBefore?.bono_remaining_sessions ?? 0)) + bonoSessionsToAdd;
+      const expiresAt = addOneYearIsoDate(new Date());
+
+      const { error: bonoUpdateError } = await supabase
+        .from("clients")
+        .update({
+          bono_remaining_sessions: nextRemaining,
+          bono_expires_at: expiresAt,
+        })
+        .eq("id", body.clientId);
+
+      if (bonoUpdateError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Ticket grabado, pero no se pudo asignar la caducidad del bono.",
+          },
+          { status: 500 },
+        );
+      }
+
+      for (const bonoProduct of bonoProducts) {
+        const uniqueCode = buildBonoUniqueCode();
+        const sessionsTotal = bonoProduct.bono_sessions ?? 0;
+        const qrPayload = JSON.stringify({
+          code: uniqueCode,
+          clientId: body.clientId,
+          productId: bonoProduct.id,
+        });
+        const qrDataUrl = await QRCode.toDataURL(qrPayload, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 300,
+        });
+
+        const { data: bonoRow, error: bonoInsertError } = await supabase
+          .from("client_bonos")
+          .insert({
+            client_id: body.clientId,
+            ticket_id: ticket.id,
+            product_id: bonoProduct.id,
+            product_name: bonoProduct.name,
+            unique_code: uniqueCode,
+            qr_payload: qrPayload,
+            qr_data_url: qrDataUrl,
+            sessions_total: sessionsTotal,
+            sessions_remaining: sessionsTotal,
+            expires_at: expiresAt,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+
+        if (bonoInsertError || !bonoRow) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "Ticket grabado, pero no se pudo emitir el registro del bono.",
+            },
+            { status: 500 },
+          );
+        }
+
+        issuedBonos.push({
+          id: bonoRow.id,
+          uniqueCode,
+          productName: bonoProduct.name,
+          sessionsTotal,
+          sessionsRemaining: sessionsTotal,
+          expiresAt,
+          qrDataUrl,
+        });
+      }
+
+      const clientEmail = String(clientBefore?.email ?? "").trim();
+      const clientName = String(clientBefore?.full_name ?? "Cliente").trim() || "Cliente";
+      if (clientEmail && issuedBonos.length > 0) {
+        try {
+          const sendResult = await sendBonoIssuedEmail({
+            clientName,
+            clientEmail,
+            bonos: issuedBonos,
+          });
+          bonoEmailStatus = sendResult.ok ? "sent" : "smtp_not_configured";
+        } catch {
+          bonoEmailStatus = "failed";
+        }
+      }
+    }
+
     let clientName: string | null = null;
     if (body.clientId) {
       const { data: client } = await supabase
@@ -182,6 +415,8 @@ export async function POST(request: Request) {
           amountEuros: l.line_total_cents / 100,
         })),
         totalEuros: totalCents / 100,
+        bonosIssued: issuedBonos,
+        bonoEmailStatus,
       },
     });
   } catch {

@@ -158,20 +158,24 @@ export function Hero({ googleRating, publicStaff }: HeroProps) {
               </motion.div>
             </motion.div>
 
-            {/* Quick Info */}
+            {/* Quick Info — en móvil en columna para que dirección y horario no se trunquen */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="mt-10 flex flex-nowrap gap-2 justify-center lg:justify-start sm:gap-3"
+              className="mt-10 flex flex-col gap-2 justify-center sm:flex-row sm:flex-nowrap lg:justify-start sm:gap-3"
             >
-              <div className="glass-extreme min-w-0 px-3 py-2 rounded-full flex items-center gap-1.5 sm:px-4 sm:gap-2">
-                <MapPin className="w-4 h-4 text-blue-600" />
-                <span className="truncate text-xs text-slate-600 sm:text-sm">Terrassa, Barcelona</span>
+              <div className="glass-extreme mx-auto flex w-full max-w-md items-start justify-center gap-1.5 rounded-2xl px-3 py-2 sm:mx-0 sm:min-w-0 sm:w-auto sm:items-center sm:justify-start sm:rounded-full sm:px-4 sm:gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 sm:mt-0" />
+                <span className="text-pretty text-left text-xs text-slate-600 sm:truncate sm:text-sm">
+                  Terrassa, Barcelona
+                </span>
               </div>
-              <div className="glass-extreme min-w-0 px-3 py-2 rounded-full flex items-center gap-1.5 sm:px-4 sm:gap-2">
-                <Clock className="w-4 h-4 text-cyan-500" />
-                <span className="truncate text-xs text-slate-600 sm:text-sm">Horario: Lun-Vie 9:00-21:00</span>
+              <div className="glass-extreme mx-auto flex w-full max-w-md items-start justify-center gap-1.5 rounded-2xl px-3 py-2 sm:mx-0 sm:min-w-0 sm:w-auto sm:items-center sm:justify-start sm:rounded-full sm:px-4 sm:gap-2">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-cyan-500 sm:mt-0" />
+                <span className="text-pretty text-left text-xs text-slate-600 sm:truncate sm:text-sm">
+                  Horario: Lun-Vie 9:00-21:00
+                </span>
               </div>
             </motion.div>
               </motion.div>

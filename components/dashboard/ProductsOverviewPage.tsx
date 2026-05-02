@@ -18,6 +18,8 @@ type ProductMetric = {
   description: string | null;
   productCode: string;
   priceEuros: number;
+  productKind: "service" | "bono";
+  bonoSessions: number | null;
   isFavorite: boolean;
   isActive: boolean;
   createdAt: string;
@@ -46,6 +48,8 @@ export function ProductsOverviewPage() {
   const [createCode, setCreateCode] = useState<string | null>(null);
   const [createCodeLoading, setCreateCodeLoading] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
+  const [createProductKind, setCreateProductKind] = useState<"service" | "bono">("service");
+  const [createBonoSessions, setCreateBonoSessions] = useState("");
 
   const [editTarget, setEditTarget] = useState<ProductMetric | null>(null);
   const [editName, setEditName] = useState("");
@@ -53,6 +57,8 @@ export function ProductsOverviewPage() {
   const [editPrice, setEditPrice] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [editProductKind, setEditProductKind] = useState<"service" | "bono">("service");
+  const [editBonoSessions, setEditBonoSessions] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
 
@@ -109,6 +115,8 @@ export function ProductsOverviewPage() {
     setCreateName("");
     setCreateDescription("");
     setCreatePrice("");
+    setCreateProductKind("service");
+    setCreateBonoSessions("");
     setCreateCode(null);
     void loadProductCode();
   };
@@ -120,6 +128,8 @@ export function ProductsOverviewPage() {
     setEditDescription(p.description?.trim() ?? "");
     setEditPrice(formatEurosFieldFromNumber(p.priceEuros));
     setEditCode(p.productCode);
+    setEditProductKind(p.productKind);
+    setEditBonoSessions(p.bonoSessions ? String(p.bonoSessions) : "");
   };
 
   const filtered = useMemo(() => {
@@ -162,8 +172,12 @@ export function ProductsOverviewPage() {
     if (!createName.trim() || createName.trim().length < 2) return false;
     if (!Number.isFinite(createPriceNum) || createPriceNum < 0) return false;
     if (!createCode || createCodeLoading) return false;
+    if (createProductKind === "bono") {
+      const sessions = Number.parseInt(createBonoSessions, 10);
+      if (!Number.isFinite(sessions) || sessions <= 0) return false;
+    }
     return true;
-  }, [createName, createPriceNum, createCode, createCodeLoading]);
+  }, [createName, createPriceNum, createCode, createCodeLoading, createProductKind, createBonoSessions]);
 
   const editPriceNum = useMemo(() => parseSpanishDecimalInput(editPrice), [editPrice]);
 
@@ -172,8 +186,12 @@ export function ProductsOverviewPage() {
     if (!editName.trim() || editName.trim().length < 2) return false;
     if (!Number.isFinite(editPriceNum) || editPriceNum < 0) return false;
     if (!/^\d{4}$/.test(editCode.trim())) return false;
+    if (editProductKind === "bono") {
+      const sessions = Number.parseInt(editBonoSessions, 10);
+      if (!Number.isFinite(sessions) || sessions <= 0) return false;
+    }
     return true;
-  }, [editTarget, editName, editPriceNum, editCode]);
+  }, [editTarget, editName, editPriceNum, editCode, editProductKind, editBonoSessions]);
 
   async function onSubmitCreate(e: FormEvent) {
     e.preventDefault();
@@ -189,6 +207,8 @@ export function ProductsOverviewPage() {
           description: createDescription.trim() || undefined,
           priceEuros: createPriceNum,
           productCode: createCode,
+          productKind: createProductKind,
+          bonoSessions: createProductKind === "bono" ? Number.parseInt(createBonoSessions, 10) : null,
         }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string };
@@ -221,6 +241,8 @@ export function ProductsOverviewPage() {
           description: editDescription.trim() ? editDescription.trim() : null,
           priceEuros: editPriceNum,
           productCode: editCode.trim(),
+          productKind: editProductKind,
+          bonoSessions: editProductKind === "bono" ? Number.parseInt(editBonoSessions, 10) : null,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string };
@@ -239,6 +261,8 @@ export function ProductsOverviewPage() {
                 description: editDescription.trim() ? editDescription.trim() : null,
                 priceEuros: editPriceNum,
                 productCode: editCode.trim(),
+                productKind: editProductKind,
+                bonoSessions: editProductKind === "bono" ? Number.parseInt(editBonoSessions, 10) : null,
               }
             : p,
         ),
@@ -391,6 +415,11 @@ export function ProductsOverviewPage() {
                         <td className="px-4 py-4">
                           <p className="font-semibold text-slate-900">{p.name}</p>
                           <p className="text-xs text-slate-500">Código {p.productCode}</p>
+                          <p className="text-xs text-slate-500">
+                            {p.productKind === "bono"
+                              ? `Bono · ${p.bonoSessions ?? "—"} sesiones`
+                              : "Servicio"}
+                          </p>
                           {p.description ? (
                             <p className="mt-1 line-clamp-2 text-xs text-slate-600">{p.description}</p>
                           ) : null}
@@ -654,7 +683,39 @@ export function ProductsOverviewPage() {
                     </button>
                   ) : null}
                 </div>
+                <div>
+                  <label htmlFor="modal-create-kind" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Tipo
+                  </label>
+                  <select
+                    id="modal-create-kind"
+                    value={createProductKind}
+                    onChange={(e) => setCreateProductKind(e.target.value === "bono" ? "bono" : "service")}
+                    className={modalInputClass}
+                  >
+                    <option value="service">Servicio normal</option>
+                    <option value="bono">Bono</option>
+                  </select>
+                </div>
               </div>
+              {createProductKind === "bono" ? (
+                <div>
+                  <label htmlFor="modal-create-bono-sessions" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Sesiones del bono
+                  </label>
+                  <input
+                    id="modal-create-bono-sessions"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={createBonoSessions}
+                    onChange={(e) => setCreateBonoSessions(e.target.value)}
+                    className={modalInputClass}
+                    placeholder="Ej: 10"
+                    required
+                  />
+                </div>
+              ) : null}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   type="button"
@@ -744,7 +805,39 @@ export function ProductsOverviewPage() {
                     aria-invalid={editCode.length > 0 && editCode.length < 4}
                   />
                 </div>
+                <div>
+                  <label htmlFor="modal-edit-kind" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Tipo
+                  </label>
+                  <select
+                    id="modal-edit-kind"
+                    value={editProductKind}
+                    onChange={(e) => setEditProductKind(e.target.value === "bono" ? "bono" : "service")}
+                    className={modalInputClass}
+                  >
+                    <option value="service">Servicio normal</option>
+                    <option value="bono">Bono</option>
+                  </select>
+                </div>
               </div>
+              {editProductKind === "bono" ? (
+                <div>
+                  <label htmlFor="modal-edit-bono-sessions" className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Sesiones del bono
+                  </label>
+                  <input
+                    id="modal-edit-bono-sessions"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={editBonoSessions}
+                    onChange={(e) => setEditBonoSessions(e.target.value)}
+                    className={modalInputClass}
+                    placeholder="Ej: 10"
+                    required
+                  />
+                </div>
+              ) : null}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   type="button"

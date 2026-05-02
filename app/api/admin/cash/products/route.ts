@@ -9,6 +9,8 @@ type ProductRow = {
   name: string;
   product_code: string;
   price_cents: number;
+  product_kind: "service" | "bono" | null;
+  bono_sessions: number | null;
 };
 
 type FavoriteRow = {
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
     if (favoriteIds.size > 0) {
       let favoritesQuery = supabase
         .from("products")
-        .select("id, name, product_code, price_cents")
+        .select("id, name, product_code, price_cents, product_kind, bono_sessions")
         .eq("is_active", true)
         .in("id", [...favoriteIds])
         .order("name", { ascending: true })
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
   } else {
     let listQuery = supabase
       .from("products")
-      .select("id, name, product_code, price_cents")
+      .select("id, name, product_code, price_cents, product_kind, bono_sessions")
       .eq("is_active", true)
       .order("name", { ascending: true })
       .limit(12);
@@ -89,6 +91,8 @@ export async function GET(request: Request) {
     name: p.name,
     productCode: p.product_code,
     priceEuros: p.price_cents / 100,
+    productKind: p.product_kind ?? "service",
+    bonoSessions: p.bono_sessions ?? null,
     isFavorite: favoriteIds.has(p.id),
   }));
 
