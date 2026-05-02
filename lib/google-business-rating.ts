@@ -4,12 +4,21 @@ import { cache } from "react"
  * Valoración mostrada en el hero y JSON-LD.
  *
  * Orden de prioridad:
- * 1. Google Places API (Place Details) — se cachea ~24 h en servidor si configuras clave + Place ID.
- * 2. Valores manuales — sin API ni proyecto Google: `SITE_GOOGLE_RATING` y opcionalmente `SITE_GOOGLE_REVIEW_COUNT`.
- * 3. Valores por defecto del sitio (4.19, sin número de reseñas).
+ * 1. **Manual** — si defines `SITE_GOOGLE_RATING` (y opcional `SITE_GOOGLE_REVIEW_COUNT`): **prevalece** sobre la API (útil para fijar 4.3 ya y quitar después).
+ * 2. Google Places API — se cachea en servidor (`GOOGLE_BUSINESS_RATING_CACHE_SEC`; por defecto ~3 h) con `GOOGLE_MAPS_API_KEY` + `GOOGLE_BUSINESS_PLACE_ID`.
+ * 3. Fallback del código (4.3, sin recuento) si no hay manual ni API o la petición falla.
  *
- * La API usa una clave de **desarrollador** (Google Cloud), no el inicio de sesión del negocio en Google Business Profile.
+ * Los datos públicos de Google pueden tardar en la API más que en Maps; revisa también clave, quotas y billing.
  */
+
+/** Segundos de caché de la llamada Places (homepage + layout la comparten); configurable con env por si necesitas menos carga API. */
+const PLACES_DETAIL_REVALIDATE_SEC = Math.max(
+  300,
+  Math.min(
+    86_400,
+    Number.parseInt(process.env.GOOGLE_BUSINESS_RATING_CACHE_SEC?.trim() ?? "", 10) || 10_800,
+  ),
+)
 export type GoogleBusinessRating = {
   rating: number
   /** `null` si no se muestra recuento (p. ej. solo texto «reseñas»). */
@@ -31,7 +40,7 @@ async function fetchFromPlacesApi(): Promise<Pick<GoogleBusinessRating, "rating"
     }).toString()
 
   try {
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await fetch(url, { next: { revalidate: PLACES_DETAIL_REVALIDATE_SEC } })
     if (!res.ok) return null
     const data = (await res.json()) as {
       status: string
@@ -63,9 +72,12 @@ function parseManualFromEnv(): GoogleBusinessRating | null {
   return { rating, userRatingsTotal, source: "manual" }
 }
 
-const DEFAULT_RATING = 4.19
+const DEFAULT_RATING = 4.3
 
 async function resolveBusinessRating(): Promise<GoogleBusinessRating> {
+  const manual = parseManualFromEnv()
+  if (manual) return manual
+
   const fromApi = await fetchFromPlacesApi()
   if (fromApi) {
     return {
@@ -74,9 +86,6 @@ async function resolveBusinessRating(): Promise<GoogleBusinessRating> {
       source: "google_api",
     }
   }
-
-  const manual = parseManualFromEnv()
-  if (manual) return manual
 
   return {
     rating: DEFAULT_RATING,
