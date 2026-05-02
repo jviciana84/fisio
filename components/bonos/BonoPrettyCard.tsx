@@ -13,6 +13,19 @@ const CORPORATE_WATERMARK_SRC = "/images/watermark-logo-frb3-texto-oscuro.svg";
 /** Texto neutro si compartimos sin adjunto (mailto / wa.no link no permite PDF). */
 const BRAND = "Fisioterapia Roc Blanc";
 
+/**
+ * Multiplicador de píxeles en capturas (JPEG/PNG/PDF raster).
+ * Antes acotábamos a ~2; subir a ~3–4.5 duplica o más el lienzo respecto a eso y aguanta ampliar el archivo.
+ */
+const BONO_EXPORT_PIXEL_RATIO_MIN = 3;
+const BONO_EXPORT_PIXEL_RATIO_MAX = 4.5;
+
+function resolveBonoExportPixelRatio(): number {
+  if (typeof window === "undefined") return BONO_EXPORT_PIXEL_RATIO_MIN;
+  const dpr = window.devicePixelRatio || 1.5;
+  return Math.min(BONO_EXPORT_PIXEL_RATIO_MAX, Math.max(BONO_EXPORT_PIXEL_RATIO_MIN, dpr * 2));
+}
+
 export type BonoPrettyCardData = {
   id: string;
   uniqueCode: string;
@@ -142,14 +155,60 @@ function isAbortError(e: unknown) {
   return e && typeof e === "object" && "name" in e && (e as { name?: string }).name === "AbortError";
 }
 
-/** Quita zona de botones/blur del clon; marca de agua como PNG (sin `filter` CSS) para que `toDataURL` no falle. */
+/**
+ * Solo se aplica al clon para html2canvas / html-to-image (no cambia cómo ves el modal).
+ * Panel opaco + texto blanco para que PDF/JPEG/PNG salgan legibles donde el raster fallaba antes.
+ */
 function prepareScreenshotClone(clonedRoot: HTMLElement, wmDataUrl: string | null) {
+  clonedRoot.style.color = "#ffffff";
+
   clonedRoot.querySelectorAll("[data-bono-export-ignore]").forEach((el) => {
     el.parentElement?.removeChild(el);
   });
   clonedRoot.querySelectorAll<HTMLElement>("[data-bono-capture-hide]").forEach((el) => {
     el.style.display = "none";
   });
+
+  clonedRoot.querySelectorAll<HTMLElement>("[data-bono-status-pill]").forEach((el) => {
+    const cn = `${el.className}`;
+    let bg = "#e2e8f0";
+    let fg = "#334155";
+    if (cn.includes("emerald")) {
+      bg = "#d1fae5";
+      fg = "#047857";
+    } else if (cn.includes("amber")) {
+      bg = "#fef3c7";
+      fg = "#92400e";
+    } else if (cn.includes("rose")) {
+      bg = "#ffe4e6";
+      fg = "#9f1239";
+    }
+    el.style.backgroundColor = bg;
+    el.style.color = fg;
+    el.style.setProperty("-webkit-print-color-adjust", "exact");
+    el.style.printColorAdjust = "exact";
+  });
+
+  clonedRoot.querySelectorAll<HTMLElement>("[data-bono-capture-readable]").forEach((el) => {
+    el.style.backgroundColor = "#0c1525";
+    el.style.borderRadius = "11px";
+    el.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,0.07)";
+    el.style.outline = "1px solid rgba(255,255,255,0.22)";
+    el.style.outlineOffset = "0px";
+    el.querySelectorAll("p, h3").forEach((n) => {
+      if (!(n instanceof HTMLElement)) return;
+      if (n.closest("[data-bono-status-pill]")) return;
+      n.style.color = "#ffffff";
+      n.style.setProperty("-webkit-text-fill-color", "#ffffff");
+      n.querySelectorAll("span").forEach((s) => {
+        if (s instanceof HTMLElement && !s.closest("[data-bono-status-pill]")) {
+          s.style.color = "#ffffff";
+          s.style.setProperty("-webkit-text-fill-color", "#ffffff");
+        }
+      });
+    });
+  });
+
   clonedRoot.querySelectorAll<HTMLElement>("[data-bono-watermark]").forEach((el) => {
     el.style.filter = "none";
     el.style.setProperty("-webkit-filter", "none");
@@ -157,7 +216,7 @@ function prepareScreenshotClone(clonedRoot: HTMLElement, wmDataUrl: string | nul
       const safe = wmDataUrl.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       el.style.backgroundImage = `url("${safe}")`;
     }
-    el.style.opacity = "0.13";
+    el.style.opacity = "0.08";
     el.style.mixBlendMode = "normal";
   });
 }
@@ -166,101 +225,167 @@ function canvasLooksUsable(c: HTMLCanvasElement | null): c is HTMLCanvasElement 
   return !!(c && c.width >= 2 && c.height >= 2);
 }
 
-/** Acepta cualquier lienzo con tamaño válido. No usar heurística “¿casi todo azul?”: la tarjeta real es casi toda gradiente oscuro y se rechazaba → PDF de respaldo incorrecto. */
+/**
+ * ¿El raster parece llevar contenido real (pastilla, QR, texto)?
+ * Umbral alto (210+) descartaba capturas válidas donde el texto/QR llega más apag tras html-to-image/html2canvas.
+ * Un lienzo sólo #0c1525 ronda max(R,G,B)≈37; el outline apenas ~65–85.
+ */
+function bonoRasterLooksNonEmpty(c: HTMLCanvasElement): boolean {
+  const ctx = c.getContext("2d");
+  if (!ctx || c.width < 8 || c.height < 8) return false;
+  const w = c.width;
+  const h = c.height;
+  const stepX = Math.max(1, Math.floor(w / 42));
+  const stepY = Math.max(1, Math.floor(h / 36));
+  let peak = 0;
+  let brightGe172 = 0;
+  let brightGe195 = 0;
+  for (let y = 1; y < h - 1; y += stepY) {
+    for (let x = 1; x < w - 1; x += stepX) {
+      const d = ctx.getImageData(x, y, 1, 1).data;
+      const m = Math.max(d[0], d[1], d[2]);
+      peak = Math.max(peak, m);
+      if (m >= 172) brightGe172++;
+      if (m >= 195) brightGe195++;
+    }
+  }
+  if (peak >= 118) return true;
+  return brightGe195 >= 3 || brightGe172 >= 5;
+}
+
+/** Tamaño válido + no monocolor tipo “panel muerto”; admite texto raster algo suavizado. */
 function acceptBonoCaptureCanvas(c: HTMLCanvasElement | null): c is HTMLCanvasElement {
-  return canvasLooksUsable(c);
+  return !!(canvasLooksUsable(c) && bonoRasterLooksNonEmpty(c));
 }
 
 /**
- * Captura la tarjeta: primero html2canvas sobre el nodo visible (onclone prepara marca de agua);
- * si el resultado es un lienzo vacío, clon en viewport (opacidad mínima) + toCanvas/html2canvas.
+ * Captura prioritaria con clon **en este documento**: Tailwind/CSS siguen aplicando (html2canvas sobre el
+ * artículo en modal suele usar un documento hijo donde `querySelector` en onclone no recibe tus clases igual).
  */
 async function captureFullCardToCanvas(articleEl: HTMLElement): Promise<HTMLCanvasElement | null> {
-  const wm = await getLightWatermarkDataUrl();
-  const pixelRatio = Math.min(2, Math.max(1.25, window.devicePixelRatio || 1.5));
+  await document.fonts.ready.catch(() => undefined);
 
-  const html2canvasOpts = (foreignObjectRendering: boolean) => ({
+  const wm = await getLightWatermarkDataUrl();
+  const pixelRatio = resolveBonoExportPixelRatio();
+
+  const baseH2c = {
     scale: pixelRatio,
     useCORS: true,
     allowTaint: false,
     logging: false,
     backgroundColor: "#0f172a",
     imageTimeout: 25_000,
-    foreignObjectRendering,
-    onclone: (doc: Document) => {
-      const root = doc.querySelector("[data-bono-capture-root]") as HTMLElement | null;
-      if (root) prepareScreenshotClone(root, wm);
-    },
-  });
+  } as const;
 
+  /** html2canvas a veces pasa el nodo clonado como 2º arg; hay que usarlo en lugar del `document` iframe. */
+  const onPrepareLiveCapture = (doc: Document, maybeRoot?: HTMLElement) => {
+    let root: HTMLElement | null = null;
+    if (maybeRoot instanceof HTMLElement) {
+      root = maybeRoot.matches("[data-bono-capture-root]") ? maybeRoot : maybeRoot.closest("[data-bono-capture-root]");
+    }
+    if (!root) root = doc.querySelector("[data-bono-capture-root]") as HTMLElement | null;
+    if (root) prepareScreenshotClone(root, wm);
+  };
+
+  /** Clon pintable bajo la ventana (`opacity`=1 siempre); no encima ni detrás raro del modal. */
+  const detachedCloneCapture = async (): Promise<HTMLCanvasElement | null> => {
+    const clone = articleEl.cloneNode(true) as HTMLElement;
+    const rect = articleEl.getBoundingClientRect();
+    const wPx = Math.max(1, Math.round(rect.width || articleEl.offsetWidth));
+    const hFromOriginal = Math.max(
+      1,
+      Math.round(rect.height || articleEl.offsetHeight || articleEl.clientHeight),
+    );
+
+    clone.style.boxSizing = "border-box";
+    clone.style.position = "fixed";
+    clone.style.margin = "0";
+    clone.style.width = `${wPx}px`;
+    clone.style.height = "auto";
+    clone.style.maxHeight = "none";
+    clone.style.overflow = "visible";
+    clone.style.left = "16px";
+    clone.style.top = `${typeof window !== "undefined" ? window.innerHeight + 96 : 0}px`;
+    clone.style.zIndex = "2147483646";
+    clone.style.opacity = "1";
+    clone.style.pointerEvents = "none";
+    clone.style.visibility = "visible";
+    clone.style.transform = "none";
+
+    document.body.appendChild(clone);
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+    prepareScreenshotClone(clone, wm);
+    void clone.offsetHeight;
+    const hPx = Math.max(hFromOriginal, Math.round(clone.offsetHeight || hFromOriginal));
+
+    try {
+      try {
+        const cSvg = await toCanvas(clone, {
+          width: wPx,
+          height: hPx,
+          backgroundColor: "#0f172a",
+          pixelRatio,
+          cacheBust: true,
+        });
+        if (acceptBonoCaptureCanvas(cSvg)) return cSvg;
+      } catch {
+        /* continuar */
+      }
+
+      for (const fo of [true, false] as const) {
+        let c: HTMLCanvasElement | null = null;
+        try {
+          c = await html2canvas(clone, { ...baseH2c, foreignObjectRendering: fo });
+        } catch {
+          c = null;
+        }
+        if (acceptBonoCaptureCanvas(c)) return c;
+      }
+    } finally {
+      clone.remove();
+    }
+
+    return null;
+  };
+
+  /** Clon preparado + svg/canvas (html-to-image) suele llevar mejor texto/QR que html2canvas sólo. */
+  let canvas = await detachedCloneCapture();
+  if (acceptBonoCaptureCanvas(canvas)) return canvas;
+
+  /** Tarjeta visible en el modal (onclone prepara sólo-copy). */
   for (const fo of [true, false] as const) {
     let c: HTMLCanvasElement | null = null;
     try {
-      c = await html2canvas(articleEl, html2canvasOpts(fo));
+      c = await html2canvas(articleEl, {
+        ...baseH2c,
+        foreignObjectRendering: fo,
+        onclone: onPrepareLiveCapture,
+      });
     } catch {
       c = null;
     }
     if (acceptBonoCaptureCanvas(c)) return c;
   }
 
-  const clone = articleEl.cloneNode(true) as HTMLElement;
-  const rect = articleEl.getBoundingClientRect();
-  const wPx = Math.max(1, Math.round(rect.width || articleEl.offsetWidth));
-
-  clone.style.boxSizing = "border-box";
-  clone.style.position = "fixed";
-  clone.style.left = "0";
-  clone.style.top = "0";
-  clone.style.margin = "0";
-  clone.style.width = `${wPx}px`;
-  clone.style.zIndex = "2147483646";
-  clone.style.opacity = "0.01";
-  clone.style.pointerEvents = "none";
-  clone.style.transform = "none";
-
-  document.body.appendChild(clone);
-  void clone.offsetHeight;
-
-  let canvas: HTMLCanvasElement | null = null;
+  /** HTML-to-image sobre el mismo nodo que ves (sin clon fuera): a veces pasa filtros donde html2canvas falla la calidad. */
   try {
-    prepareScreenshotClone(clone, wm);
-    void clone.offsetHeight;
-    const hPx = Math.max(1, Math.round(clone.offsetHeight || rect.height));
-
-    try {
-      const c1 = await toCanvas(clone, {
-        width: wPx,
-        height: hPx,
-        backgroundColor: "#0f172a",
-        pixelRatio,
-        cacheBust: true,
-      });
-      canvas = acceptBonoCaptureCanvas(c1) ? c1 : null;
-    } catch {
-      canvas = null;
-    }
-
-    if (!acceptBonoCaptureCanvas(canvas)) {
-      try {
-        const c2 = await html2canvas(clone, html2canvasOpts(true));
-        canvas = acceptBonoCaptureCanvas(c2) ? c2 : null;
-      } catch {
-        canvas = null;
-      }
-    }
-    if (!acceptBonoCaptureCanvas(canvas)) {
-      try {
-        const c3 = await html2canvas(clone, html2canvasOpts(false));
-        canvas = acceptBonoCaptureCanvas(c3) ? c3 : null;
-      } catch {
-        canvas = null;
-      }
-    }
-  } finally {
-    clone.remove();
+    const rect = articleEl.getBoundingClientRect();
+    const wPx = Math.max(1, Math.round(rect.width || articleEl.offsetWidth));
+    const hPx = Math.max(1, Math.round(rect.height || articleEl.offsetHeight));
+    const raw = await toCanvas(articleEl, {
+      width: wPx,
+      height: hPx,
+      backgroundColor: "#0f172a",
+      pixelRatio,
+      cacheBust: true,
+    });
+    if (acceptBonoCaptureCanvas(raw)) return raw;
+  } catch {
+    /* continuar */
   }
 
-  return acceptBonoCaptureCanvas(canvas) ? canvas : null;
+  return null;
 }
 
 async function captureBonoCanvas(articleEl: HTMLElement): Promise<HTMLCanvasElement | null> {
@@ -557,8 +682,7 @@ export const BonoPrettyCard = forwardRef<HTMLElement, { bono: BonoPrettyCardData
     <article
       ref={ref}
       data-bono-capture-root
-      className="relative box-border aspect-[856/539] h-auto w-full min-w-0 max-w-[380px] overflow-hidden rounded-[14px] border border-cyan-200/80 bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-700 p-3 text-white antialiased [text-shadow:0_1px_2px_rgb(0_0_0_/_.55)] shadow-[0_12px_32px_-18px_rgba(15,23,42,0.9)]"
-      style={{ color: "#f8fafc" }}
+      className="relative box-border aspect-[856/539] h-auto w-full min-w-0 max-w-[380px] overflow-hidden rounded-[14px] border border-cyan-200/80 bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-700 p-3 text-white antialiased shadow-[0_12px_32px_-18px_rgba(15,23,42,0.85)]"
     >
       <div
         data-bono-watermark
@@ -571,36 +695,38 @@ export const BonoPrettyCard = forwardRef<HTMLElement, { bono: BonoPrettyCardData
         className="pointer-events-none absolute -right-6 -top-6 z-[1] h-24 w-24 rounded-full bg-white/20 blur-2xl"
         aria-hidden
       />
-      <div className="relative z-[2] isolate flex h-full min-h-0 flex-col justify-between gap-2">
+      <div data-bono-capture-readable className="relative z-[2] flex h-full min-h-0 flex-col justify-between gap-2">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <div className="min-w-0 pr-1 text-white">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-sky-100">Bono</p>
-            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-white">{bono.productName}</h3>
-            <p className="mt-0.5 truncate text-[11px] font-bold tabular-nums tracking-wide text-white">{bono.uniqueCode}</p>
+          <div className="min-w-0 pr-1">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-cyan-100">Bono</p>
+            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug">{bono.productName}</h3>
+            <p className="mt-0.5 truncate text-[11px] font-bold tabular-nums tracking-wide">{bono.uniqueCode}</p>
           </div>
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${status.cls}`}>{status.text}</span>
+          <span data-bono-status-pill className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${status.cls}`}>
+            {status.text}
+          </span>
         </div>
         <div className="grid min-h-0 grid-cols-[1fr_auto] items-end gap-2 border-t border-white/10 pt-2">
-          <div className="min-w-0 space-y-0.5 text-[10px] leading-tight text-white/95">
+          <div className="min-w-0 space-y-0.5 text-[10px] leading-tight text-cyan-50">
             {bono.clientName ? (
-              <p className="truncate text-white/95">
+              <p className="truncate">
                 Cliente: <span className="font-semibold text-white">{bono.clientName}</span>
               </p>
             ) : null}
-            <p className="text-white/95">
+            <p>
               Sesiones:{" "}
               <span className="font-semibold tabular-nums text-white">
                 {bono.sessionsRemaining}/{bono.sessionsTotal}
               </span>
             </p>
-            <p className="text-white/95">
+            <p>
               Caduca:{" "}
               <span className="font-semibold tabular-nums text-white">
                 {new Date(`${bono.expiresAt}T12:00:00`).toLocaleDateString("es-ES")}
               </span>
             </p>
           </div>
-          <div className="shrink-0 rounded-lg border border-white/45 bg-white p-1 shadow-sm">
+          <div className="shrink-0 rounded-lg border border-white/40 bg-white p-1 shadow-sm">
             {bono.qrDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- captura raster usa <img> con data URL
               <img
