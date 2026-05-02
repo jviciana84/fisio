@@ -450,6 +450,9 @@ async function getLightWatermarkDataUrl(): Promise<string | null> {
 /**
  * PDF de una sola página: mismas dimensiones en px que el lienzo capturado (1:1 con lo que ves),
  * sin márgenes ni reescalado a A4 (evita que “cambie” respecto a la tarjeta en pantalla).
+ *
+ * Embebemos **JPEG** (misma recodificación que la descarga .jpg): `addImage` con PNG desde canvas
+ * a veces reinterpreta alpha/premultiplicado y los blancos salen **azulados**; el JPEG no.
  */
 async function snapshotBonoPdfBlob(articleEl: HTMLElement): Promise<Blob | null> {
   const canvas = await captureBonoCanvas(articleEl);
@@ -469,26 +472,54 @@ async function snapshotBonoPdfBlob(articleEl: HTMLElement): Promise<Blob | null>
   const pw = pdf.internal.pageSize.getWidth();
   const ph = pdf.internal.pageSize.getHeight();
 
+  const jpegQ = 0.93;
+  let embedded = false;
   try {
-    pdf.addImage(canvas, "PNG", 0, 0, pw, ph, undefined, "NONE");
-  } catch {
-    let imgData: string;
-    try {
-      imgData = canvas.toDataURL("image/png");
-    } catch {
-      return null;
-    }
-    if (!imgData || imgData.length < 200 || imgData === "data:,") return null;
-    try {
-      pdf.addImage(imgData, "PNG", 0, 0, pw, ph, undefined, "NONE");
-    } catch {
+    const jpegData = canvas.toDataURL("image/jpeg", jpegQ);
+    if (jpegData.startsWith("data:image/jpeg") && jpegData.length > 200) {
       try {
-        pdf.addImage(imgData, "PNG", 0, 0, pw, ph, undefined, "SLOW");
+        pdf.addImage(jpegData, "JPEG", 0, 0, pw, ph, undefined, "NONE");
+        embedded = true;
+      } catch {
+        try {
+          pdf.addImage(jpegData, "JPEG", 0, 0, pw, ph, undefined, "SLOW");
+          embedded = true;
+        } catch {
+          /* continuar a PNG */
+        }
+      }
+    }
+  } catch {
+    /* continuar a PNG */
+  }
+
+  if (!embedded) {
+    try {
+      pdf.addImage(canvas, "PNG", 0, 0, pw, ph, undefined, "NONE");
+      embedded = true;
+    } catch {
+      let imgData: string;
+      try {
+        imgData = canvas.toDataURL("image/png");
       } catch {
         return null;
       }
+      if (!imgData || imgData.length < 200 || imgData === "data:,") return null;
+      try {
+        pdf.addImage(imgData, "PNG", 0, 0, pw, ph, undefined, "NONE");
+        embedded = true;
+      } catch {
+        try {
+          pdf.addImage(imgData, "PNG", 0, 0, pw, ph, undefined, "SLOW");
+          embedded = true;
+        } catch {
+          return null;
+        }
+      }
     }
   }
+
+  if (!embedded) return null;
 
   try {
     return pdf.output("blob");

@@ -2,6 +2,21 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import puppeteer, { type Browser } from "puppeteer-core";
 
+/** API estática de `@sparticuz/chromium` (binario serverless). */
+type SparticuzChromiumExports = {
+  executablePath: (input?: string) => Promise<string>;
+  readonly args: string[];
+  readonly defaultViewport: {
+    width: number;
+    height: number;
+    deviceScaleFactor?: number;
+    isMobile?: boolean;
+    isLandscape?: boolean;
+    hasTouch?: boolean;
+  };
+  readonly headless: true | "shell";
+};
+
 function baseArgs(): string[] {
   return [
     "--no-sandbox",
@@ -55,7 +70,11 @@ function tryLinuxChrome(): string | null {
 }
 
 function shouldUseServerlessChromiumBundle(): boolean {
+  if (process.env.USE_SPARTICUZ_CHROMIUM === "0") {
+    return false;
+  }
   return (
+    process.env.USE_SPARTICUZ_CHROMIUM === "1" ||
     process.env.VERCEL === "1" ||
     Boolean(process.env.VERCEL_ENV) ||
     Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME)
@@ -114,6 +133,30 @@ type LaunchResult =
   | { error: "no_chrome" };
 
 async function launchChromium(): Promise<LaunchResult> {
+  /** Producción sin Chrome del sistema (@sparticuz/chromium tiene bin/br + brotli en node_modules). */
+  if (shouldUseServerlessChromiumBundle()) {
+    try {
+      const chromiumMod = await import("@sparticuz/chromium");
+      /**
+       * CJS export: `exports = Chromium`, en ESM `import(...).default` suele ser la clase Chromium.
+       * @see https://github.com/Sparticuz/chromium README (puppeteer.launch).
+       */
+      /** `export = Chromium` → en `import()` suele estar en `.default`. */
+      const n = chromiumMod as unknown as { default?: SparticuzChromiumExports };
+      const C = (n.default ?? chromiumMod) as unknown as SparticuzChromiumExports;
+      const executablePath = await C.executablePath();
+      const browser = await puppeteer.launch({
+        executablePath,
+        args: C.args,
+        defaultViewport: C.defaultViewport,
+        headless: C.headless,
+      });
+      return { browser, close: () => browser.close() };
+    } catch {
+      /* continuar intentos locales */
+    }
+  }
+
   const envP = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
   if (envP && existsSync(envP)) {
     const browser = await puppeteer.launch({
@@ -142,20 +185,6 @@ async function launchChromium(): Promise<LaunchResult> {
     });
     return { browser, close: () => browser.close() };
   }
-  if (shouldUseServerlessChromiumBundle()) {
-    try {
-      const mod = (await import("@sparticuz/chromium")).default;
-      const executablePath = await mod.executablePath();
-      const browser = await puppeteer.launch({
-        executablePath,
-        args: mod.args,
-        defaultViewport: mod.defaultViewport,
-        headless: true,
-      });
-      return { browser, close: () => browser.close() };
-    } catch {
-      return { error: "no_chrome" };
-    }
-  }
+
   return { error: "no_chrome" };
 }

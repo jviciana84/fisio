@@ -4,6 +4,9 @@ import { Leaf, Star } from "lucide-react";
 import { formatEuroFromCents } from "@/lib/format-es";
 import { PUBLIC_LEGAL_IDENTITY } from "@/lib/legal-public";
 
+const GOOGLE_REVIEW_HREF =
+  "https://search.google.com/local/writereview?placeid=ChIJPfdk9TuTpBIRyIU_tUYMCYY&hl=es";
+
 const LOGO_SRC = "/images/logo-frb3-texto-oscuro.svg";
 /** Mismo activo que `Ficheros fisio/logo FRB3 TEXTO OSCURO.svg` (copia en repo: `public/images/watermark-logo-frb3-texto-oscuro.svg`). */
 const WATERMARK_SRC = "/images/watermark-logo-frb3-texto-oscuro.svg";
@@ -325,7 +328,14 @@ export function InvoicePdfContent({
                 ))}
               </div>
               <p className="max-w-[95%] text-[9.5px] italic leading-snug text-slate-700">
-                Tu opinión nos ayuda a mejorar. Si puedes, déjanos una reseña en Google.
+                <a
+                  href={GOOGLE_REVIEW_HREF}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-700 underline decoration-slate-500/65 underline-offset-2 decoration-[0.035em] visited:text-slate-700 hover:text-sky-900 hover:decoration-sky-700/80 active:text-slate-900"
+                >
+                  Tu opinión nos ayuda a mejorar. Si puedes, déjanos una reseña en Google.
+                </a>
               </p>
             </div>
           </div>
