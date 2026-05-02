@@ -170,6 +170,18 @@ function getSparticuzChromiumRequireLoaders(): Array<() => SparticuzChromiumExpo
   return loaders;
 }
 
+function sparticuzPuppeteerLaunchOptions(
+  chromium: SparticuzChromiumExports,
+  executablePath: string,
+): Parameters<(typeof puppeteer)["launch"]>[0] {
+  return {
+    args: puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+    defaultViewport: chromium.defaultViewport,
+    executablePath,
+    headless: "shell",
+  };
+}
+
 async function launchSparticuzChromium(): Promise<
   { browser: Browser; close: () => Promise<void> } | null
 > {
@@ -180,12 +192,7 @@ async function launchSparticuzChromium(): Promise<
     try {
       const chromium = chromiumLoaders[i]();
       const exe = await chromium.executablePath(binDir ?? undefined);
-      const browser = await puppeteer.launch({
-        executablePath: exe,
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        headless: chromium.headless,
-      });
+      const browser = await puppeteer.launch(sparticuzPuppeteerLaunchOptions(chromium, exe));
       return { browser, close: () => browser.close() };
     } catch (err) {
       logChromiumLaunchError(`sparticuz-require-${i}`, err);
@@ -255,12 +262,7 @@ async function launchChromium(): Promise<LaunchResult> {
       const C = (n.default ?? chromiumMod) as unknown as SparticuzChromiumExports;
       const binDir = resolveSparticuzChromiumBinDir();
       const executablePath = await C.executablePath(binDir ?? undefined);
-      const browser = await puppeteer.launch({
-        executablePath,
-        args: C.args,
-        defaultViewport: C.defaultViewport,
-        headless: C.headless,
-      });
+      const browser = await puppeteer.launch(sparticuzPuppeteerLaunchOptions(C, executablePath));
       return { browser, close: () => browser.close() };
     } catch (err) {
       logChromiumLaunchError("sparticuz-dynamic-import", err);
@@ -294,6 +296,17 @@ async function launchChromium(): Promise<LaunchResult> {
       args: baseArgs(),
     });
     return { browser, close: () => browser.close() };
+  }
+
+  if (
+    process.env.VERCEL === "1" ||
+    process.env.VERCEL_ENV ||
+    process.env.DEBUG_INVOICE_CHROMIUM === "1"
+  ) {
+    const bin = resolveSparticuzChromiumBinDir();
+    console.error(
+      `[invoice-pdf-chromium:no_chrome] node=${process.version} cwd=${process.cwd()} sparticuzBin=${bin ?? "null"}`,
+    );
   }
 
   return { error: "no_chrome" };

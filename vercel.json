@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "app/api/facturas/**/*.ts": {
-      "memory": 3009,
+    "app/api/facturas/**": {
+      "memory": 3008,
       "maxDuration": 60
     }
   }
