@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import puppeteer, { type Browser } from "puppeteer-core";
 
 /** API estática de `@sparticuz/chromium` (binario serverless). */
@@ -86,43 +87,112 @@ function shouldUseServerlessChromiumBundle(): boolean {
   );
 }
 
+function hasSparticuzBrokerFiles(dir: string): boolean {
+  if (!existsSync(dir)) return false;
+  if (existsSync(join(dir, "chromium.br"))) return true;
+  try {
+    return readdirSync(dir).some((f) => f.endsWith(".br"));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Ruta física de `(...)/@sparticuz/chromium/bin` (los `.br`). En Lambda/Vercel,
- * `executablePath()` sin argumento usa `__dirname/../bin` dentro del bundle y a veces
- * ese directorio no existe → hay que resolver desde `cwd`/`node_modules`.
+ * Carpeta `(...)/@sparticuz/chromium/bin` con los `.br`.
+ * En Vercel el `cwd` suele ser `/var/task`; si `createRequire(package.json)` falla, probamos rutas fijas y el módulo actual.
  */
 function resolveSparticuzChromiumBinDir(): string | null {
-  try {
-    const rq = createRequire(join(process.cwd(), "package.json"));
-    const pkgJson = rq.resolve("@sparticuz/chromium/package.json");
-    const binDir = join(dirname(pkgJson), "bin");
-    return existsSync(binDir) ? binDir : null;
-  } catch {
-    return null;
+  const env = process.env.SPARTICUZ_CHROMIUM_BIN?.trim();
+  if (env && hasSparticuzBrokerFiles(env)) {
+    return env;
   }
+
+  const fromCwd = join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
+  if (hasSparticuzBrokerFiles(fromCwd)) {
+    return fromCwd;
+  }
+
+  const lambdaStyle = "/var/task/node_modules/@sparticuz/chromium/bin";
+  if (hasSparticuzBrokerFiles(lambdaStyle)) {
+    return lambdaStyle;
+  }
+
+  const tryRequireResolve = (rq: ReturnType<typeof createRequire>): string | null => {
+    try {
+      const pkgJson = rq.resolve("@sparticuz/chromium/package.json");
+      const binDir = join(dirname(pkgJson), "bin");
+      return hasSparticuzBrokerFiles(binDir) ? binDir : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const fromPkgJson = tryRequireResolve(createRequire(join(process.cwd(), "package.json")));
+  if (fromPkgJson) {
+    return fromPkgJson;
+  }
+
+  try {
+    const here = fileURLToPath(import.meta.url);
+    const fromModule = tryRequireResolve(createRequire(here));
+    if (fromModule) {
+      return fromModule;
+    }
+  } catch {
+    /* import.meta no disponible / build raro */
+  }
+
+  return null;
+}
+
+function logChromiumLaunchError(phase: string, err: unknown): void {
+  if (process.env.VERCEL !== "1" && !process.env.DEBUG_INVOICE_CHROMIUM) return;
+  const msg = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  console.error(`[invoice-pdf-chromium:${phase}] ${msg}`, stack ?? "");
+}
+
+function getSparticuzChromiumRequireLoaders(): Array<() => SparticuzChromiumExports> {
+  const loaders: Array<() => SparticuzChromiumExports> = [];
+  loaders.push(() => {
+    const rq = createRequire(join(process.cwd(), "package.json"));
+    return rq("@sparticuz/chromium") as SparticuzChromiumExports;
+  });
+  try {
+    const here = fileURLToPath(import.meta.url);
+    loaders.push(() => {
+      const rq = createRequire(here);
+      return rq("@sparticuz/chromium") as SparticuzChromiumExports;
+    });
+  } catch {
+    /* import.meta no disponible en este build */
+  }
+  return loaders;
 }
 
 async function launchSparticuzChromium(): Promise<
   { browser: Browser; close: () => Promise<void> } | null
 > {
-  /** CJS estable: evita cargar mal la clase tras el bundling de Next. */
-  try {
-    const rq = createRequire(join(process.cwd(), "package.json"));
-    const chromium = rq("@sparticuz/chromium") as SparticuzChromiumExports & {
-      executablePath: (customInput?: string) => Promise<string>;
-    };
-    const binDir = resolveSparticuzChromiumBinDir();
-    const exe = await chromium.executablePath(binDir ?? undefined);
-    const browser = await puppeteer.launch({
-      executablePath: exe,
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      headless: chromium.headless,
-    });
-    return { browser, close: () => browser.close() };
-  } catch {
-    return null;
+  const binDir = resolveSparticuzChromiumBinDir();
+  const chromiumLoaders = getSparticuzChromiumRequireLoaders();
+
+  for (let i = 0; i < chromiumLoaders.length; i++) {
+    try {
+      const chromium = chromiumLoaders[i]();
+      const exe = await chromium.executablePath(binDir ?? undefined);
+      const browser = await puppeteer.launch({
+        executablePath: exe,
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        headless: chromium.headless,
+      });
+      return { browser, close: () => browser.close() };
+    } catch (err) {
+      logChromiumLaunchError(`sparticuz-require-${i}`, err);
+    }
   }
+
+  return null;
 }
 
 /**
@@ -192,8 +262,8 @@ async function launchChromium(): Promise<LaunchResult> {
         headless: C.headless,
       });
       return { browser, close: () => browser.close() };
-    } catch {
-      /* continuar */
+    } catch (err) {
+      logChromiumLaunchError("sparticuz-dynamic-import", err);
     }
   }
 
