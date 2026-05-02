@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import puppeteer, { type Browser } from "puppeteer-core";
 
 /** API estática de `@sparticuz/chromium` (binario serverless). */
@@ -16,6 +17,10 @@ type SparticuzChromiumExports = {
   };
   readonly headless: true | "shell";
 };
+
+type LaunchResult =
+  | { browser: Browser; close: () => Promise<void> }
+  | { error: "no_chrome" };
 
 function baseArgs(): string[] {
   return [
@@ -82,6 +87,45 @@ function shouldUseServerlessChromiumBundle(): boolean {
 }
 
 /**
+ * Ruta física de `(...)/@sparticuz/chromium/bin` (los `.br`). En Lambda/Vercel,
+ * `executablePath()` sin argumento usa `__dirname/../bin` dentro del bundle y a veces
+ * ese directorio no existe → hay que resolver desde `cwd`/`node_modules`.
+ */
+function resolveSparticuzChromiumBinDir(): string | null {
+  try {
+    const rq = createRequire(join(process.cwd(), "package.json"));
+    const pkgJson = rq.resolve("@sparticuz/chromium/package.json");
+    const binDir = join(dirname(pkgJson), "bin");
+    return existsSync(binDir) ? binDir : null;
+  } catch {
+    return null;
+  }
+}
+
+async function launchSparticuzChromium(): Promise<
+  { browser: Browser; close: () => Promise<void> } | null
+> {
+  /** CJS estable: evita cargar mal la clase tras el bundling de Next. */
+  try {
+    const rq = createRequire(join(process.cwd(), "package.json"));
+    const chromium = rq("@sparticuz/chromium") as SparticuzChromiumExports & {
+      executablePath: (customInput?: string) => Promise<string>;
+    };
+    const binDir = resolveSparticuzChromiumBinDir();
+    const exe = await chromium.executablePath(binDir ?? undefined);
+    const browser = await puppeteer.launch({
+      executablePath: exe,
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      headless: chromium.headless,
+    });
+    return { browser, close: () => browser.close() };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Misma aproximación que «Guardar como PDF» en Chrome: motor Chromium + @media print.
  */
 export async function renderPrintPageUrlToPdf(input: {
@@ -128,23 +172,19 @@ export async function renderPrintPageUrlToPdf(input: {
   }
 }
 
-type LaunchResult =
-  | { browser: Browser; close: () => Promise<void> }
-  | { error: "no_chrome" };
-
 async function launchChromium(): Promise<LaunchResult> {
-  /** Producción sin Chrome del sistema (@sparticuz/chromium tiene bin/br + brotli en node_modules). */
+  /** Producción Vercel/Lambda: binario Sparticuz con ruta explícita al `bin/`. */
   if (shouldUseServerlessChromiumBundle()) {
+    const spartz = await launchSparticuzChromium();
+    if (spartz) {
+      return spartz;
+    }
     try {
       const chromiumMod = await import("@sparticuz/chromium");
-      /**
-       * CJS export: `exports = Chromium`, en ESM `import(...).default` suele ser la clase Chromium.
-       * @see https://github.com/Sparticuz/chromium README (puppeteer.launch).
-       */
-      /** `export = Chromium` → en `import()` suele estar en `.default`. */
       const n = chromiumMod as unknown as { default?: SparticuzChromiumExports };
       const C = (n.default ?? chromiumMod) as unknown as SparticuzChromiumExports;
-      const executablePath = await C.executablePath();
+      const binDir = resolveSparticuzChromiumBinDir();
+      const executablePath = await C.executablePath(binDir ?? undefined);
       const browser = await puppeteer.launch({
         executablePath,
         args: C.args,
@@ -153,7 +193,7 @@ async function launchChromium(): Promise<LaunchResult> {
       });
       return { browser, close: () => browser.close() };
     } catch {
-      /* continuar intentos locales */
+      /* continuar */
     }
   }
 

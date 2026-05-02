@@ -6,8 +6,10 @@ const nextConfig: NextConfig = {
    * puede no incluir `@sparticuz/chromium/bin` y `executablePath()` falla → 503 NO_CHROME.
    */
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  /** Incluye el binario en todas las funciones servidor (patrón App Router en Vercel). */
   outputFileTracingIncludes: {
     "/api/**/*": ["./node_modules/@sparticuz/chromium/**/*"],
+    "/**/*": ["./node_modules/@sparticuz/chromium/**/*"],
   },
 
   async redirects() {
