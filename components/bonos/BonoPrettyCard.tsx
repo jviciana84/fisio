@@ -557,7 +557,8 @@ export const BonoPrettyCard = forwardRef<HTMLElement, { bono: BonoPrettyCardData
     <article
       ref={ref}
       data-bono-capture-root
-      className="relative box-border aspect-[856/539] h-auto w-full min-w-0 max-w-[380px] overflow-hidden rounded-[14px] border border-cyan-200/80 bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-700 p-3 text-white shadow-[0_12px_32px_-18px_rgba(15,23,42,0.9)]"
+      className="relative box-border aspect-[856/539] h-auto w-full min-w-0 max-w-[380px] overflow-hidden rounded-[14px] border border-cyan-200/80 bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-700 p-3 text-white antialiased [text-shadow:0_1px_2px_rgb(0_0_0_/_.55)] shadow-[0_12px_32px_-18px_rgba(15,23,42,0.9)]"
+      style={{ color: "#f8fafc" }}
     >
       <div
         data-bono-watermark
@@ -570,29 +571,29 @@ export const BonoPrettyCard = forwardRef<HTMLElement, { bono: BonoPrettyCardData
         className="pointer-events-none absolute -right-6 -top-6 z-[1] h-24 w-24 rounded-full bg-white/20 blur-2xl"
         aria-hidden
       />
-      <div className="relative z-[2] flex h-full min-h-0 flex-col justify-between gap-2">
+      <div className="relative z-[2] isolate flex h-full min-h-0 flex-col justify-between gap-2">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <div className="min-w-0 pr-1">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-cyan-100">Bono</p>
-            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug">{bono.productName}</h3>
-            <p className="mt-0.5 truncate text-[11px] font-bold tabular-nums tracking-wide">{bono.uniqueCode}</p>
+          <div className="min-w-0 pr-1 text-white">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-sky-100">Bono</p>
+            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-white">{bono.productName}</h3>
+            <p className="mt-0.5 truncate text-[11px] font-bold tabular-nums tracking-wide text-white">{bono.uniqueCode}</p>
           </div>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${status.cls}`}>{status.text}</span>
         </div>
         <div className="grid min-h-0 grid-cols-[1fr_auto] items-end gap-2 border-t border-white/10 pt-2">
-          <div className="min-w-0 space-y-0.5 text-[10px] leading-tight text-cyan-50">
+          <div className="min-w-0 space-y-0.5 text-[10px] leading-tight text-white/95">
             {bono.clientName ? (
-              <p className="truncate">
+              <p className="truncate text-white/95">
                 Cliente: <span className="font-semibold text-white">{bono.clientName}</span>
               </p>
             ) : null}
-            <p>
+            <p className="text-white/95">
               Sesiones:{" "}
               <span className="font-semibold tabular-nums text-white">
                 {bono.sessionsRemaining}/{bono.sessionsTotal}
               </span>
             </p>
-            <p>
+            <p className="text-white/95">
               Caduca:{" "}
               <span className="font-semibold tabular-nums text-white">
                 {new Date(`${bono.expiresAt}T12:00:00`).toLocaleDateString("es-ES")}

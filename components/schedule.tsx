@@ -64,49 +64,62 @@ export function Schedule() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="max-w-2xl mx-auto"
         >
-          <div className="glass-extreme rounded-3xl p-8 relative overflow-hidden">
+          <div className="glass-extreme rounded-3xl p-4 sm:p-8 relative overflow-hidden">
             {/* Shimmer */}
             <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-blue-600/20 to-cyan-500/20 pointer-events-none" aria-hidden />
 
-            <div className="flex items-center gap-3 mb-8 relative z-10">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-md">
-                <Clock className="w-6 h-6 text-white" />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3 mb-6 sm:mb-8 relative z-10">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-md sm:h-12 sm:w-12">
+                <Clock className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Horario Semanal</h3>
+              <div className="min-w-0 text-left">
+                <h3 className="text-lg font-bold text-slate-900 sm:text-xl">Horario Semanal</h3>
                 <p className="text-sm text-slate-500">Horario habitual de la clínica</p>
               </div>
             </div>
 
-            <div className="space-y-3 relative z-10">
+            <div className="space-y-2 sm:space-y-3 relative z-10">
               {schedule.map((item, index) => (
                 <motion.div
                   key={item.day}
                   initial={{ opacity: 0, x: -20 }}
                   animate={isInView ? { opacity: 1, x: 0 } : {}}
                   transition={{ delay: 0.3 + index * 0.05 }}
-                  className={`flex items-center justify-between p-4 rounded-2xl transition-all ${
+                  className={`flex flex-col gap-2 rounded-2xl p-3.5 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4 ${
                     currentDay === item.day
                       ? "bg-gradient-to-r from-blue-600/10 to-cyan-500/10 border border-blue-500/30"
                       : "hover:bg-white/50"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3 min-w-0 sm:items-center">
                     {item.isOpen ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-500 sm:mt-0" aria-hidden />
                     ) : (
-                      <XCircle className="w-5 h-5 text-red-400" />
+                      <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400 sm:mt-0" aria-hidden />
                     )}
-                    <span className={`font-medium ${currentDay === item.day ? "text-blue-600" : "text-slate-700"}`}>
-                      {item.day}
-                      {currentDay === item.day && (
-                        <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2">
+                      <span
+                        className={`font-medium ${
+                          currentDay === item.day ? "text-blue-600" : "text-slate-700"
+                        }`}
+                      >
+                        {item.day}
+                      </span>
+                      {currentDay === item.day ? (
+                        <span className="shrink-0 rounded-full bg-blue-600 px-2 py-0.5 text-xs leading-none font-medium text-white">
                           Hoy
                         </span>
-                      )}
-                    </span>
+                      ) : null}
+                      <span
+                        className={`block w-full text-sm leading-snug tabular-nums sm:hidden ${item.isOpen ? "text-slate-600" : "text-red-400"}`}
+                      >
+                        {item.hours}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`text-sm ${item.isOpen ? "text-slate-600" : "text-red-400"}`}>
+                  <span
+                    className={`hidden shrink-0 text-right text-sm tabular-nums sm:inline-block ${item.isOpen ? "text-slate-600" : "text-red-400"}`}
+                  >
                     {item.hours}
                   </span>
                 </motion.div>
